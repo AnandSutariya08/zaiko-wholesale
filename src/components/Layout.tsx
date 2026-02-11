@@ -123,11 +123,11 @@ function AppSidebarContent({
                       isActive={active}
                       tooltip={item.label}
                       size="lg"
-                        className={cn(
-                            "rounded-lg px-3 h-11 transition-all duration-200",
-                            "group-data-[collapsible=icon]:!h-10 group-data-[collapsible=icon]:!rounded-lg",
-                            active && "bg-primary/15 text-primary font-semibold shadow-md ring-2 ring-primary/30 group-data-[collapsible=icon]:ring-2"
-                          )}
+                      className={cn(
+                        "rounded-lg px-3 h-11 transition-all duration-200",
+                        "group-data-[collapsible=icon]:!h-10 group-data-[collapsible=icon]:!rounded-lg",
+                        active && "bg-primary/15 text-primary font-semibold shadow-md ring-2 ring-primary/30 group-data-[collapsible=icon]:ring-2"
+                      )}
                     >
                       <Link to={item.path} onClick={handleNavClick}>
                         <Icon className={cn("size-5 shrink-0", active && "text-primary")} />
@@ -162,6 +162,7 @@ export function Layout({ children }: LayoutProps) {
   const [company, setCompany] = useState<any>(null);
   const user = getCurrentUser();
   const permissions = user.role === 'admin' ? [] : (localStorage.getItem('userPermissions')?.split(',') || []);
+  console.log("--here--");
 
   useEffect(() => {
     const loadCompany = async () => {
@@ -214,20 +215,20 @@ export function Layout({ children }: LayoutProps) {
 
   useEffect(() => {
     const savedOrder = localStorage.getItem('navItemOrder');
-    const items = user.role === 'admin' 
-      ? allNavItems 
+    const items = user.role === 'admin'
+      ? allNavItems
       : allNavItems.filter(item => permissions.includes(item.path));
-    
+
     // Only update if the items list or user role has changed to avoid unnecessary re-renders
     const currentPaths = navItems.map(i => i.path).join(',');
-    
+
     if (savedOrder) {
       try {
         const order = JSON.parse(savedOrder);
         const orderedItems = order.map((path: string) => items.find(i => i.path === path)).filter(Boolean);
         const newItems = items.filter(i => !order.includes(i.path));
         const finalItems = [...orderedItems, ...newItems];
-        
+
         if (currentPaths !== finalItems.map(i => i.path).join(',')) {
           setNavItems(finalItems);
         }
@@ -256,7 +257,7 @@ export function Layout({ children }: LayoutProps) {
           isActive={isActive}
           company={company}
           user={user}
-          onNavClick={() => {}}
+          onNavClick={() => { }}
         />
         <SidebarRail />
       </Sidebar>
