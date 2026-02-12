@@ -114,6 +114,7 @@ export function BillForm({ bill, isEdit = false }: BillFormProps) {
     number | null
   >(null);
   const [productSearch, setProductSearch] = useState("");
+  const [barcodeSearch, setBarcodeSearch] = useState("");
   const [createProductOpen, setCreateProductOpen] = useState(false);
   const [createProductForIndex, setCreateProductForIndex] = useState<
     number | null
@@ -430,7 +431,47 @@ export function BillForm({ bill, isEdit = false }: BillFormProps) {
     }
   };
 
-  const isIGST = gstType === "igst";
+  useEffect(() => {
+    if (barcodeSearch.trim()) {
+      const product = products.find(p => p.barcode === barcodeSearch.trim());
+      if (product) {
+        // Add to bill items if not already there, or update quantity
+        const existingItemIndex = billItems.findIndex(item => item.productId === product.id);
+        if (existingItemIndex > -1) {
+          updateItem(existingItemIndex, "quantity", billItems[existingItemIndex].quantity + 1);
+        } else {
+          const newItem: BillItem = {
+            productId: product.id,
+            productName: product.name,
+            hsnCode: product.hsnCode,
+            gstRate: product.gstRate,
+            quantity: 1,
+            unit: product.unit,
+            ratePerUnit: product.sellingPrice || product.price || 0,
+            amount: 0,
+            cgst: 0,
+            sgst: 0,
+            igst: 0,
+          };
+          // Calculate amount and taxes for new item
+          newItem.amount = roundToTwoDecimals(newItem.quantity * newItem.ratePerUnit);
+          if (!gstEnabled) {
+            newItem.cgst = 0; newItem.sgst = 0; newItem.igst = 0;
+          } else if (gstType === "igst") {
+            newItem.igst = (newItem.amount * newItem.gstRate) / 100;
+            newItem.cgst = 0; newItem.sgst = 0;
+          } else {
+            newItem.cgst = (newItem.amount * newItem.gstRate) / 200;
+            newItem.sgst = (newItem.amount * newItem.gstRate) / 200;
+            newItem.igst = 0;
+          }
+          setBillItems([...billItems, newItem]);
+        }
+        toast.success(`Added ${product.name}`);
+        setBarcodeSearch(""); // Clear for next scan
+      }
+    }
+  }, [barcodeSearch, products]);
 
   const resetClientForm = (prefillName?: string) => {
     setClientFormData({
@@ -643,6 +684,22 @@ export function BillForm({ bill, isEdit = false }: BillFormProps) {
           <CardTitle>Bill Information</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4 items-end">
+            <div className="flex-1 space-y-2">
+              <Label className="flex items-center gap-2">
+                <PlusCircle className="h-4 w-4" />
+                Barcode Scanner (Fast Entry)
+              </Label>
+              <Input
+                placeholder="Scan barcode here to add item directly..."
+                value={barcodeSearch}
+                onChange={(e) => setBarcodeSearch(e.target.value)}
+                autoFocus
+                className="border-primary/50 focus:border-primary border-2"
+              />
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Bill Type Selection */}
 

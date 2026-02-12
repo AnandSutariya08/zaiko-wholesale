@@ -44,6 +44,7 @@ export function ProductForm({
   const [formData, setFormData] = useState({
     name: "",
     hsnCode: "",
+    barcode: "",
     gstRate: "",
     unit: "kg",
     purchasePrice: "",
@@ -63,6 +64,7 @@ export function ProductForm({
       setFormData({
         name: editingProduct.name,
         hsnCode: editingProduct.hsnCode,
+        barcode: editingProduct.barcode || "",
         gstRate: String(editingProduct.gstRate),
         unit: editingProduct.unit,
         purchasePrice: String(editingProduct.purchasePrice),
@@ -98,6 +100,7 @@ export function ProductForm({
       setFormData({
         name: "",
         hsnCode: "",
+        barcode: "",
         gstRate: "",
         unit: companyProfile?.defaultUnit || "kg",
         purchasePrice: "",
@@ -139,6 +142,7 @@ export function ProductForm({
         id: productId,
         name: formData.name,
         hsnCode: formData.hsnCode.trim(),
+        barcode: formData.barcode.trim(),
         gstRate: parseFloat(formData.gstRate) || 0,
         unit: formData.unit,
         price: sellingPriceNum,
@@ -260,6 +264,19 @@ export function ProductForm({
             </div>
 
             <div className="space-y-2">
+              <Label>Barcode (Scan or Type)</Label>
+              <Input
+                value={formData.barcode}
+                onChange={(e) =>
+                  setFormData({ ...formData, barcode: e.target.value })
+                }
+                placeholder="Scan barcode"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
               <Label>GST Rate (%) *</Label>
               <Input
                 required
@@ -271,9 +288,6 @@ export function ProductForm({
                 }
               />
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Unit *</Label>
               <Select
