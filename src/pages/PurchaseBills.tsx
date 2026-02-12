@@ -16,6 +16,7 @@ import {
   updatePurchaseBill,
   InventoryItemInput,
   getCompanyProfile,
+  getVendors,
 } from "@/lib/storage";
 import { extractBillFromImage } from "@/lib/aiExtractor";
 import {
@@ -23,6 +24,7 @@ import {
   PurchaseBillItem,
   AIExtractionError,
   ProductConflict,
+  Vendor,
 } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -319,11 +321,13 @@ function PurchaseBills() {
       weight: number;
       weightUnit: string;
       barcode?: string; // Added barcode field
+      vendorId?: string; // Added vendor selection
       productId?: string;
       isNewProduct?: boolean;
     }[]
   >([]);
   const [companyProfile, setCompanyProfile] = useState<any>(null);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
 
   const [products, setProducts] = useState<any[]>([]);
 
@@ -333,7 +337,13 @@ function PurchaseBills() {
     loadBills();
     loadCompanyProfile();
     loadProducts();
+    loadVendors();
   }, []);
+
+  const loadVendors = async () => {
+    const data = await getVendors();
+    setVendors(data);
+  };
 
   const loadProducts = async () => {
     const data = await getProducts();
@@ -558,6 +568,7 @@ function PurchaseBills() {
       const newBill: PurchaseBill = {
         id: crypto.randomUUID(),
         billImage: imageBase64,
+        vendorId: vendors.find(v => v.name.toLowerCase().trim() === extracted.vendorName.toLowerCase().trim())?.id,
         vendorName: extracted.vendorName,
         vendorAddress: extracted.vendorAddress,
         vendorGstin: extracted.vendorGstin,
@@ -701,6 +712,7 @@ function PurchaseBills() {
         whereToBuy: (item as any).whereToBuy || bill.vendorName || "",
         weight: (item as any).weight || 0,
         weightUnit: (item as any).weightUnit || "g",
+        vendorId: bill.vendorId || "",
         productId: existingProduct?.id,
         isNewProduct: !existingProduct,
       };
@@ -1731,9 +1743,36 @@ function PurchaseBills() {
                   <CardContent className="pt-5 px-5 pb-5">
                     {isEditing ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        <div className="space-y-1.5 md:col-span-2 xl:col-span-3">
+                          <Label className="text-sm font-medium">Vendor</Label>
+                          <Select
+                            value={editedBill?.vendorId || ""}
+                            onValueChange={(val) => {
+                              const vendor = vendors.find(v => v.id === val);
+                              setEditedBill(prev => prev ? {
+                                ...prev,
+                                vendorId: val,
+                                vendorName: vendor?.name || prev.vendorName,
+                                vendorAddress: vendor?.address || prev.vendorAddress,
+                                vendorGstin: vendor?.gstin || prev.vendorGstin
+                              } : null);
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select Vendor" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {vendors.map((v) => (
+                                <SelectItem key={v.id} value={v.id}>
+                                  {v.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                         <div className="space-y-1.5">
                           <Label className="text-sm font-medium">
-                            Vendor Name
+                            Vendor Name (Override)
                           </Label>
                           <Input
                             value={editedBill?.vendorName || ""}
@@ -2710,7 +2749,68 @@ function PurchaseBills() {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 mt-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-semibold">Vendor *</Label>
+                      <Select
+                        value={item.vendorId}
+                        onValueChange={(val) => {
+                          const newItems = [...inventoryItems];
+                          newItems[index].vendorId = val;
+                          setInventoryItems(newItems);
+                        }}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Select vendor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {vendors.map((v) => (
+                            <SelectItem key={v.id} value={v.id}>
+                              {v.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-semibold">Weight (optional)</Label>
+                      <div className="flex gap-1">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          className="h-9 flex-1"
+                          value={item.weight}
+                          onChange={(e) => {
+                            const newItems = [...inventoryItems];
+                            newItems[index].weight =
+                              parseFloat(e.target.value) || 0;
+                            setInventoryItems(newItems);
+                          }}
+                          placeholder="0.00"
+                        />
+                        <Select
+                          value={item.weightUnit}
+                          onValueChange={(val) => {
+                            const newItems = [...inventoryItems];
+                            newItems[index].weightUnit = val;
+                            setInventoryItems(newItems);
+                          }}
+                        >
+                          <SelectTrigger className="h-9 w-16 px-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="g">g</SelectItem>
+                            <SelectItem value="kg">kg</SelectItem>
+                            <SelectItem value="mg">mg</SelectItem>
+                            <SelectItem value="ct">ct</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                     <div className="space-y-1">
                       <Label className="text-xs text-muted-foreground">
                         Purchase Price
