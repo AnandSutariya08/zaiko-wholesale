@@ -1743,9 +1743,36 @@ function PurchaseBills() {
                   <CardContent className="pt-5 px-5 pb-5">
                     {isEditing ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        <div className="space-y-1.5 md:col-span-2 xl:col-span-3">
+                          <Label className="text-sm font-medium">Vendor</Label>
+                          <Select
+                            value={editedBill?.vendorId || ""}
+                            onValueChange={(val) => {
+                              const vendor = vendors.find(v => v.id === val);
+                              setEditedBill(prev => prev ? {
+                                ...prev,
+                                vendorId: val,
+                                vendorName: vendor?.name || prev.vendorName,
+                                vendorAddress: vendor?.address || prev.vendorAddress,
+                                vendorGstin: vendor?.gstin || prev.vendorGstin
+                              } : null);
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select Vendor" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {vendors.map((v) => (
+                                <SelectItem key={v.id} value={v.id}>
+                                  {v.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                         <div className="space-y-1.5">
                           <Label className="text-sm font-medium">
-                            Vendor Name
+                            Vendor Name (Override)
                           </Label>
                           <Input
                             value={editedBill?.vendorName || ""}
