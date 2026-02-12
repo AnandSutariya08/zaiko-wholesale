@@ -75,6 +75,7 @@ export interface Product {
   purchasePrice: number; // Cost price from purchase
   sellingPrice: number; // Selling price for bills
   stock: number;
+  expoStocks?: Record<string, number>; // Expo-wise stock levels: { [expoId]: quantity }
   createdAt: string;
   absorbedLoss?: number;
   imageUrl?: string;
@@ -120,6 +121,7 @@ export interface Bill {
   roundOff: number;
   total: number;
   createdBy?: string;
+  expoId?: string; // Track which expo this bill belongs to
   paymentTerms: number;
   dueDate: string;
   paymentStatus: "paid" | "pending" | "overdue" | "overpaid";
@@ -238,6 +240,7 @@ export interface Expense {
   category: string;
   paymentMethod: "Cash" | "Bank";
   bankAccountId?: string;
+  expoId?: string; // Track which expo this expense belongs to
   createdAt: string;
 }
 
