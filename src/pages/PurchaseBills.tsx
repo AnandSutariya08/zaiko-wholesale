@@ -2722,44 +2722,66 @@ function PurchaseBills() {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 mt-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">
-                        Purchase Price
-                      </Label>
-                      <div className="text-sm font-medium bg-muted px-3 py-2 rounded">
-                        ₹{item.purchasePrice.toFixed(2)}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold">Vendor *</Label>
+                        <Select
+                          value={item.vendorId}
+                          onValueChange={(val) => {
+                            const newItems = [...inventoryItems];
+                            newItems[index].vendorId = val;
+                            setInventoryItems(newItems);
+                          }}
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="Select vendor" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {vendors.map((v) => (
+                              <SelectItem key={v.id} value={v.id}>
+                                {v.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold">Weight (optional)</Label>
+                        <div className="flex gap-1">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            className="h-9 flex-1"
+                            value={item.weight}
+                            onChange={(e) => {
+                              const newItems = [...inventoryItems];
+                              newItems[index].weight =
+                                parseFloat(e.target.value) || 0;
+                              setInventoryItems(newItems);
+                            }}
+                            placeholder="0.00"
+                          />
+                          <Select
+                            value={item.weightUnit}
+                            onValueChange={(val) => {
+                              const newItems = [...inventoryItems];
+                              newItems[index].weightUnit = val;
+                              setInventoryItems(newItems);
+                            }}
+                          >
+                            <SelectTrigger className="h-9 w-16 px-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="g">g</SelectItem>
+                              <SelectItem value="kg">kg</SelectItem>
+                              <SelectItem value="mg">mg</SelectItem>
+                              <SelectItem value="ct">ct</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Barcode (Optional)</Label>
-                      <Input
-                        placeholder="Scan or type barcode"
-                        value={item.barcode || ""}
-                        onChange={(e) => {
-                          const newItems = [...inventoryItems];
-                          newItems[index].barcode = e.target.value;
-                          setInventoryItems(newItems);
-                        }}
-                        className="h-9"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Selling Price *</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={item.sellingPrice}
-                        onChange={(e) =>
-                          updateInventoryItemSellingPrice(
-                            index,
-                            parseFloat(e.target.value) || 0,
-                          )
-                        }
-                        className="h-9"
-                      />
-                    </div>
-                  </div>
                   {item.sellingPrice > 0 && (
                     <p className="text-xs text-emerald-600 mt-2">
                       Margin: ₹
