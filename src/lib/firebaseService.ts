@@ -314,7 +314,8 @@ export const getProducts = async (): Promise<Product[]> => {
         purchasePrice: data.purchasePrice || 0,
         sellingPrice: data.sellingPrice || data.price || 0,
         weight: typeof data.weight === "string" ? parseFloat(data.weight) || 0 : (data.weight || 0),
-        weightUnit: (data.weightUnit as any) || (data.unit === "kg" ? "kg" : "g"),
+        weightUnit: (data.weightUnit as string) || (data.unit === "kg" ? "kg" : "g"),
+        vendorId: data.vendorId || "",
       } as Product;
     });
 
@@ -1329,7 +1330,8 @@ const createNewProduct = async (
     stock: item.quantity,
     createdAt: new Date().toISOString(),
     whereToBuy: bill.vendorName || "",
-    weight: "",
+    vendorId: bill.vendorId || "",
+    weight: 0,
   };
 
   const productRef = doc(db, COLLECTIONS.PRODUCTS, newProduct.id);
