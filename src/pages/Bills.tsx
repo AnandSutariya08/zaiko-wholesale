@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -13,16 +13,29 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { getBills, deleteBill, updateBillPayment } from '@/lib/storage';
-import { getCompanyProfile, saveCompanyProfile } from '@/lib/firebaseService';
-import { Bill, PaymentMethod, CompanyProfile } from '@/types';
-import { formatCurrency, formatDate } from '@/lib/billUtils';
-import { Plus, Search, Eye, Edit, Trash2, Filter, IndianRupee, Loader2, Calendar, User, Receipt, FileText } from 'lucide-react';
-import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
-import { PaymentDialog } from '@/components/PaymentDialog';
-import { LoadingSpinner } from '@/components/LoadingSpinner';
+} from "@/components/ui/select";
+import { getBills, deleteBill, updateBillPayment } from "@/lib/storage";
+import { getCompanyProfile, saveCompanyProfile } from "@/lib/firebaseService";
+import { Bill, PaymentMethod, CompanyProfile } from "@/types";
+import { formatCurrency, formatDate } from "@/lib/billUtils";
+import {
+  Plus,
+  Search,
+  Eye,
+  Edit,
+  Trash2,
+  Filter,
+  IndianRupee,
+  Loader2,
+  Calendar,
+  User,
+  Receipt,
+  FileText,
+} from "lucide-react";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { PaymentDialog } from "@/components/PaymentDialog";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,17 +46,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+} from "@/components/ui/alert-dialog";
 
 export default function Bills() {
   const [loading, setLoading] = useState(true);
   const [company, setCompany] = useState<CompanyProfile | null>(null);
   const [updatingGst, setUpdatingGst] = useState(false);
   const [bills, setBills] = useState<Bill[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<string>('date-desc');
-  const [activeTab, setActiveTab] = useState('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("date-desc");
+  const [activeTab, setActiveTab] = useState("all");
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -63,13 +76,13 @@ export default function Bills() {
       setLoading(true);
       const [allBills, companyProfile] = await Promise.all([
         getBills(),
-        getCompanyProfile()
+        getCompanyProfile(),
       ]);
       setBills(allBills);
       setCompany(companyProfile);
     } catch (error) {
-      console.error('Error loading data:', error);
-      toast.error('Failed to load data');
+      console.error("Error loading data:", error);
+      toast.error("Failed to load data");
     } finally {
       setLoading(false);
     }
@@ -82,10 +95,10 @@ export default function Bills() {
       const updatedProfile = { ...company, gstEnabled: enabled };
       await saveCompanyProfile(updatedProfile);
       setCompany(updatedProfile);
-      toast.success(`GST Billing ${enabled ? 'enabled' : 'disabled'}`);
+      toast.success(`GST Billing ${enabled ? "enabled" : "disabled"}`);
     } catch (error) {
-      console.error('Error updating GST setting:', error);
-      toast.error('Failed to update GST setting');
+      console.error("Error updating GST setting:", error);
+      toast.error("Failed to update GST setting");
     } finally {
       setUpdatingGst(false);
     }
@@ -100,32 +113,32 @@ export default function Bills() {
         (bill) =>
           bill.billNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
           bill.client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (bill.client.phone && bill.client.phone.includes(searchTerm))
+          (bill.client.phone && bill.client.phone.includes(searchTerm)),
       );
     }
 
     // Status filter
-    if (statusFilter !== 'all') {
+    if (statusFilter !== "all") {
       filtered = filtered.filter((bill) => bill.paymentStatus === statusFilter);
     }
 
     // Tab filter (GST/Non-GST)
-    if (activeTab === 'gst') {
+    if (activeTab === "gst") {
       filtered = filtered.filter((bill) => bill.totalTax > 0);
-    } else if (activeTab === 'non-gst') {
+    } else if (activeTab === "non-gst") {
       filtered = filtered.filter((bill) => bill.totalTax === 0);
     }
 
     // Sort
     filtered.sort((a, b) => {
       switch (sortBy) {
-        case 'date-desc':
+        case "date-desc":
           return new Date(b.date).getTime() - new Date(a.date).getTime();
-        case 'date-asc':
+        case "date-asc":
           return new Date(a.date).getTime() - new Date(b.date).getTime();
-        case 'amount-desc':
+        case "amount-desc":
           return b.total - a.total;
-        case 'amount-asc':
+        case "amount-asc":
           return a.total - b.total;
         default:
           return 0;
@@ -138,22 +151,32 @@ export default function Bills() {
   const filteredBills = getFilteredBills();
   const totalPages = Math.max(1, Math.ceil(filteredBills.length / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const pagedBills = filteredBills.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const pagedBills = filteredBills.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
 
   const handleDelete = async (id: string) => {
     setDeletingId(id);
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
     await deleteBill(id);
     await loadData();
     setDeletingId(null);
-    toast.success('Bill deleted successfully');
+    toast.success("Bill deleted successfully");
   };
 
-  const handlePaymentCollected = async (amount: number, type: PaymentMethod, note?: string, date?: string) => {
+  const handlePaymentCollected = async (
+    amount: number,
+    type: PaymentMethod,
+    note?: string,
+    date?: string,
+  ) => {
     if (selectedBill) {
       await updateBillPayment(selectedBill.id, amount, type, note, date);
       await loadData();
-      toast.success(`Payment of ${formatCurrency(amount)} via ${type} collected successfully`);
+      toast.success(
+        `Payment of ${formatCurrency(amount)} via ${type} collected successfully`,
+      );
     }
   };
 
@@ -164,26 +187,36 @@ export default function Bills() {
 
   const getStatusBadge = (status: string) => {
     const variants = {
-      paid: 'default',
-      pending: 'secondary',
-      overdue: 'destructive',
+      paid: "default",
+      pending: "secondary",
+      overdue: "destructive",
     } as const;
 
     const labels = {
-      paid: 'Paid',
-      pending: 'Pending',
-      overdue: 'Overdue',
+      paid: "Paid",
+      pending: "Pending",
+      overdue: "Overdue",
     };
 
     return (
-      <Badge variant={variants[status as keyof typeof variants]} className="text-xs">
+      <Badge
+        variant={variants[status as keyof typeof variants]}
+        className="text-xs"
+      >
         {labels[status as keyof typeof labels]}
       </Badge>
     );
   };
 
   if (loading) {
-    return <LoadingSpinner size="xl" text="Loading bills..." fullScreen contentAreaOnly />;
+    return (
+      <LoadingSpinner
+        size="xl"
+        text="Loading bills..."
+        fullScreen
+        contentAreaOnly
+      />
+    );
   }
 
   return (
@@ -191,9 +224,11 @@ export default function Bills() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold text-foreground">Bills</h1>
-          <p className="text-sm text-muted-foreground">Manage and track your invoices</p>
+          <p className="text-sm text-muted-foreground">
+            Manage and track your invoices
+          </p>
         </div>
-        <div className="flex items-center space-x-2 bg-card border px-3 py-2 rounded-md shadow-sm">
+        {/* <div className="flex items-center space-x-2 bg-card border px-3 py-2 rounded-md shadow-sm">
           <Switch
             id="gst-toggle"
             checked={company?.gstEnabled || false}
@@ -203,7 +238,7 @@ export default function Bills() {
           <Label htmlFor="gst-toggle" className="text-sm font-medium cursor-pointer">
             GST {company?.gstEnabled ? 'ON' : 'OFF'}
           </Label>
-        </div>
+        </div> */}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -213,16 +248,16 @@ export default function Bills() {
             <TabsTrigger value="gst">GST Bills</TabsTrigger>
             <TabsTrigger value="non-gst">Non-GST</TabsTrigger>
           </TabsList>
-          
-          <div className="flex gap-2 w-full sm:w-auto">
-            {activeTab === 'gst' ? (
+
+          {/* <div className="flex gap-2 w-full sm:w-auto">
+            {activeTab === "gst" ? (
               <Link to="/gst-bill" className="flex-1 sm:flex-initial">
                 <Button className="w-full gap-2">
                   <Plus className="h-4 w-4" />
                   Create GST Bill
                 </Button>
               </Link>
-            ) : activeTab === 'non-gst' ? (
+            ) : activeTab === "non-gst" ? (
               <Link to="/non-gst-bill" className="flex-1 sm:flex-initial">
                 <Button className="w-full gap-2">
                   <Plus className="h-4 w-4" />
@@ -237,7 +272,7 @@ export default function Bills() {
                 </Button>
               </Link>
             )}
-          </div>
+          </div> */}
         </div>
 
         {/* Unified Search and Filter UI */}
@@ -274,8 +309,12 @@ export default function Bills() {
                 <SelectContent>
                   <SelectItem value="date-desc">Date (Newest)</SelectItem>
                   <SelectItem value="date-asc">Date (Oldest)</SelectItem>
-                  <SelectItem value="amount-desc">Amount (High to Low)</SelectItem>
-                  <SelectItem value="amount-asc">Amount (Low to High)</SelectItem>
+                  <SelectItem value="amount-desc">
+                    Amount (High to Low)
+                  </SelectItem>
+                  <SelectItem value="amount-asc">
+                    Amount (Low to High)
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -288,29 +327,55 @@ export default function Bills() {
               <Card className="border-2 border-dashed">
                 <CardContent className="text-center py-12">
                   <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <p className="text-lg font-medium text-foreground mb-2">No bills found</p>
+                  <p className="text-lg font-medium text-foreground mb-2">
+                    No bills found
+                  </p>
                   <p className="text-sm text-muted-foreground mb-4">
-                    {activeTab === 'gst' ? "No GST bills matching your criteria." : 
-                     activeTab === 'non-gst' ? "No Non-GST bills matching your criteria." : 
-                     "Get started by creating your first invoice"}
+                    {activeTab === "gst"
+                      ? "No GST bills matching your criteria."
+                      : activeTab === "non-gst"
+                        ? "No Non-GST bills matching your criteria."
+                        : "Get started by creating your first invoice"}
                   </p>
                 </CardContent>
               </Card>
             ) : (
               pagedBills.map((bill) => (
-                <Card key={bill.id} className="hover:shadow-md transition-shadow border-l-4" style={{ borderLeftColor: bill.paymentStatus === 'paid' ? '#10b981' : bill.paymentStatus === 'overdue' ? '#ef4444' : '#f59e0b' }}>
+                <Card
+                  key={bill.id}
+                  className="hover:shadow-md transition-shadow border-l-4"
+                  style={{
+                    borderLeftColor:
+                      bill.paymentStatus === "paid"
+                        ? "#10b981"
+                        : bill.paymentStatus === "overdue"
+                          ? "#ef4444"
+                          : "#f59e0b",
+                  }}
+                >
                   <CardContent className="p-4">
                     <div className="flex flex-col gap-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <span className="font-bold text-lg">{bill.billNumber}</span>
+                            <span className="font-bold text-lg">
+                              {bill.billNumber}
+                            </span>
                             {getStatusBadge(bill.paymentStatus)}
-                            {bill.totalTax > 0 && <Badge variant="outline" className="text-[10px] uppercase">GST</Badge>}
+                            {bill.totalTax > 0 && (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] uppercase"
+                              >
+                                GST
+                              </Badge>
+                            )}
                           </div>
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <User className="h-3 w-3" />
-                            <span className="font-medium truncate">{bill.client.name}</span>
+                            <span className="font-medium truncate">
+                              {bill.client.name}
+                            </span>
                           </div>
                         </div>
                         <div className="text-right flex-shrink-0">
@@ -327,49 +392,89 @@ export default function Bills() {
                             <span>{formatDate(bill.date)}</span>
                           </div>
                         </div>
-                        {bill.paymentStatus !== 'paid' && (
+                        {bill.paymentStatus !== "paid" && (
                           <div className="flex items-center gap-1 text-orange-600 font-semibold">
                             <IndianRupee className="h-3.5 w-3.5" />
-                            <span>Pending: {formatCurrency(bill.total - bill.paidAmount)}</span>
+                            <span>
+                              Pending:{" "}
+                              {formatCurrency(bill.total - bill.paidAmount)}
+                            </span>
                           </div>
                         )}
                       </div>
 
                       <div className="flex items-center justify-between gap-2 border-t pt-2">
-                        {bill.paymentStatus !== 'paid' ? (
-                          <Button variant="default" size="sm" onClick={() => openPaymentDialog(bill)} className="h-8 gap-1.5 text-xs">
+                        {bill.paymentStatus !== "paid" ? (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => openPaymentDialog(bill)}
+                            className="h-8 gap-1.5 text-xs"
+                          >
                             <IndianRupee className="h-3.5 w-3.5" />
                             Collect
                           </Button>
                         ) : (
-                          <Badge variant="default" className="bg-green-600 text-white h-8">✓ Paid</Badge>
+                          <Badge
+                            variant="default"
+                            className="bg-green-600 text-white h-8"
+                          >
+                            ✓ Paid
+                          </Badge>
                         )}
 
                         <div className="flex gap-2">
                           <Link to={`/bills/${bill.id}`}>
-                            <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                            >
                               <Eye className="h-3.5 w-3.5" />
                             </Button>
                           </Link>
                           <Link to={`/bills/${bill.id}/edit`}>
-                            <Button variant="outline" size="sm" className="h-8 w-8 p-0" disabled={bill.paymentStatus === 'paid'}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              disabled={bill.paymentStatus === "paid"}
+                            >
                               <Edit className="h-3.5 w-3.5" />
                             </Button>
                           </Link>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button variant="outline" size="sm" className="h-8 w-8 p-0 text-destructive" disabled={deletingId === bill.id || bill.paidAmount > 0}>
-                                {deletingId === bill.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-destructive"
+                                disabled={
+                                  deletingId === bill.id || bill.paidAmount > 0
+                                }
+                              >
+                                {deletingId === bill.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                )}
                               </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Delete Bill</AlertDialogTitle>
-                                <AlertDialogDescription>Are you sure? This cannot be undone.</AlertDialogDescription>
+                                <AlertDialogDescription>
+                                  Are you sure? This cannot be undone.
+                                </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDelete(bill.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                <AlertDialogAction
+                                  onClick={() => handleDelete(bill.id)}
+                                  className="bg-destructive hover:bg-destructive/90"
+                                >
+                                  Delete
+                                </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
@@ -385,11 +490,27 @@ export default function Bills() {
           {filteredBills.length > pageSize && (
             <div className="flex items-center justify-between mt-6 px-2">
               <p className="text-xs text-muted-foreground">
-                Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, filteredBills.length)} of {filteredBills.length}
+                Showing {(currentPage - 1) * pageSize + 1} to{" "}
+                {Math.min(currentPage * pageSize, filteredBills.length)} of{" "}
+                {filteredBills.length}
               </p>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Previous</Button>
-                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
               </div>
             </div>
           )}
