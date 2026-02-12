@@ -15,8 +15,8 @@ import {
   TableRow,
 } from "./ui/table";
 import { Button } from "./ui/button";
-import { BankAccount, Bill, SampleBill } from "@/types";
-import { getBills, getSampleBills } from "@/lib/storage";
+import { BankAccount, Bill, SampleBill, Expense } from "@/types";
+import { getBills, getSampleBills, getExpenses } from "@/lib/storage";
 import { formatCurrency, formatDate } from "@/lib/billUtils";
 import { Download, Loader2, FileText } from "lucide-react";
 
@@ -40,33 +40,51 @@ export function BankStatement({ account, isOpen, onClose }: BankStatementProps) 
   const loadStatement = async () => {
     setLoading(true);
     try {
-      const [allBills, allSampleBills] = await Promise.all([
+      const [allBills, allSampleBills, allExpenses] = await Promise.all([
         getBills(),
-        getSampleBills()
+        getSampleBills(),
+        getExpenses()
       ]);
 
       const relevantBills = (allBills as Bill[]).filter(b => b.bankAccountId === account.id);
       const relevantSampleBills = (allSampleBills as SampleBill[]).filter(b => (b as any).bankAccountId === account.id);
+      const relevantExpenses = (allExpenses as Expense[]).filter(e => e.paymentMethod === "Bank" && e.bankAccountId === account.id);
 
-      const allRelevant = [...relevantBills, ...relevantSampleBills];
-      
-      const statement = allRelevant.map(bill => ({
-        id: bill.id,
-        date: bill.date,
-        billNumber: bill.billNumber,
-        clientName: bill.client.name,
-        amount: bill.paidAmount || 0,
-        total: bill.total,
-        status: bill.paymentStatus
-      })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      const billsData = allRelevantBillsAndSamples(relevantBills, relevantSampleBills);
+      const expensesData = relevantExpenses.map(exp => ({
+        id: exp.id,
+        date: exp.date,
+        billNumber: "EXPENSE",
+        clientName: exp.description,
+        amount: -exp.amount, // Negative for expenses
+        total: exp.amount,
+        status: "paid",
+        type: "expense"
+      }));
+
+      const statement = [...billsData, ...expensesData].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
       setStatementData(statement);
-      setTotalReceived(statement.reduce((sum, item) => sum + item.amount, 0));
+      const total = statement.reduce((sum, item) => sum + item.amount, 0);
+      setTotalReceived(total);
     } catch (error) {
       console.error("Failed to load statement:", error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const allRelevantBillsAndSamples = (bills: Bill[], samples: SampleBill[]) => {
+    return [...bills, ...samples].map(bill => ({
+      id: bill.id,
+      date: bill.date,
+      billNumber: bill.billNumber,
+      clientName: bill.client.name,
+      amount: bill.paidAmount || 0,
+      total: bill.total,
+      status: bill.paymentStatus,
+      type: "income"
+    }));
   };
 
   const downloadCSV = () => {
@@ -117,7 +135,7 @@ export function BankStatement({ account, isOpen, onClose }: BankStatementProps) 
         <div className="flex-1 overflow-auto py-4">
           <div className="bg-primary/5 p-4 rounded-lg mb-6 flex justify-between items-center border border-primary/10">
             <div>
-              <p className="text-sm text-muted-foreground">Total Received Amount</p>
+              <p className="text-sm text-muted-foreground">Current Balance</p>
               <h3 className="text-2xl font-bold text-primary">{formatCurrency(totalReceived)}</h3>
             </div>
             <FileText className="h-10 w-10 text-primary/20" />
@@ -143,28 +161,29 @@ export function BankStatement({ account, isOpen, onClose }: BankStatementProps) 
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
-                {statementData.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell>{formatDate(item.date)}</TableCell>
-                    <TableCell className="font-medium">{item.billNumber}</TableCell>
-                    <TableCell>{item.clientName}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(item.total)}</TableCell>
-                    <TableCell className="text-right font-bold text-emerald-600">
-                      {formatCurrency(item.amount)}
-                    </TableCell>
-                    <TableCell>
-                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                        item.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 
-                        item.status === 'partial' ? 'bg-amber-100 text-amber-700' : 
-                        'bg-red-100 text-red-700'
-                      }`}>
-                        {item.status}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
+                  <TableBody>
+                    {statementData.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>{formatDate(item.date)}</TableCell>
+                        <TableCell className="font-medium">{item.billNumber}</TableCell>
+                        <TableCell>{item.clientName}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(item.total)}</TableCell>
+                        <TableCell className={`text-right font-bold ${item.amount < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                          {item.amount < 0 ? `- ${formatCurrency(Math.abs(item.amount))}` : formatCurrency(item.amount)}
+                        </TableCell>
+                        <TableCell>
+                          <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                            item.type === 'expense' ? 'bg-rose-100 text-rose-700' :
+                            item.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 
+                            item.status === 'partial' ? 'bg-amber-100 text-amber-700' : 
+                            'bg-red-100 text-red-700'
+                          }`}>
+                            {item.type === 'expense' ? 'Expense' : item.status}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
             </Table>
           )}
         </div>

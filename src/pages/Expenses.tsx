@@ -30,9 +30,9 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-import { getExpenses, saveExpense, deleteExpense } from "@/lib/storage";
+import { getExpenses, saveExpense, deleteExpense, getBankAccounts } from "@/lib/storage";
 import { getCompanyProfile } from "@/lib/storage";
-import { Expense, CompanyProfile } from "@/types";
+import { Expense, CompanyProfile, BankAccount } from "@/types";
 
 import {
   Plus,
