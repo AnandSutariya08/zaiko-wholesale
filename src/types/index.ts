@@ -259,6 +259,8 @@ export interface Expense {
 export interface InventoryItemInput {
   description: string;
   hsnCode?: string;
+  barcode?: string;
+  vendorId?: string;
   quantity: number;
   unit: string;
   purchasePrice: number;
