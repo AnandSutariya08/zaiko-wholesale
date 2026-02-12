@@ -1,26 +1,225 @@
+import { useEffect, useState } from 'react';
 import { BillForm } from '@/components/BillForm';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Calendar, FileText, Eye, Edit, Trash2, IndianRupee, User, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
+import { getBills, deleteBill, updateBillPayment } from '@/lib/storage';
+import { Bill, PaymentMethod } from '@/types';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { formatCurrency, formatDate } from '@/lib/billUtils';
+import { toast } from 'sonner';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { PaymentDialog } from '@/components/PaymentDialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 export default function GSTBill() {
   const navigate = useNavigate();
+  const [showForm, setShowForm] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [bills, setBills] = useState<Bill[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
+  const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadBills();
+  }, []);
+
+  const loadBills = async () => {
+    try {
+      setLoading(true);
+      const allBills = await getBills();
+      setBills(allBills.filter(b => b.totalTax > 0));
+    } catch (error) {
+      console.error('Error loading bills:', error);
+      toast.error('Failed to load bills');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredBills = bills.filter(bill => {
+    const matchesSearch = 
+      bill.billNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      bill.client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (bill.client.phone && bill.client.phone.includes(searchTerm));
+    
+    const matchesDate = !dateFilter || bill.date.includes(dateFilter);
+    
+    return matchesSearch && matchesDate;
+  }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const handleDelete = async (id: string) => {
+    setDeletingId(id);
+    await deleteBill(id);
+    await loadBills();
+    setDeletingId(null);
+    toast.success('Bill deleted successfully');
+  };
+
+  const handlePaymentCollected = async (amount: number, type: PaymentMethod, note?: string, date?: string) => {
+    if (selectedBill) {
+      await updateBillPayment(selectedBill.id, amount, type, note, date);
+      await loadBills();
+      toast.success(`Payment collected successfully`);
+    }
+  };
+
+  if (showForm) {
+    return (
+      <div className="space-y-4 md:space-y-6 pb-4">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="icon" onClick={() => setShowForm(false)}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-xl sm:text-2xl font-bold">Create GST Bill</h1>
+        </div>
+        <BillForm initialGstEnabled={true} billType="GST" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 md:space-y-6 pb-4">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
           <Button variant="outline" size="icon" onClick={() => navigate('/bills')} className="flex-shrink-0">
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="min-w-0 flex-1">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground truncate">Create GST Bill</h1>
-            <p className="text-sm text-muted-foreground mt-1 hidden sm:block">Fill in the details for a GST invoice</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground truncate">GST Bills</h1>
+            <p className="text-sm text-muted-foreground">Manage your GST invoices</p>
           </div>
         </div>
+        <Button onClick={() => setShowForm(true)} className="w-full sm:w-auto gap-2">
+          <Plus className="h-4 w-4" />
+          Create GST Bill
+        </Button>
       </div>
 
-      <BillForm initialGstEnabled={true} billType="GST" />
+      <Card className="border shadow-sm">
+        <CardContent className="pt-4 px-3 sm:px-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Smart search (Number, Client, Phone)..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 h-10 border-2"
+              />
+            </div>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="date"
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="pl-10 h-10 border-2"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {loading ? (
+        <LoadingSpinner size="xl" text="Loading GST bills..." contentAreaOnly />
+      ) : (
+        <div className="space-y-3">
+          {filteredBills.length === 0 ? (
+            <Card className="border-2 border-dashed">
+              <CardContent className="text-center py-12">
+                <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                <p className="text-lg font-medium text-foreground mb-2">No GST bills found</p>
+                <Button variant="outline" onClick={() => setShowForm(true)}>Create Your First GST Bill</Button>
+              </CardContent>
+            </Card>
+          ) : (
+            filteredBills.map((bill) => (
+              <Card key={bill.id} className="hover:shadow-md transition-shadow border-l-4 border-l-primary">
+                <CardContent className="p-4">
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className="font-bold text-lg">{bill.billNumber}</span>
+                          <Badge variant={bill.paymentStatus === 'paid' ? 'default' : 'secondary'} className="text-xs">
+                            {bill.paymentStatus.toUpperCase()}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <User className="h-3 w-3" />
+                          <span className="font-medium truncate">{bill.client.name}</span>
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-primary text-xl font-bold">{formatCurrency(bill.total)}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs sm:text-sm border-t pt-2">
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        <Calendar className="h-3 w-3" />
+                        <span>{formatDate(bill.date)}</span>
+                      </div>
+                      {bill.paymentStatus !== 'paid' && (
+                        <div className="flex items-center gap-1 text-orange-600 font-semibold">
+                          <IndianRupee className="h-3.5 w-3.5" />
+                          <span>Pending: {formatCurrency(bill.total - bill.paidAmount)}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 border-t pt-2">
+                      {bill.paymentStatus !== 'paid' ? (
+                        <Button variant="default" size="sm" onClick={() => { setSelectedBill(bill); setPaymentDialogOpen(true); }} className="h-8 gap-1.5 text-xs">
+                          <IndianRupee className="h-3.5 w-3.5" />
+                          Collect
+                        </Button>
+                      ) : (
+                        <Badge variant="default" className="bg-green-600 text-white h-8">✓ Paid</Badge>
+                      )}
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => navigate(`/bills/${bill.id}`)}>
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-8 w-8 p-0 text-destructive" 
+                          disabled={deletingId === bill.id || bill.paidAmount > 0}
+                          onClick={() => handleDelete(bill.id)}>
+                          {deletingId === bill.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+      )}
+
+      {selectedBill && (
+        <PaymentDialog
+          bill={selectedBill}
+          open={paymentDialogOpen}
+          onOpenChange={setPaymentDialogOpen}
+          onPaymentCollected={handlePaymentCollected}
+        />
+      )}
     </div>
   );
 }
