@@ -82,9 +82,10 @@ export default function Vendors() {
   };
 
   const getVendorTransactions = (vendorId: string, vendorName: string) => {
+    const term = vendorName.toLowerCase().trim();
     const vendorBills = purchaseBills.filter(b => 
       (b.vendorId && b.vendorId === vendorId) || 
-      (!b.vendorId && b.vendorName.toLowerCase().trim() === vendorName.toLowerCase().trim())
+      (b.vendorName && b.vendorName.toLowerCase().trim() === term)
     );
     const transactions: any[] = [];
 
@@ -154,9 +155,10 @@ export default function Vendors() {
   };
 
   const getVendorStats = (vendorId: string, vendorName: string) => {
+    const term = vendorName.toLowerCase().trim();
     const vendorBills = purchaseBills.filter(b => 
       (b.vendorId && b.vendorId === vendorId) || 
-      (!b.vendorId && b.vendorName.toLowerCase().trim() === vendorName.toLowerCase().trim())
+      (b.vendorName && b.vendorName.toLowerCase().trim() === term)
     );
     
     let totalPurchase = 0;
@@ -373,14 +375,16 @@ export default function Vendors() {
                     <CardHeader><CardTitle className="text-sm">All Purchase Bills</CardTitle></CardHeader>
                     <CardContent>
                       <div className="space-y-3">
-                        {purchaseBills.filter(b => 
-                          (b.vendorId && b.vendorId === viewingVendor.id) || 
-                          (!b.vendorId && b.vendorName.toLowerCase().trim() === viewingVendor.name.toLowerCase().trim())
-                        ).length > 0 ? (
-                          purchaseBills.filter(b => 
-                            (b.vendorId && b.vendorId === viewingVendor.id) || 
-                            (!b.vendorId && b.vendorName.toLowerCase().trim() === viewingVendor.name.toLowerCase().trim())
-                          ).map(bill => (
+                        {purchaseBills.filter(b => {
+                          const term = viewingVendor.name.toLowerCase().trim();
+                          return (b.vendorId && b.vendorId === viewingVendor.id) || 
+                                 (b.vendorName && b.vendorName.toLowerCase().trim() === term);
+                        }).length > 0 ? (
+                          purchaseBills.filter(b => {
+                            const term = viewingVendor.name.toLowerCase().trim();
+                            return (b.vendorId && b.vendorId === viewingVendor.id) || 
+                                   (b.vendorName && b.vendorName.toLowerCase().trim() === term);
+                          }).map(bill => (
                             <div key={bill.id} className="flex justify-between items-center p-3 border rounded hover:bg-muted/50 transition-colors">
                               <div>
                                 <p className="font-medium">Bill #{bill.billNumber || "N/A"}</p>
