@@ -431,6 +431,8 @@ export function BillForm({ bill, isEdit = false }: BillFormProps) {
     }
   };
 
+  const isIGST = gstType === "igst";
+
   useEffect(() => {
     if (barcodeSearch.trim()) {
       const product = products.find(p => p.barcode === barcodeSearch.trim());
@@ -457,7 +459,7 @@ export function BillForm({ bill, isEdit = false }: BillFormProps) {
           newItem.amount = roundToTwoDecimals(newItem.quantity * newItem.ratePerUnit);
           if (!gstEnabled) {
             newItem.cgst = 0; newItem.sgst = 0; newItem.igst = 0;
-          } else if (gstType === "igst") {
+          } else if (isIGST) {
             newItem.igst = (newItem.amount * newItem.gstRate) / 100;
             newItem.cgst = 0; newItem.sgst = 0;
           } else {
@@ -471,7 +473,7 @@ export function BillForm({ bill, isEdit = false }: BillFormProps) {
         setBarcodeSearch(""); // Clear for next scan
       }
     }
-  }, [barcodeSearch, products]);
+  }, [barcodeSearch, products, gstEnabled, gstType, billItems, isIGST]);
 
   const resetClientForm = (prefillName?: string) => {
     setClientFormData({

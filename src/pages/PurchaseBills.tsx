@@ -318,6 +318,7 @@ function PurchaseBills() {
       gstRate: number;
       weight: number;
       weightUnit: string;
+      barcode?: string; // Added barcode field
       productId?: string;
       isNewProduct?: boolean;
     }[]
@@ -688,6 +689,7 @@ function PurchaseBills() {
       return {
         description: item.description,
         hsnCode: item.hsnCode || "",
+        barcode: "", // Added barcode field for inventory addition
         quantity: item.quantity,
         unit: item.unit,
         purchasePrice: item.rate,
@@ -732,6 +734,7 @@ function PurchaseBills() {
       const itemsInput: InventoryItemInput[] = inventoryItems.map((item) => ({
         description: item.description,
         hsnCode: item.hsnCode,
+        barcode: item.barcode, // Pass barcode to inventory service
         quantity: item.quantity,
         unit: item.unit,
         purchasePrice: item.purchasePrice,
@@ -739,6 +742,7 @@ function PurchaseBills() {
         gstRate: item.gstRate,
         productId: item.productId,
         isNewProduct: item.isNewProduct,
+        whereToBuy: item.isNewProduct ? (inventoryDialogBill as any).vendorName : undefined,
         weight: item.weight,
         weightUnit: item.weightUnit,
       }));
@@ -2714,6 +2718,19 @@ function PurchaseBills() {
                       <div className="text-sm font-medium bg-muted px-3 py-2 rounded">
                         ₹{item.purchasePrice.toFixed(2)}
                       </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Barcode (Optional)</Label>
+                      <Input
+                        placeholder="Scan or type barcode"
+                        value={item.barcode || ""}
+                        onChange={(e) => {
+                          const newItems = [...inventoryItems];
+                          newItems[index].barcode = e.target.value;
+                          setInventoryItems(newItems);
+                        }}
+                        className="h-9"
+                      />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Selling Price *</Label>
