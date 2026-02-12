@@ -62,8 +62,19 @@ export interface Client {
   createdAt: string;
 }
 
+export interface Vendor {
+  id: string;
+  name: string;
+  address: string;
+  gstin: string;
+  phone: string;
+  email: string;
+  createdAt: string;
+}
+
 export interface Product {
   whereToBuy: string;
+  vendorId?: string; // Link to Vendor
   weight: number;
   weightUnit?: string;
   id: string;
@@ -317,6 +328,7 @@ export interface PurchaseReturn {
 export interface PurchaseBill {
   id: string;
   billImage: string; // Base64 or URL of uploaded bill image
+  vendorId?: string; // Link to Vendor
   vendorName: string;
   vendorAddress?: string;
   vendorGstin?: string;
