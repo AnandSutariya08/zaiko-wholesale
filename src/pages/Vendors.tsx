@@ -97,7 +97,8 @@ export default function Vendors() {
         type: "Purchase",
         reference: bill.billNumber || "N/A",
         amount: bill.total,
-        status: bill.paymentStatus
+        status: bill.paymentStatus,
+        billId: bill.id // Store billId for easier reference
       });
 
       // Add payments
@@ -109,7 +110,8 @@ export default function Vendors() {
             type: "Payment",
             reference: `For Bill #${bill.billNumber || ""}`,
             amount: payment.amount,
-            method: payment.method
+            method: payment.method,
+            billId: bill.id
           });
         });
       }
@@ -123,7 +125,8 @@ export default function Vendors() {
             type: "Return",
             reference: `From Bill #${bill.billNumber || ""}`,
             amount: ret.totalReturnValue,
-            notes: ret.notes
+            notes: ret.notes,
+            billId: bill.id
           });
         });
       }
@@ -375,32 +378,31 @@ export default function Vendors() {
                     <CardHeader><CardTitle className="text-sm">All Purchase Bills</CardTitle></CardHeader>
                     <CardContent>
                       <div className="space-y-3">
-                        {purchaseBills.filter(b => {
+                        {(() => {
                           const term = viewingVendor.name.toLowerCase().trim();
-                          return (b.vendorId && b.vendorId === viewingVendor.id) || 
-                                 (b.vendorName && b.vendorName.toLowerCase().trim() === term);
-                        }).length > 0 ? (
-                          purchaseBills.filter(b => {
-                            const term = viewingVendor.name.toLowerCase().trim();
-                            return (b.vendorId && b.vendorId === viewingVendor.id) || 
-                                   (b.vendorName && b.vendorName.toLowerCase().trim() === term);
-                          }).map(bill => (
-                            <div key={bill.id} className="flex justify-between items-center p-3 border rounded hover:bg-muted/50 transition-colors">
-                              <div>
-                                <p className="font-medium">Bill #{bill.billNumber || "N/A"}</p>
-                                <p className="text-xs text-muted-foreground">{formatDate(bill.billDate || bill.createdAt)}</p>
+                          const filteredBills = purchaseBills.filter(b => 
+                            (b.vendorId && b.vendorId === viewingVendor.id) || 
+                            (b.vendorName && b.vendorName.toLowerCase().trim() === term)
+                          );
+                          
+                          if (filteredBills.length > 0) {
+                            return filteredBills.map(bill => (
+                              <div key={bill.id} className="flex justify-between items-center p-3 border rounded hover:bg-muted/50 transition-colors">
+                                <div>
+                                  <p className="font-medium">Bill #{bill.billNumber || "N/A"}</p>
+                                  <p className="text-xs text-muted-foreground">{formatDate(bill.billDate || bill.createdAt)}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-semibold">{formatCurrency(bill.total)}</p>
+                                  <Badge variant={bill.paymentStatus === 'paid' ? 'default' : bill.paymentStatus === 'overdue' ? 'destructive' : 'outline'}>
+                                    {bill.paymentStatus.toUpperCase()}
+                                  </Badge>
+                                </div>
                               </div>
-                              <div className="text-right">
-                                <p className="font-semibold">{formatCurrency(bill.total)}</p>
-                                <Badge variant={bill.paymentStatus === 'paid' ? 'default' : bill.paymentStatus === 'overdue' ? 'destructive' : 'outline'}>
-                                  {bill.paymentStatus.toUpperCase()}
-                                </Badge>
-                              </div>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="text-center py-8 text-muted-foreground">No purchase bills found for this vendor.</div>
-                        )}
+                            ));
+                          }
+                          return <div className="text-center py-8 text-muted-foreground">No purchase bills found for this vendor.</div>;
+                        })()}
                       </div>
                     </CardContent>
                   </Card>
