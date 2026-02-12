@@ -744,6 +744,29 @@ function PurchaseBills() {
 
     setLoadingInventory(inventoryDialogBill.id);
     try {
+      // First update the bill with the selected vendor if it has changed
+      // Use the vendor from the first inventory item as they should be consistent
+      const firstItemVendorId = inventoryItems[0]?.vendorId;
+      if (firstItemVendorId) {
+        const vendor = vendors.find(v => v.id === firstItemVendorId);
+        if (vendor) {
+          const updatedBill = {
+            ...inventoryDialogBill,
+            vendorId: vendor.id,
+            vendorName: vendor.name,
+            vendorGstin: vendor.gstin || "",
+            vendorAddress: vendor.address || ""
+          };
+          await updatePurchaseBill(updatedBill);
+          // Update the local bills state
+          setBills(prev => prev.map(b => b.id === updatedBill.id ? updatedBill : b));
+          // If this bill is currently selected, update that too
+          if (selectedBill && selectedBill.id === updatedBill.id) {
+            setSelectedBill(updatedBill);
+          }
+        }
+      }
+
       // Validate all selling prices
       const hasInvalidPrices = inventoryItems.some(
         (item) => item.sellingPrice <= 0,
