@@ -531,13 +531,23 @@ export default function BillCreators() {
               <CardDescription>Click to view bills</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button
-                variant="ghost"
-                className="w-full justify-between text-primary"
-              >
-                View History
-                <Receipt className="h-4 w-4" />
-              </Button>
+              <div className="flex flex-col gap-2">
+                <Button
+                  variant="ghost"
+                  className="w-full justify-between text-primary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (creator.type === "Expo" && creator.expoId) {
+                      navigate(`/expo-dashboard/${creator.expoId}`);
+                    } else {
+                      setSelectedCreator(creator.name);
+                    }
+                  }}
+                >
+                  {creator.type === "Expo" ? "View Expo Dashboard" : "View History"}
+                  <Receipt className="h-4 w-4" />
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ))}
