@@ -390,47 +390,47 @@ export default function Vendors() {
                       <div className="space-y-3">
                         {(() => {
                           const term = viewingVendor.name.toLowerCase().trim();
-                          const filteredBills = purchaseBills.filter(b => 
-                            (b.vendorId && b.vendorId === viewingVendor.id) || 
-                            (b.vendorName && b.vendorName.toLowerCase().trim() === term)
-                          );
-                          
-                          if (filteredBills.length > 0) {
-                            return (
-                              <div className="rounded-md border">
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow>
-                                      <TableHead>Bill #</TableHead>
-                                      <TableHead>Date</TableHead>
-                                      <TableHead>Total</TableHead>
-                                      <TableHead>Status</TableHead>
-                                      <TableHead className="text-right">Action</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {filteredBills.map(bill => (
-                                      <TableRow key={bill.id}>
-                                        <TableCell className="font-medium">{bill.billNumber || "N/A"}</TableCell>
-                                        <TableCell>{formatDate(bill.billDate || bill.createdAt)}</TableCell>
-                                        <TableCell>{formatCurrency(bill.total)}</TableCell>
-                                        <TableCell>
-                                          <Badge variant={bill.paymentStatus === 'paid' ? 'default' : bill.paymentStatus === 'overdue' ? 'destructive' : 'outline'}>
-                                            {bill.paymentStatus.toUpperCase()}
-                                          </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                          <Button variant="ghost" size="sm" onClick={() => navigate(`/purchase-bills?id=${bill.id}`)}>View</Button>
-                                        </TableCell>
-                                      </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </Table>
-                              </div>
-                            );
-                          }
-                          return <div className="text-center py-8 text-muted-foreground">No purchase bills found for this vendor.</div>;
-                        })()}
+          const filteredBills = purchaseBills.filter(b => 
+            (b.vendorId && b.vendorId === viewingVendor.id) || 
+            (b.vendorName && b.vendorName.toLowerCase().trim() === term)
+          );
+          
+          if (filteredBills.length > 0) {
+            return (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Bill #</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Total</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredBills.map(bill => (
+                      <TableRow key={bill.id}>
+                        <TableCell className="font-medium">{bill.billNumber || "N/A"}</TableCell>
+                        <TableCell>{formatDate(bill.billDate || bill.createdAt)}</TableCell>
+                        <TableCell>{formatCurrency(bill.total)}</TableCell>
+                        <TableCell>
+                          <Badge variant={bill.paymentStatus === 'paid' ? 'default' : bill.paymentStatus === 'overdue' ? 'destructive' : 'outline'}>
+                            {bill.paymentStatus.toUpperCase()}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm" onClick={() => navigate(`/purchase-bills?id=${bill.id}`)}>View</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            );
+          }
+          return <div className="text-center py-8 text-muted-foreground">No purchase bills found for this vendor.</div>;
+        })()}
                       </div>
                     </CardContent>
                   </Card>
