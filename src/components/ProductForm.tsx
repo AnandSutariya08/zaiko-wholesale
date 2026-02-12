@@ -11,14 +11,15 @@ import {
   SelectValue,
 } from "./ui/select";
 import { Checkbox } from "./ui/checkbox";
-import { Loader2, Upload, X } from "lucide-react";
+import { Loader2, Upload, X, Eye } from "lucide-react";
 import { toast } from "sonner";
-import { Product } from "@/types";
+import { Product, Vendor } from "@/types";
 import {
   saveProduct,
   getCompanyProfile,
   addStockToProduct,
   uploadProductImage,
+  getVendors,
 } from "@/lib/storage";
 import { calculateSellingPriceFromCommission } from "@/lib/billUtils";
 
@@ -40,6 +41,8 @@ export function ProductForm({
   const [addInitialStock, setAddInitialStock] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [viewingVendor, setViewingVendor] = useState<Vendor | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -50,6 +53,7 @@ export function ProductForm({
     purchasePrice: "",
     sellingPrice: "",
     whereToBuy: "",
+    vendorId: "",
     weight: "",
     weightUnit: "g",
   });
@@ -70,6 +74,7 @@ export function ProductForm({
         purchasePrice: String(editingProduct.purchasePrice),
         sellingPrice: String(editingProduct.sellingPrice),
         whereToBuy: editingProduct.whereToBuy || "",
+        vendorId: editingProduct.vendorId || "",
         weight: editingProduct.weight ? String(editingProduct.weight) : "",
         weightUnit: editingProduct.weightUnit || "g",
       });
@@ -80,9 +85,13 @@ export function ProductForm({
   }, [editingProduct]);
 
   useEffect(() => {
-    const loadProfile = async () => {
-      const profile = await getCompanyProfile();
+    const loadData = async () => {
+      const [profile, vendorsData] = await Promise.all([
+        getCompanyProfile(),
+        getVendors(),
+      ]);
       setCompanyProfile(profile);
+      setVendors(vendorsData);
       if (profile?.defaultUnit && !editingProduct) {
         setFormData((prev) => ({
           ...prev,
@@ -90,25 +99,26 @@ export function ProductForm({
         }));
       }
     };
-    loadProfile();
+    loadData();
   }, [editingProduct]);
 
   const resetForm = () => {
     setAddInitialStock(false);
     setImageFile(null);
     setImagePreview(null);
-      setFormData({
-        name: "",
-        hsnCode: "",
-        barcode: "",
-        gstRate: "",
-        unit: companyProfile?.defaultUnit || "kg",
-        purchasePrice: "",
-        sellingPrice: "",
-        whereToBuy: "",
-        weight: "",
-        weightUnit: "g",
-      });
+    setFormData({
+      name: "",
+      hsnCode: "",
+      barcode: "",
+      gstRate: "",
+      unit: companyProfile?.defaultUnit || "kg",
+      purchasePrice: "",
+      sellingPrice: "",
+      whereToBuy: "",
+      vendorId: "",
+      weight: "",
+      weightUnit: "g",
+    });
     setInitialStock({ quantity: "", purchasePrice: "" });
   };
 
@@ -150,6 +160,7 @@ export function ProductForm({
         sellingPrice: sellingPriceNum,
         stock: editingProduct?.stock || 0,
         whereToBuy: formData.whereToBuy,
+        vendorId: formData.vendorId,
         weight: parseFloat(formData.weight) || 0,
         weightUnit: formData.weightUnit,
         createdAt: editingProduct?.createdAt || new Date().toISOString(),
@@ -378,7 +389,44 @@ export function ProductForm({
             </div>
 
             <div className="space-y-2">
-              <Label>Bought From</Label>
+              <Label>Vendor *</Label>
+              <div className="flex gap-2">
+                <Select
+                  value={formData.vendorId}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, vendorId: value })
+                  }
+                  required
+                >
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Select vendor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {vendors.map((vendor) => (
+                      <SelectItem key={vendor.id} value={vendor.id}>
+                        {vendor.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {formData.vendorId && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => {
+                      const v = vendors.find((v) => v.id === formData.vendorId);
+                      if (v) setViewingVendor(v);
+                    }}
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Bought From (Optional)</Label>
               <Input
                 value={formData.whereToBuy}
                 onChange={(e) =>
@@ -447,6 +495,43 @@ export function ProductForm({
             </Button>
           </div>
         </form>
+
+        {viewingVendor && (
+          <Dialog
+            open={!!viewingVendor}
+            onOpenChange={(open) => !open && setViewingVendor(null)}
+          >
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Vendor Details</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-muted-foreground">Name</Label>
+                  <p className="font-medium text-lg">{viewingVendor.name}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">GSTIN</Label>
+                  <p>{viewingVendor.gstin || "N/A"}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Address</Label>
+                  <p>{viewingVendor.address || "N/A"}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-muted-foreground">Phone</Label>
+                    <p>{viewingVendor.phone || "N/A"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Email</Label>
+                    <p>{viewingVendor.email || "N/A"}</p>
+                  </div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </DialogContent>
     </Dialog>
   );

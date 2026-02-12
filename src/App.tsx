@@ -26,6 +26,7 @@ import Expenses from "@/pages/Expenses";
 import Passbook from "@/pages/Passbook";
 import Files from "@/pages/Files";
 import Notes from "@/pages/Notes";
+import Vendors from "@/pages/Vendors";
 import SampleBill from "@/pages/SampleBill";
 import BillCreators from "@/pages/BillCreators";
 import BankAccounts from "@/pages/BankAccounts";
@@ -42,12 +43,12 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ThemeProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <PWAInstallPrompt />
-        <BrowserRouter>
+    <BrowserRouter>
+      <ThemeProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <PWAInstallPrompt />
           <Routes>
             <Route path="/auth" element={<Auth />} />
             {/* Public bill view for QR scanning - no auth required */}
@@ -72,6 +73,7 @@ const App = () => (
                       <Route path="/expenses" element={<Expenses />} />
                       <Route path="/products" element={<Products />} />
                       <Route path="/clients" element={<Clients />} />
+                      <Route path="/vendors" element={<Vendors />} />
                       <Route path="/settings" element={<Settings />} />
                       <Route path="/files" element={<Files />} />
                       <Route path="/notes" element={<Notes />} />
@@ -107,9 +109,9 @@ const App = () => (
               }
             />
           </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </ThemeProvider>
+        </TooltipProvider>
+      </ThemeProvider>
+    </BrowserRouter>
   </QueryClientProvider>
 );
 

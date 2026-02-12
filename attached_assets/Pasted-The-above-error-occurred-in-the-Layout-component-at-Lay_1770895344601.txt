@@ -1,0 +1,28 @@
+The above error occurred in the <Layout> component:
+
+    at Layout (https://bbacea41-997c-4c92-a955-edb1c9947b03-00-1sqcj085m7yvg.riker.replit.dev/src/components/Layout.tsx?t=1770895267940:462:26)
+    at ProtectedRoute (https://bbacea41-997c-4c92-a955-edb1c9947b03-00-1sqcj085m7yvg.riker.replit.dev/src/components/ProtectedRoute.tsx?t=1770895268088:25:34)
+    at RenderedRoute (https://bbacea41-997c-4c92-a955-edb1c9947b03-00-1sqcj085m7yvg.riker.replit.dev/node_modules/.vite/deps/react-router-dom.js?v=aaa2e922:4131:5)
+    at Routes (https://bbacea41-997c-4c92-a955-edb1c9947b03-00-1sqcj085m7yvg.riker.replit.dev/node_modules/.vite/deps/react-router-dom.js?v=aaa2e922:4601:5)
+    at Router (https://bbacea41-997c-4c92-a955-edb1c9947b03-00-1sqcj085m7yvg.riker.replit.dev/node_modules/.vite/deps/react-router-dom.js?v=aaa2e922:4544:15)
+    at BrowserRouter (https://bbacea41-997c-4c92-a955-edb1c9947b03-00-1sqcj085m7yvg.riker.replit.dev/node_modules/.vite/deps/react-router-dom.js?v=aaa2e922:5290:5)
+    at Provider (https://bbacea41-997c-4c92-a955-edb1c9947b03-00-1sqcj085m7yvg.riker.replit.dev/node_modules/.vite/deps/chunk-4QWZAODO.js?v=aaa2e922:55:15)
+    at TooltipProvider (https://bbacea41-997c-4c92-a955-edb1c9947b03-00-1sqcj085m7yvg.riker.replit.dev/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=aaa2e922:158:5)
+    at ThemeProvider (https://bbacea41-997c-4c92-a955-edb1c9947b03-00-1sqcj085m7yvg.riker.replit.dev/src/contexts/ThemeContext.tsx?t=1770895267940:25:33)
+    at QueryClientProvider (https://bbacea41-997c-4c92-a955-edb1c9947b03-00-1sqcj085m7yvg.riker.replit.dev/node_modules/.vite/deps/@tanstack_react-query.js?v=aaa2e922:3168:3)
+    at App
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+logCapturedError @ chunk-CPR2DGMD.js?v=aaa2e922:14032Understand this error
+chunk-CPR2DGMD.js?v=aaa2e922:19413 Uncaught Error: useTheme must be used within a ThemeProvider
+    at useTheme (ThemeContext.tsx:49:11)
+    at Layout (Layout.tsx:236:34)
+    at renderWithHooks (chunk-CPR2DGMD.js?v=aaa2e922:11548:26)
+    at mountIndeterminateComponent (chunk-CPR2DGMD.js?v=aaa2e922:14926:21)
+    at beginWork (chunk-CPR2DGMD.js?v=aaa2e922:15914:22)
+    at beginWork$1 (chunk-CPR2DGMD.js?v=aaa2e922:19753:22)
+    at performUnitOfWork (chunk-CPR2DGMD.js?v=aaa2e922:19198:20)
+    at workLoopSync (chunk-CPR2DGMD.js?v=aaa2e922:19137:13)
+    at renderRootSync (chunk-CPR2DGMD.js?v=aaa2e922:19116:15)
+    at recoverFromConcurrentError (chunk-CPR2DGMD.js?v=aaa2e922:18736:28)Understand this error
