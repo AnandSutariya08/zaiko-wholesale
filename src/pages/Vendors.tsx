@@ -76,8 +76,11 @@ export default function Vendors() {
     }
   };
 
-  const getVendorTransactions = (vendorId: string) => {
-    const vendorBills = purchaseBills.filter(b => b.vendorId === vendorId);
+  const getVendorTransactions = (vendorId: string, vendorName: string) => {
+    const vendorBills = purchaseBills.filter(b => 
+      (b.vendorId && b.vendorId === vendorId) || 
+      (!b.vendorId && b.vendorName.toLowerCase().trim() === vendorName.toLowerCase().trim())
+    );
     const transactions: any[] = [];
 
     vendorBills.forEach(bill => {
@@ -121,6 +124,34 @@ export default function Vendors() {
     });
 
     return transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  };
+
+  const getVendorStats = (vendorId: string, vendorName: string) => {
+    const vendorBills = purchaseBills.filter(b => 
+      (b.vendorId && b.vendorId === vendorId) || 
+      (!b.vendorId && b.vendorName.toLowerCase().trim() === vendorName.toLowerCase().trim())
+    );
+    
+    let totalPurchase = 0;
+    let totalPaid = 0;
+    let totalReturn = 0;
+
+    vendorBills.forEach(bill => {
+      totalPurchase += bill.total;
+      totalPaid += bill.paidAmount || 0;
+      if (bill.returns) {
+        bill.returns.forEach(r => totalReturn += r.totalReturnValue);
+      }
+    });
+
+    const pendingAmount = totalPurchase - totalPaid - totalReturn;
+
+    return {
+      totalPurchase,
+      pendingAmount,
+      totalReturn,
+      billCount: vendorBills.length
+    };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -265,6 +296,28 @@ export default function Vendors() {
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Vendor Details: {viewingVendor.name}</DialogTitle></DialogHeader>
             <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card className="bg-primary/5 border-primary/20">
+                  <CardContent className="pt-4">
+                    <p className="text-xs text-muted-foreground uppercase font-semibold">Total Purchase</p>
+                    <p className="text-2xl font-bold">{formatCurrency(getVendorStats(viewingVendor.id, viewingVendor.name).totalPurchase)}</p>
+                    <p className="text-[10px] text-muted-foreground">{getVendorStats(viewingVendor.id, viewingVendor.name).billCount} Bills</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-orange-50 border-orange-200">
+                  <CardContent className="pt-4">
+                    <p className="text-xs text-orange-600 uppercase font-semibold">Pending Amount</p>
+                    <p className="text-2xl font-bold text-orange-700">{formatCurrency(getVendorStats(viewingVendor.id, viewingVendor.name).pendingAmount)}</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-blue-50 border-blue-200">
+                  <CardContent className="pt-4">
+                    <p className="text-xs text-blue-600 uppercase font-semibold">Return Amount</p>
+                    <p className="text-2xl font-bold text-blue-700">{formatCurrency(getVendorStats(viewingVendor.id, viewingVendor.name).totalReturn)}</p>
+                  </CardContent>
+                </Card>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label className="text-muted-foreground">General Info</Label>
@@ -293,8 +346,14 @@ export default function Vendors() {
                     <CardHeader><CardTitle className="text-sm">All Purchase Bills</CardTitle></CardHeader>
                     <CardContent>
                       <div className="space-y-3">
-                        {purchaseBills.filter(b => b.vendorId === viewingVendor.id).length > 0 ? (
-                          purchaseBills.filter(b => b.vendorId === viewingVendor.id).map(bill => (
+                        {purchaseBills.filter(b => 
+                          (b.vendorId && b.vendorId === viewingVendor.id) || 
+                          (!b.vendorId && b.vendorName.toLowerCase().trim() === viewingVendor.name.toLowerCase().trim())
+                        ).length > 0 ? (
+                          purchaseBills.filter(b => 
+                            (b.vendorId && b.vendorId === viewingVendor.id) || 
+                            (!b.vendorId && b.vendorName.toLowerCase().trim() === viewingVendor.name.toLowerCase().trim())
+                          ).map(bill => (
                             <div key={bill.id} className="flex justify-between items-center p-3 border rounded hover:bg-muted/50 transition-colors">
                               <div>
                                 <p className="font-medium">Bill #{bill.billNumber || "N/A"}</p>
@@ -320,8 +379,8 @@ export default function Vendors() {
                     <CardHeader><CardTitle className="text-sm">Transaction History</CardTitle></CardHeader>
                     <CardContent>
                       <div className="space-y-3">
-                        {getVendorTransactions(viewingVendor.id).length > 0 ? (
-                          getVendorTransactions(viewingVendor.id).map(tx => (
+                        {getVendorTransactions(viewingVendor.id, viewingVendor.name).length > 0 ? (
+                          getVendorTransactions(viewingVendor.id, viewingVendor.name).map(tx => (
                             <div key={tx.id} className="flex justify-between items-center p-3 border rounded hover:bg-muted/50 transition-colors">
                               <div className="flex items-center gap-3">
                                 <div className={`p-2 rounded-full ${tx.type === 'Purchase' ? 'bg-orange-100 text-orange-600' : tx.type === 'Payment' ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
