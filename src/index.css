@@ -8,7 +8,7 @@
     -webkit-text-size-adjust: 100%;
     -webkit-tap-highlight-color: transparent;
   }
-  
+
   body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -20,7 +20,7 @@
     height: 100vh;
     overflow-y: hidden;
   }
-  
+
   /* On desktop, allow body to scroll normally */
   @media (min-width: 768px) {
     body {
@@ -28,7 +28,7 @@
       overflow-y: auto;
     }
   }
-  
+
   #root {
     overflow-x: hidden;
     width: 100%;
@@ -36,7 +36,7 @@
     height: 100vh;
     overflow-y: hidden;
   }
-  
+
   /* On desktop, allow root to scroll normally */
   @media (min-width: 768px) {
     #root {
@@ -44,42 +44,47 @@
       overflow-y: auto;
     }
   }
-  
+
   /* Prevent horizontal scroll on all containers */
   * {
     max-width: 100%;
   }
-  
+
   /* Allow horizontal scroll only for specific elements */
   .allow-horizontal-scroll {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-x: contain;
   }
-  
+
   /* Prevent scroll chaining on mobile for nested scrollable elements */
-  @media (max-width: 767px) {
+  /* @media (max-width: 767px) {
     [class*="overflow"] {
       overscroll-behavior: contain;
     }
-  }
-  
+  } */
+
   /* Safe area insets for mobile devices with notches */
   .safe-area-inset-bottom {
     padding-bottom: env(safe-area-inset-bottom);
   }
-  
+
   .safe-area-inset-top {
     padding-top: env(safe-area-inset-top);
   }
-  
+
   /* Better touch targets for mobile */
-  button, a, input, select, textarea {
+  button,
+  a,
+  input,
+  select,
+  textarea {
     touch-action: manipulation;
   }
-  
+
   /* Prevent text selection on mobile for better UX */
-  button, .no-select {
+  button,
+  .no-select {
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
@@ -209,18 +214,22 @@ All colors MUST be HSL.
 
 /* Typography scale - use consistently across the app */
 @layer components {
+
   /* Page title: largest heading on a page */
   .page-title {
     @apply text-xl sm:text-2xl md:text-3xl font-bold text-foreground;
   }
+
   /* Page subtitle: description under page title, always smaller */
   .page-subtitle {
     @apply text-sm text-muted-foreground mt-1;
   }
+
   /* Card/section title */
   .section-title {
     @apply text-base font-semibold text-foreground;
   }
+
   /* Card/section subtitle or label */
   .section-label {
     @apply text-xs text-muted-foreground uppercase tracking-wide font-medium;
