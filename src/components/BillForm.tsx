@@ -28,6 +28,7 @@ import {
   getCompanyProfile,
   validateBillStock,
   getCreators,
+  getBankAccounts,
 } from "@/lib/storage";
 import {
   calculateBillTotals,
@@ -47,6 +48,7 @@ import {
   ChevronsUpDown,
   UserPlus,
   PlusCircle,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -66,7 +68,7 @@ import {
 import { ClientForm } from "./ClientForm";
 import { ProductForm } from "./ProductForm";
 import { Switch } from "./ui/switch";
-import { BillCreator } from "@/types";
+import { BillCreator, BankAccount } from "@/types";
 
 interface BillFormProps {
   bill?: Bill;
@@ -85,6 +87,7 @@ export function BillForm({ bill, isEdit = false }: BillFormProps) {
   const [clients, setClients] = useState<Client[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [availableCreators, setAvailableCreators] = useState<BillCreator[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [clientComboOpen, setClientComboOpen] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
@@ -128,6 +131,7 @@ export function BillForm({ bill, isEdit = false }: BillFormProps) {
     discount: "",
     discountType: "amount" as "amount" | "percentage",
     createdBy: "",
+    bankAccountId: "",
   });
 
   const [internationalData, setInternationalData] = useState({
@@ -148,17 +152,19 @@ export function BillForm({ bill, isEdit = false }: BillFormProps) {
 
   useEffect(() => {
     const loadData = async () => {
-      const [clientsData, productsData, companyData, creatorsData] =
+      const [clientsData, productsData, companyData, creatorsData, banksData] =
         await Promise.all([
           getClients(),
           getProducts(),
           getCompanyProfile(),
           getCreators(),
+          getBankAccounts(),
         ]);
       setClients(clientsData);
       setProducts(productsData);
       setCompanyProfile(companyData);
       setAvailableCreators(creatorsData);
+      setBankAccounts(banksData);
       setGstEnabled(companyData?.gstEnabled ?? true);
 
       if (bill && isEdit) {
@@ -179,6 +185,7 @@ export function BillForm({ bill, isEdit = false }: BillFormProps) {
           discount: bill.discount ? String(bill.discount) : "",
           discountType: bill.discountType || "amount",
           createdBy: bill.createdBy || "",
+          bankAccountId: bill.bankAccountId || "",
         });
 
         if (bill.internationalDetails) {
@@ -350,6 +357,10 @@ export function BillForm({ bill, isEdit = false }: BillFormProps) {
       const user = getCurrentUser();
       const creator = user.role === "admin" ? "Admin" : user.name || "Unknown";
 
+      const selectedBankAccount = bankAccounts.find(a => a.id === formData.bankAccountId) || 
+                                 bankAccounts.find(a => a.isDefault) || 
+                                 bankAccounts[0];
+
       const newBill: Bill = {
         id: bill?.id || crypto.randomUUID(),
         billNumber:
@@ -381,6 +392,8 @@ export function BillForm({ bill, isEdit = false }: BillFormProps) {
         notes: formData.notes,
         createdBy: isEdit ? bill?.createdBy : creator,
         payments: bill?.payments || [],
+        bankAccountId: selectedBankAccount?.id,
+        bankAccount: selectedBankAccount,
         createdAt: bill?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         originalItems: isEdit ? originalBillItems : undefined,
@@ -657,6 +670,25 @@ export function BillForm({ bill, isEdit = false }: BillFormProps) {
             </div>
 
             {/* Client Combobox */}
+            <div className="space-y-2">
+              <Label>Bank Account (Optional)</Label>
+              <Select
+                value={formData.bankAccountId}
+                onValueChange={(value) => setFormData({ ...formData, bankAccountId: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select bank account for bill" />
+                </SelectTrigger>
+                <SelectContent>
+                  {bankAccounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.bankName} - {account.accountNumber} {account.isDefault ? "(Default)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="space-y-2">
               <Label>Client *</Label>
               <Popover open={clientComboOpen} onOpenChange={setClientComboOpen}>

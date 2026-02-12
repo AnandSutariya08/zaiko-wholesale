@@ -26,6 +26,7 @@ import Files from "@/pages/Files";
 import Notes from "@/pages/Notes";
 import SampleBill from "@/pages/SampleBill";
 import BillCreators from "@/pages/BillCreators";
+import BankAccounts from "@/pages/BankAccounts";
 import AIAgent from "@/pages/AIAgent";
 import { LoadingSpinner } from "./components/LoadingSpinner";
 import { Suspense } from "react";
@@ -69,6 +70,7 @@ const App = () => (
                       <Route path="/settings" element={<Settings />} />
                       <Route path="/files" element={<Files />} />
                       <Route path="/notes" element={<Notes />} />
+                      <Route path="/bank-accounts" element={<BankAccounts />} />
                       <Route path="/bill-creators" element={<BillCreators />} />
                       <Route path="/ai-agent" element={<AIAgent />} />
                       <Route path="*" element={<NotFound />} />

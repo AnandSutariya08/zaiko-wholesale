@@ -598,7 +598,7 @@ export const incrementBillCounter = async (): Promise<number> => {
     const docSnap = await getDoc(docRef);
 
     const currentCounter = docSnap.exists() ? docSnap.data().counter || 0 : 0;
-    const newCounter = currentCounter + 1;
+    const newCounter = Number(currentCounter) + 1;
 
     const cleanedData = removeUndefined({ counter: newCounter, userId });
     await setDoc(docRef, cleanedData, { merge: true });

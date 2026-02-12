@@ -315,6 +315,18 @@ export const BillPDF = ({
                 <Text>{addressLines(company.address)}</Text>
                 <Text>TEL: {company.phone}</Text>
                 <Text>GST NO: {company.gstin || "N.A."}</Text>
+
+                {bill.bankAccount && (
+                  <View style={{ marginTop: 8 }}>
+                    <Text style={{ fontWeight: "bold" }}>Bank Details:</Text>
+                    <Text>{bill.bankAccount.bankName}</Text>
+                    <Text>A/C: {bill.bankAccount.accountNumber}</Text>
+                    <Text>IFSC: {bill.bankAccount.branchAndIFSC}</Text>
+                    {bill.bankAccount.upiId && (
+                      <Text>UPI: {bill.bankAccount.upiId}</Text>
+                    )}
+                  </View>
+                )}
               </View>
 
               {/* Right: Invoice details + Buyer */}
