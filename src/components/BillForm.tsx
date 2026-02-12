@@ -352,10 +352,11 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType }: 
         totals.total,
       );
 
+      let billCounterVal;
       if (billType === "GST" || billType === "NON_GST" || billType === "SAMPLE") {
-        billCounter = isEdit ? await getBillCounter(billType) : await incrementBillCounter(billType);
+        billCounterVal = isEdit ? await getBillCounter(billType) : await incrementBillCounter(billType);
       } else {
-        billCounter = isEdit ? await getBillCounter() : await incrementBillCounter();
+        billCounterVal = isEdit ? await getBillCounter() : await incrementBillCounter();
       }
 
       // Automatically set creator from logged in user
@@ -371,7 +372,7 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType }: 
         billNumber:
           bill?.billNumber ||
           generateBillNumber(
-            billCounter,
+            billCounterVal,
             companyProfile.name.substring(0, 6).toUpperCase(),
             billType
           ),
@@ -391,7 +392,7 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType }: 
         paymentStatus,
         paidAmount: paidAmountNum,
         gstType: gstType,
-        billType: internalBillType,
+        billType: internalBillType as any,
         deliveryNote: formData.deliveryNote,
         modeOfPayment: formData.modeOfPayment,
         placeOfSupply: formData.placeOfSupply,
@@ -404,7 +405,7 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType }: 
         updatedAt: new Date().toISOString(),
         originalItems: isEdit ? originalBillItems : undefined,
         internationalDetails:
-          internalBillType === "international"
+          (internalBillType as string) === "international"
             ? {
                 preCarriageBy: internationalData.preCarriageBy,
                 vesselsFlightNo: internationalData.vesselsFlightNo,
@@ -442,11 +443,10 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType }: 
     if (barcodeSearch.trim()) {
       const product = products.find(p => p.barcode === barcodeSearch.trim());
       if (product) {
-        // Add to bill items if not already there, or update quantity
-        const existingItemIndex = billItems.findIndex(item => item.productId === product.id);
-        if (existingItemIndex > -1) {
-          updateItem(existingItemIndex, "quantity", billItems[existingItemIndex].quantity + 1);
-        } else {
+    const existingItemIndex = billItems.findIndex(item => item.productId === product.id);
+    if (existingItemIndex > -1) {
+      updateItem(existingItemIndex, "quantity", billItems[existingItemIndex].quantity + 1);
+    } else {
           const newItem: BillItem = {
             productId: product.id,
             productName: product.name,
