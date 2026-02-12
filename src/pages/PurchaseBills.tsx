@@ -720,6 +720,21 @@ function PurchaseBills() {
 
     setInventoryItems(items);
     setInventoryDialogBill(bill);
+    
+    // Update the bill object itself if vendor is selected in the inventory items
+    // This ensures that when confirmAddToInventory is called, the bill already has the vendor
+    if (items.length > 0 && items[0].vendorId) {
+      const vendor = vendors.find(v => v.id === items[0].vendorId);
+      if (vendor) {
+        setSelectedBill({
+          ...bill,
+          vendorId: vendor.id,
+          vendorName: vendor.name,
+          vendorGstin: vendor.gstin || "",
+          vendorAddress: vendor.address || ""
+        });
+      }
+    }
   };
 
   const confirmAddToInventory = async (
