@@ -1,9 +1,18 @@
+import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +41,7 @@ import { formatCurrency, formatDate } from "@/lib/billUtils";
 import { Badge } from "@/components/ui/badge";
 
 export default function Vendors() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [purchaseBills, setPurchaseBills] = useState<PurchaseBill[]>([]);
@@ -386,20 +396,38 @@ export default function Vendors() {
                           );
                           
                           if (filteredBills.length > 0) {
-                            return filteredBills.map(bill => (
-                              <div key={bill.id} className="flex justify-between items-center p-3 border rounded hover:bg-muted/50 transition-colors">
-                                <div>
-                                  <p className="font-medium">Bill #{bill.billNumber || "N/A"}</p>
-                                  <p className="text-xs text-muted-foreground">{formatDate(bill.billDate || bill.createdAt)}</p>
-                                </div>
-                                <div className="text-right">
-                                  <p className="font-semibold">{formatCurrency(bill.total)}</p>
-                                  <Badge variant={bill.paymentStatus === 'paid' ? 'default' : bill.paymentStatus === 'overdue' ? 'destructive' : 'outline'}>
-                                    {bill.paymentStatus.toUpperCase()}
-                                  </Badge>
-                                </div>
+                            return (
+                              <div className="rounded-md border">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>Bill #</TableHead>
+                                      <TableHead>Date</TableHead>
+                                      <TableHead>Total</TableHead>
+                                      <TableHead>Status</TableHead>
+                                      <TableHead className="text-right">Action</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {filteredBills.map(bill => (
+                                      <TableRow key={bill.id}>
+                                        <TableCell className="font-medium">{bill.billNumber || "N/A"}</TableCell>
+                                        <TableCell>{formatDate(bill.billDate || bill.createdAt)}</TableCell>
+                                        <TableCell>{formatCurrency(bill.total)}</TableCell>
+                                        <TableCell>
+                                          <Badge variant={bill.paymentStatus === 'paid' ? 'default' : bill.paymentStatus === 'overdue' ? 'destructive' : 'outline'}>
+                                            {bill.paymentStatus.toUpperCase()}
+                                          </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                          <Button variant="ghost" size="sm" onClick={() => navigate(`/purchase-bills?id=${bill.id}`)}>View</Button>
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
                               </div>
-                            ));
+                            );
                           }
                           return <div className="text-center py-8 text-muted-foreground">No purchase bills found for this vendor.</div>;
                         })()}
