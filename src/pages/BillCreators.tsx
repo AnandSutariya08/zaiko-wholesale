@@ -251,8 +251,18 @@ export default function BillCreators() {
       ]);
 
       const allBills = [...regularBills, ...sampleBills];
+      
+      const creatorData = creators.find(c => c.name === selectedCreator);
+      const isExpo = creatorData?.type === "Expo";
+      const expoId = creatorData?.expoId;
+
       const filtered = allBills
-        .filter((bill) => bill.createdBy === selectedCreator)
+        .filter((bill) => {
+          if (isExpo && expoId) {
+            return bill.createdBy === selectedCreator && (bill as any).expoId === expoId;
+          }
+          return bill.createdBy === selectedCreator;
+        })
         .sort(
           (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
         );
@@ -658,6 +668,31 @@ export default function BillCreators() {
                 onChange={(e) => setEditedCreatorName(e.target.value)}
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-type">User Type</Label>
+              <select
+                id="edit-type"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={editedCreatorType}
+                onChange={(e) => setEditedCreatorType(e.target.value as any)}
+              >
+                <option value="Creator">Creator</option>
+                <option value="Employee">Employee</option>
+                <option value="CA">CA</option>
+                <option value="Expo">Expo</option>
+              </select>
+            </div>
+            {editedCreatorType === "Expo" && (
+              <div className="space-y-2">
+                <Label htmlFor="edit-expoId">Expo ID</Label>
+                <Input
+                  id="edit-expoId"
+                  placeholder="e.g. EXPO-001"
+                  value={editedExpoId}
+                  onChange={(e) => setEditedExpoId(e.target.value)}
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="edit-password">New Password (optional)</Label>
               <div className="relative">
