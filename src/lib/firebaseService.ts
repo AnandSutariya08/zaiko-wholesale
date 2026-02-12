@@ -40,6 +40,7 @@ import {
   PurchaseReturn,
   PurchaseReturnItem,
   BankAccount,
+  Vendor,
 } from "@/types";
 
 // Collection names
@@ -63,6 +64,7 @@ const COLLECTIONS = {
   PURCHASE_RETURNS: "purchaseReturns",
   CREATORS: "creators",
   BANK_ACCOUNTS: "bankAccounts",
+  VENDORS: "vendors",
 };
 
 // Helper function to get user ID (for multi-user support in future)
@@ -171,6 +173,46 @@ export const deleteBankAccount = async (id: string): Promise<void> => {
   }
 };
 
+// Vendors
+export const getVendors = async (): Promise<Vendor[]> => {
+  try {
+    const userId = getUserId();
+    const q = query(
+      collection(db, COLLECTIONS.VENDORS),
+      where("userId", "==", userId)
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Vendor[];
+  } catch (error) {
+    console.error("Error getting vendors:", error);
+    return [];
+  }
+};
+
+export const saveVendor = async (vendor: Vendor): Promise<void> => {
+  try {
+    const userId = getUserId();
+    const docRef = doc(db, COLLECTIONS.VENDORS, vendor.id);
+    await setDoc(docRef, removeUndefined({ ...vendor, userId }), { merge: true });
+  } catch (error) {
+    console.error("Error saving vendor:", error);
+    throw error;
+  }
+};
+
+export const deleteVendor = async (id: string): Promise<void> => {
+  try {
+    const docRef = doc(db, COLLECTIONS.VENDORS, id);
+    await deleteDoc(docRef);
+  } catch (error) {
+    console.error("Error deleting vendor:", error);
+    throw error;
+  }
+};
+
 // Company Profile
 export const getCompanyProfile = async (): Promise<CompanyProfile | null> => {
   try {
@@ -272,7 +314,8 @@ export const getProducts = async (): Promise<Product[]> => {
         purchasePrice: data.purchasePrice || 0,
         sellingPrice: data.sellingPrice || data.price || 0,
         weight: typeof data.weight === "string" ? parseFloat(data.weight) || 0 : (data.weight || 0),
-        weightUnit: (data.weightUnit as any) || (data.unit === "kg" ? "kg" : "g"),
+        weightUnit: (data.weightUnit as string) || (data.unit === "kg" ? "kg" : "g"),
+        vendorId: data.vendorId || "",
       } as Product;
     });
 
@@ -1287,7 +1330,8 @@ const createNewProduct = async (
     stock: item.quantity,
     createdAt: new Date().toISOString(),
     whereToBuy: bill.vendorName || "",
-    weight: "",
+    vendorId: bill.vendorId || "",
+    weight: 0,
   };
 
   const productRef = doc(db, COLLECTIONS.PRODUCTS, newProduct.id);

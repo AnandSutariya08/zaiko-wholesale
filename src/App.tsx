@@ -26,6 +26,7 @@ import Expenses from "@/pages/Expenses";
 import Passbook from "@/pages/Passbook";
 import Files from "@/pages/Files";
 import Notes from "@/pages/Notes";
+import Vendors from "@/pages/Vendors";
 import SampleBill from "@/pages/SampleBill";
 import BillCreators from "@/pages/BillCreators";
 import BankAccounts from "@/pages/BankAccounts";
@@ -72,6 +73,7 @@ const App = () => (
                       <Route path="/expenses" element={<Expenses />} />
                       <Route path="/products" element={<Products />} />
                       <Route path="/clients" element={<Clients />} />
+                      <Route path="/vendors" element={<Vendors />} />
                       <Route path="/settings" element={<Settings />} />
                       <Route path="/files" element={<Files />} />
                       <Route path="/notes" element={<Notes />} />
