@@ -203,11 +203,13 @@ export const formatDate = (date: string): string => {
 
 export const generateBillNumber = (
   counter: number,
-  companyPrefix: string
+  companyPrefix: string,
+  type?: string
 ): string => {
   const year = new Date().getFullYear();
   const nextYear = year + 1;
-  return `${companyPrefix}/${counter}/${year.toString().slice(2)}-${nextYear
+  const prefix = type ? `${type}-` : "";
+  return `${prefix}${companyPrefix}/${counter}/${year.toString().slice(2)}-${nextYear
     .toString()
     .slice(2)}`;
 };

@@ -12,6 +12,8 @@ import Bills from "@/pages/Bills";
 import CreateBill from "@/pages/CreateBill";
 import EditBill from "@/pages/EditBill";
 import BillDetail from "@/pages/BillDetail";
+import GSTBill from "@/pages/GSTBill";
+import NonGSTBill from "@/pages/NonGSTBill";
 import Products from "@/pages/Products";
 import Clients from "@/pages/Clients";
 import Settings from "@/pages/Settings";
@@ -58,6 +60,8 @@ const App = () => (
                     <Routes>
                       <Route path="/" element={<Dashboard />} />
                       <Route path="/bills" element={<Bills />} />
+                      <Route path="/bills/gst" element={<GSTBill />} />
+                      <Route path="/bills/non-gst" element={<NonGSTBill />} />
                       <Route path="/sample-bill" element={<SampleBill />} />
                       <Route path="/bills/new" element={<CreateBill />} />
                       <Route path="/bills/:id" element={<BillDetail />} />

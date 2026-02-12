@@ -38,11 +38,20 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
   useSidebar,
 } from "./ui/sidebar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { ChevronRight } from "lucide-react";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -117,6 +126,70 @@ function AppSidebarContent({
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.path);
+
+                if (item.label === "Bills") {
+                  return (
+                    <Collapsible
+                      key={item.path}
+                      asChild
+                      defaultOpen={active}
+                      className="group/collapsible"
+                    >
+                      <SidebarMenuItem>
+                        <CollapsibleTrigger asChild>
+                          <SidebarMenuButton
+                            tooltip={item.label}
+                            size="lg"
+                            className={cn(
+                              "rounded-lg px-3 h-11 transition-all duration-200",
+                              "group-data-[collapsible=icon]:!h-10 group-data-[collapsible=icon]:!rounded-lg",
+                              active && "bg-primary/15 text-primary font-semibold shadow-md ring-2 ring-primary/30 group-data-[collapsible=icon]:ring-2"
+                            )}
+                          >
+                            <Icon className={cn("size-5 shrink-0", active && "text-primary")} />
+                            <span className="font-medium">{item.label}</span>
+                            <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                          </SidebarMenuButton>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <SidebarMenuSub>
+                            <SidebarMenuSubItem>
+                              <SidebarMenuSubButton asChild isActive={location.pathname === "/bills"}>
+                                <Link to="/bills" onClick={handleNavClick}>
+                                  <span>All Bills</span>
+                                </Link>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                            <SidebarMenuSubItem>
+                              <SidebarMenuSubButton asChild isActive={location.pathname === "/bills/gst"}>
+                                <Link to="/bills/gst" onClick={handleNavClick}>
+                                  <span>GST Bill</span>
+                                </Link>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                            <SidebarMenuSubItem>
+                              <SidebarMenuSubButton asChild isActive={location.pathname === "/bills/non-gst"}>
+                                <Link to="/bills/non-gst" onClick={handleNavClick}>
+                                  <span>Non-GST Bill</span>
+                                </Link>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                            <SidebarMenuSubItem>
+                              <SidebarMenuSubButton asChild isActive={location.pathname === "/sample-bill"}>
+                                <Link to="/sample-bill" onClick={handleNavClick}>
+                                  <span>Sample Bill</span>
+                                </Link>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          </SidebarMenuSub>
+                        </CollapsibleContent>
+                      </SidebarMenuItem>
+                    </Collapsible>
+                  );
+                }
+
+                if (item.label === "Sample") return null;
+
                 return (
                   <SidebarMenuItem key={item.path}>
                     <SidebarMenuButton

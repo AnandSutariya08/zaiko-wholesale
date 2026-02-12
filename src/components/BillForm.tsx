@@ -73,9 +73,11 @@ import { BillCreator, BankAccount } from "@/types";
 interface BillFormProps {
   bill?: Bill;
   isEdit?: boolean;
+  initialGstEnabled?: boolean;
+  billType?: "GST" | "NON_GST" | "SAMPLE";
 }
 
-export function BillForm({ bill, isEdit = false }: BillFormProps) {
+export function BillForm({ bill, isEdit = false, initialGstEnabled, billType }: BillFormProps) {
   const navigate = useNavigate();
   useEffect(() => {
     if (bill && isEdit && bill.paymentStatus === "paid") {
@@ -106,7 +108,7 @@ export function BillForm({ bill, isEdit = false }: BillFormProps) {
   const [originalBillItems, setOriginalBillItems] = useState<BillItem[]>([]);
   const [billItems, setBillItems] = useState<BillItem[]>([]);
   const [gstType, setGstType] = useState<"igst" | "cgst_sgst">("cgst_sgst");
-  const [billType, setBillType] = useState<"domestic" | "international">(
+  const [internalBillType, setInternalBillType] = useState<"domestic" | "international">(
     "domestic",
   );
   const [saving, setSaving] = useState(false);
@@ -149,7 +151,7 @@ export function BillForm({ bill, isEdit = false }: BillFormProps) {
   });
 
   const [companyProfile, setCompanyProfile] = useState<any>(null);
-  const [gstEnabled, setGstEnabled] = useState(true);
+  const [gstEnabled, setGstEnabled] = useState(initialGstEnabled ?? true);
 
   useEffect(() => {
     const loadData = async () => {
@@ -166,14 +168,16 @@ export function BillForm({ bill, isEdit = false }: BillFormProps) {
       setCompanyProfile(companyData);
       setAvailableCreators(creatorsData);
       setBankAccounts(banksData);
-      setGstEnabled(companyData?.gstEnabled ?? true);
+      if (initialGstEnabled === undefined) {
+        setGstEnabled(companyData?.gstEnabled ?? true);
+      }
 
       if (bill && isEdit) {
         setSelectedClient(bill.client);
         setBillItems(bill.items);
         setOriginalBillItems(JSON.parse(JSON.stringify(bill.items)));
         setGstType(bill.gstType || "cgst_sgst");
-        setBillType(bill.billType || "domestic");
+        setInternalBillType(bill.billType || "domestic");
         setFormData({
           date: bill.date,
           paymentTerms: bill.paymentTerms,
@@ -220,7 +224,7 @@ export function BillForm({ bill, isEdit = false }: BillFormProps) {
       }
     };
     loadData();
-  }, [bill, isEdit]);
+  }, [bill, isEdit, initialGstEnabled]);
 
   const handleSubmit = async () => {
     if (!selectedClient) {
@@ -349,9 +353,9 @@ export function BillForm({ bill, isEdit = false }: BillFormProps) {
 
       let billCounter = 0;
       if (!isEdit) {
-        billCounter = await incrementBillCounter();
+        billCounter = await incrementBillCounter(billType);
       } else {
-        billCounter = await getBillCounter();
+        billCounter = await getBillCounter(billType);
       }
 
       // Automatically set creator from logged in user
@@ -369,6 +373,7 @@ export function BillForm({ bill, isEdit = false }: BillFormProps) {
           generateBillNumber(
             billCounter,
             companyProfile.name.substring(0, 6).toUpperCase(),
+            billType
           ),
         date: formData.date,
         clientId: selectedClient.id,
@@ -386,7 +391,7 @@ export function BillForm({ bill, isEdit = false }: BillFormProps) {
         paymentStatus,
         paidAmount: paidAmountNum,
         gstType: gstType,
-        billType: billType,
+        billType: internalBillType,
         deliveryNote: formData.deliveryNote,
         modeOfPayment: formData.modeOfPayment,
         placeOfSupply: formData.placeOfSupply,
@@ -399,7 +404,7 @@ export function BillForm({ bill, isEdit = false }: BillFormProps) {
         updatedAt: new Date().toISOString(),
         originalItems: isEdit ? originalBillItems : undefined,
         internationalDetails:
-          billType === "international"
+          internalBillType === "international"
             ? {
                 preCarriageBy: internationalData.preCarriageBy,
                 vesselsFlightNo: internationalData.vesselsFlightNo,
