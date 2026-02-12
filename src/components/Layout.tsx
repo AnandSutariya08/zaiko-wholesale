@@ -102,7 +102,7 @@ function AppSidebarContent({
           </div>
           <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
             <h2 className="font-bold text-sidebar-foreground truncate text-base tracking-tight">
-              {company?.name || "BillEasy"}
+              {company?.name || "Invoice Mitra"}
             </h2>
             <p className="text-xs text-sidebar-foreground/60 truncate mt-0.5 font-medium">
               {user.name}
@@ -143,10 +143,16 @@ function AppSidebarContent({
                             className={cn(
                               "rounded-lg px-3 h-11 transition-all duration-200",
                               "group-data-[collapsible=icon]:!h-10 group-data-[collapsible=icon]:!rounded-lg",
-                              active && "bg-primary/15 text-primary font-semibold shadow-md ring-2 ring-primary/30 group-data-[collapsible=icon]:ring-2"
+                              active &&
+                                "bg-primary/15 text-primary font-semibold shadow-md ring-2 ring-primary/30 group-data-[collapsible=icon]:ring-2",
                             )}
                           >
-                            <Icon className={cn("size-5 shrink-0", active && "text-primary")} />
+                            <Icon
+                              className={cn(
+                                "size-5 shrink-0",
+                                active && "text-primary",
+                              )}
+                            />
                             <span className="font-medium">{item.label}</span>
                             <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                           </SidebarMenuButton>
@@ -154,29 +160,49 @@ function AppSidebarContent({
                         <CollapsibleContent>
                           <SidebarMenuSub>
                             <SidebarMenuSubItem>
-                              <SidebarMenuSubButton asChild isActive={location.pathname === "/bills"}>
+                              <SidebarMenuSubButton
+                                asChild
+                                isActive={location.pathname === "/bills"}
+                              >
                                 <Link to="/bills" onClick={handleNavClick}>
                                   <span>All Bills</span>
                                 </Link>
                               </SidebarMenuSubButton>
                             </SidebarMenuSubItem>
                             <SidebarMenuSubItem>
-                              <SidebarMenuSubButton asChild isActive={location.pathname === "/bills/gst"}>
+                              <SidebarMenuSubButton
+                                asChild
+                                isActive={location.pathname === "/bills/gst"}
+                              >
                                 <Link to="/bills/gst" onClick={handleNavClick}>
                                   <span>GST Bill</span>
                                 </Link>
                               </SidebarMenuSubButton>
                             </SidebarMenuSubItem>
                             <SidebarMenuSubItem>
-                              <SidebarMenuSubButton asChild isActive={location.pathname === "/bills/non-gst"}>
-                                <Link to="/bills/non-gst" onClick={handleNavClick}>
+                              <SidebarMenuSubButton
+                                asChild
+                                isActive={
+                                  location.pathname === "/bills/non-gst"
+                                }
+                              >
+                                <Link
+                                  to="/bills/non-gst"
+                                  onClick={handleNavClick}
+                                >
                                   <span>Non-GST Bill</span>
                                 </Link>
                               </SidebarMenuSubButton>
                             </SidebarMenuSubItem>
                             <SidebarMenuSubItem>
-                              <SidebarMenuSubButton asChild isActive={location.pathname === "/sample-bill"}>
-                                <Link to="/sample-bill" onClick={handleNavClick}>
+                              <SidebarMenuSubButton
+                                asChild
+                                isActive={location.pathname === "/sample-bill"}
+                              >
+                                <Link
+                                  to="/sample-bill"
+                                  onClick={handleNavClick}
+                                >
                                   <span>Sample Bill</span>
                                 </Link>
                               </SidebarMenuSubButton>
@@ -200,11 +226,17 @@ function AppSidebarContent({
                       className={cn(
                         "rounded-lg px-3 h-11 transition-all duration-200",
                         "group-data-[collapsible=icon]:!h-10 group-data-[collapsible=icon]:!rounded-lg",
-                        active && "bg-primary/15 text-primary font-semibold shadow-md ring-2 ring-primary/30 group-data-[collapsible=icon]:ring-2"
+                        active &&
+                          "bg-primary/15 text-primary font-semibold shadow-md ring-2 ring-primary/30 group-data-[collapsible=icon]:ring-2",
                       )}
                     >
                       <Link to={item.path} onClick={handleNavClick}>
-                        <Icon className={cn("size-5 shrink-0", active && "text-primary")} />
+                        <Icon
+                          className={cn(
+                            "size-5 shrink-0",
+                            active && "text-primary",
+                          )}
+                        />
                         <span className="font-medium">{item.label}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -218,9 +250,13 @@ function AppSidebarContent({
       <SidebarFooter className="border-t border-sidebar-border/60 p-3 bg-gradient-to-t from-sidebar-accent/20 to-transparent group-data-[collapsible=icon]:hidden">
         <div className="rounded-lg bg-sidebar-accent/50 px-3 py-2 border border-sidebar-border/50">
           <p className="text-[11px] text-sidebar-foreground/60 font-medium">
-            <kbd className="px-1.5 py-0.5 rounded bg-sidebar-background/80 text-[10px] font-mono">⌘</kbd>
+            <kbd className="px-1.5 py-0.5 rounded bg-sidebar-background/80 text-[10px] font-mono">
+              ⌘
+            </kbd>
             <span className="mx-1">+</span>
-            <kbd className="px-1.5 py-0.5 rounded bg-sidebar-background/80 text-[10px] font-mono">B</kbd>
+            <kbd className="px-1.5 py-0.5 rounded bg-sidebar-background/80 text-[10px] font-mono">
+              B
+            </kbd>
             <span className="ml-1.5">Toggle</span>
           </p>
         </div>
@@ -235,8 +271,10 @@ export function Layout({ children }: LayoutProps) {
   const { theme, toggleTheme } = useTheme();
   const [company, setCompany] = useState<any>(null);
   const user = getCurrentUser();
-  const permissions = user.role === 'admin' ? [] : (localStorage.getItem('userPermissions')?.split(',') || []);
-  console.log("--here--");
+  const permissions =
+    user.role === "admin"
+      ? []
+      : localStorage.getItem("userPermissions")?.split(",") || [];
 
   useEffect(() => {
     const loadCompany = async () => {
@@ -289,31 +327,34 @@ export function Layout({ children }: LayoutProps) {
   const [navItems, setNavItems] = useState<any[]>([]);
 
   useEffect(() => {
-    const savedOrder = localStorage.getItem('navItemOrder');
-    const items = user.role === 'admin'
-      ? allNavItems
-      : allNavItems.filter(item => permissions.includes(item.path));
+    const savedOrder = localStorage.getItem("navItemOrder");
+    const items =
+      user.role === "admin"
+        ? allNavItems
+        : allNavItems.filter((item) => permissions.includes(item.path));
 
     // Only update if the items list or user role has changed to avoid unnecessary re-renders
-    const currentPaths = navItems.map(i => i.path).join(',');
+    const currentPaths = navItems.map((i) => i.path).join(",");
 
     if (savedOrder) {
       try {
         const order = JSON.parse(savedOrder);
-        const orderedItems = order.map((path: string) => items.find(i => i.path === path)).filter(Boolean);
-        const newItems = items.filter(i => !order.includes(i.path));
+        const orderedItems = order
+          .map((path: string) => items.find((i) => i.path === path))
+          .filter(Boolean);
+        const newItems = items.filter((i) => !order.includes(i.path));
         const finalItems = [...orderedItems, ...newItems];
 
-        if (currentPaths !== finalItems.map(i => i.path).join(',')) {
+        if (currentPaths !== finalItems.map((i) => i.path).join(",")) {
           setNavItems(finalItems);
         }
       } catch (e) {
-        if (currentPaths !== items.map(i => i.path).join(',')) {
+        if (currentPaths !== items.map((i) => i.path).join(",")) {
           setNavItems(items);
         }
       }
     } else {
-      if (currentPaths !== items.map(i => i.path).join(',')) {
+      if (currentPaths !== items.map((i) => i.path).join(",")) {
         setNavItems(items);
       }
     }
@@ -325,14 +366,21 @@ export function Layout({ children }: LayoutProps) {
   };
 
   return (
-    <SidebarProvider defaultOpen={getInitialSidebarOpen()} className="h-screen flex overflow-hidden">
-      <Sidebar side="left" collapsible="icon" className="border-r border-sidebar-border/80 shadow-sm">
+    <SidebarProvider
+      defaultOpen={getInitialSidebarOpen()}
+      className="h-screen flex overflow-hidden"
+    >
+      <Sidebar
+        side="left"
+        collapsible="icon"
+        className="border-r border-sidebar-border/80 shadow-sm"
+      >
         <AppSidebarContent
           navItems={navItems}
           isActive={isActive}
           company={company}
           user={user}
-          onNavClick={() => { }}
+          onNavClick={() => {}}
         />
         <SidebarRail />
       </Sidebar>
@@ -345,7 +393,9 @@ export function Layout({ children }: LayoutProps) {
               aria-label="Toggle sidebar"
             />
             <div className="min-w-0 flex-1 md:hidden">
-              <h1 className="font-semibold text-base text-foreground truncate">{company?.name || "BillEasy"}</h1>
+              <h1 className="font-semibold text-base text-foreground truncate">
+                {company?.name || "Invoice Mitra"}
+              </h1>
             </div>
           </div>
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
@@ -356,7 +406,11 @@ export function Layout({ children }: LayoutProps) {
               aria-label="Toggle theme"
               className="h-9 w-9 sm:h-10 sm:w-10"
             >
-              {theme === "light" ? <Moon className="size-4 sm:size-5" /> : <Sun className="size-4 sm:size-5" />}
+              {theme === "light" ? (
+                <Moon className="size-4 sm:size-5" />
+              ) : (
+                <Sun className="size-4 sm:size-5" />
+              )}
             </Button>
             <Button
               variant="ghost"

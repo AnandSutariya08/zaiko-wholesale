@@ -4,8 +4,8 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Bot, User, Send, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   getBills,
   getProducts,
@@ -16,10 +16,9 @@ import {
   getDeadstock,
   getClients,
   getCompanyProfile,
-  getNotes
+  getNotes,
 } from "@/lib/firebaseService";
 import { getBusinessDataForAI } from "@/lib/businessDataCollector";
-
 
 interface Message {
   role: "user" | "assistant" | "system";
@@ -35,7 +34,9 @@ export default function AIAgent() {
 
   const scrollToBottom = () => {
     if (scrollAreaRef.current) {
-      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      const scrollContainer = scrollAreaRef.current.querySelector(
+        "[data-radix-scroll-area-viewport]",
+      );
       if (scrollContainer) {
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
       }
@@ -63,7 +64,7 @@ export default function AIAgent() {
           deadstock,
           clients,
           profile,
-          notes
+          notes,
         ] = await Promise.all([
           getBills(),
           getProducts(),
@@ -74,7 +75,7 @@ export default function AIAgent() {
           getDeadstock(),
           getClients(),
           getCompanyProfile(),
-          getNotes()
+          getNotes(),
         ]);
 
         const systemData = {
@@ -82,49 +83,72 @@ export default function AIAgent() {
             totalSales: bills.reduce((sum, b) => sum + b.total, 0),
             totalPurchases: purchaseBills.reduce((sum, b) => sum + b.total, 0),
             totalExpenses: expenses.reduce((sum, b) => sum + b.amount, 0),
-            stockValue: products.reduce((sum, p) => sum + (p.stock * p.purchasePrice), 0),
+            stockValue: products.reduce(
+              (sum, p) => sum + p.stock * p.purchasePrice,
+              0,
+            ),
             itemCount: products.length,
             clientCount: clients.length,
             totalReturns: billReturns.length,
-            returnAmount: billReturns.reduce((sum, r) => sum + r.totalReturnValue, 0)
+            returnAmount: billReturns.reduce(
+              (sum, r) => sum + r.totalReturnValue,
+              0,
+            ),
           },
-          allBillDetails: bills.map(b => ({
+          allBillDetails: bills.map((b) => ({
             id: b.billNumber,
             date: b.date,
             client: b.client?.name || (b as any).clientName,
             total: b.total,
-            items: b.items.map(i => ({ name: i.productName, qty: i.quantity, rate: i.ratePerUnit })),
-            status: b.paymentStatus
+            items: b.items.map((i) => ({
+              name: i.productName,
+              qty: i.quantity,
+              rate: i.ratePerUnit,
+            })),
+            status: b.paymentStatus,
           })),
-          clientWiseAnalysis: clients.map(c => {
-            const clientBills = bills.filter(b => (b.client?.id === c.id) || ((b as any).clientName === c.name));
-            const clientReturns = billReturns.filter(r => r.clientName === c.name);
+          clientWiseAnalysis: clients.map((c) => {
+            const clientBills = bills.filter(
+              (b) => b.client?.id === c.id || (b as any).clientName === c.name,
+            );
+            const clientReturns = billReturns.filter(
+              (r) => r.clientName === c.name,
+            );
             return {
               name: c.name,
               totalSales: clientBills.reduce((sum, b) => sum + b.total, 0),
-              totalReturns: clientReturns.reduce((sum, r) => sum + r.totalReturnValue, 0),
-              pendingAmount: clientBills.reduce((sum, b) => sum + (b.total - (b.paidAmount || 0)), 0)
+              totalReturns: clientReturns.reduce(
+                (sum, r) => sum + r.totalReturnValue,
+                0,
+              ),
+              pendingAmount: clientBills.reduce(
+                (sum, b) => sum + (b.total - (b.paidAmount || 0)),
+                0,
+              ),
             };
           }),
-          purchaseExpenses: purchaseBills.map(p => ({
+          purchaseExpenses: purchaseBills.map((p) => ({
             vendor: p.vendorName,
             total: p.total,
-            items: p.items.map(i => ({ name: i.description, qty: i.quantity, rate: i.rate })),
-            date: p.billDate || p.createdAt
-          })),
-          inventoryStatus: products
-            .map(p => ({
-              name: p.name,
-              stock: p.stock,
-              price: p.sellingPrice,
-              purchase: p.purchasePrice
+            items: p.items.map((i) => ({
+              name: i.description,
+              qty: i.quantity,
+              rate: i.rate,
             })),
-          recentNotes: notes.slice(-10).map(n => n.content)
+            date: p.billDate || p.createdAt,
+          })),
+          inventoryStatus: products.map((p) => ({
+            name: p.name,
+            stock: p.stock,
+            price: p.sellingPrice,
+            purchase: p.purchasePrice,
+          })),
+          recentNotes: notes.slice(-10).map((n) => n.content),
         };
 
         const systemMessage: Message = {
           role: "system",
-          content: `You are a high-level Strategic Business Consultant for "Starlink" GST Software users. 
+          content: `You are a high-level Strategic Business Consultant for "Invoice MItra" GST Software users. 
             Your goal is to provide insightful, professional, and actionable business advice based on data.
 
             CRITICAL INSTRUCTIONS:
@@ -132,7 +156,7 @@ export default function AIAgent() {
             - Always interpret the data into human-friendly business insights.
             - Use a professional yet encouraging tone.
             - Format your response with clear headings, bullet points, and bold text for readability.
-            - Focus on growth, efficiency, and financial health.`
+            - Focus on growth, efficiency, and financial health.`,
         };
 
         const initialMessage: Message = {
@@ -140,28 +164,33 @@ export default function AIAgent() {
           content: `Please analyze my current business performance using the following data and provide a strategic report. 
 
             Context for analysis:
-            - Business Name: Starlink GST Software
+            - Business Name: Invoice MItra GST Software
             - Currency: INR (₹)
 
             Data to analyze: ${JSON.stringify(systemData)}`,
         };
 
-        const response = await fetch('https://api.sarvam.ai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'api-subscription-key': import.meta.env.VITE_SARVAM_API_KEY || 'sk_cgklaer7_PyVfuZMemeppS9aL53Cvbldg',
-            'Content-Type': 'application/json',
+        const response = await fetch(
+          "https://api.sarvam.ai/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "api-subscription-key":
+                import.meta.env.VITE_SARVAM_API_KEY ||
+                "sk_cgklaer7_PyVfuZMemeppS9aL53Cvbldg",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "sarvam-m",
+              messages: [systemMessage, initialMessage],
+              temperature: 0.7,
+              max_tokens: 2000,
+            }),
           },
-          body: JSON.stringify({
-            model: 'sarvam-m',
-            messages: [systemMessage, initialMessage],
-            temperature: 0.7,
-            max_tokens: 2000,
-          }),
-        });
+        );
 
         if (!response.ok) {
-          throw new Error('Failed to fetch response from AI');
+          throw new Error("Failed to fetch response from AI");
         }
 
         const data = await response.json();
@@ -171,13 +200,13 @@ export default function AIAgent() {
             initialMessage,
             {
               role: "assistant",
-              content: data.choices[0].message.content
-            }
+              content: data.choices[0].message.content,
+            },
           ]);
           setIsAnalyzed(true);
         }
       } catch (error) {
-        console.error('Error:', error);
+        console.error("Error:", error);
         toast.error("Failed to connect to AI Agent. Please try again.");
       } finally {
         setIsLoading(false);
@@ -198,37 +227,44 @@ export default function AIAgent() {
     setIsLoading(true);
 
     try {
-      const messagesForAPI = messages.length === 0
-        ? [userMessage]
-        : [...messages, userMessage];
+      const messagesForAPI =
+        messages.length === 0 ? [userMessage] : [...messages, userMessage];
 
-      const response = await fetch('https://api.sarvam.ai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'api-subscription-key': import.meta.env.VITE_SARVAM_API_KEY || 'sk_cgklaer7_PyVfuZMemeppS9aL53Cvbldg',
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        "https://api.sarvam.ai/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "api-subscription-key":
+              import.meta.env.VITE_SARVAM_API_KEY ||
+              "sk_cgklaer7_PyVfuZMemeppS9aL53Cvbldg",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "sarvam-m",
+            messages: messagesForAPI,
+            temperature: 0.7,
+            max_tokens: 1000,
+          }),
         },
-        body: JSON.stringify({
-          model: 'sarvam-m',
-          messages: messagesForAPI,
-          temperature: 0.7,
-          max_tokens: 1000,
-        }),
-      });
+      );
 
       if (!response.ok) {
-        throw new Error('Failed to fetch response from AI');
+        throw new Error("Failed to fetch response from AI");
       }
 
       const data = await response.json();
       if (data && data.choices && data.choices[0]) {
-        setMessages(prev => [...prev, {
-          role: "assistant",
-          content: data.choices[0].message.content
-        }]);
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: data.choices[0].message.content,
+          },
+        ]);
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error("Error:", error);
       toast.error("Failed to send message. Please try again.");
     } finally {
       setIsLoading(false);
@@ -245,10 +281,14 @@ export default function AIAgent() {
               <Bot className="h-6 w-6 text-primary-foreground" />
             </div>
             <div>
-              <h2 className="text-xl font-bold tracking-tight">Strategic Business Consultant</h2>
+              <h2 className="text-xl font-bold tracking-tight">
+                Strategic Business Consultant
+              </h2>
               <div className="flex items-center gap-2">
                 <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                <p className="text-xs font-medium text-muted-foreground">AI Intelligence Active</p>
+                <p className="text-xs font-medium text-muted-foreground">
+                  AI Intelligence Active
+                </p>
               </div>
             </div>
           </div>
@@ -267,9 +307,13 @@ export default function AIAgent() {
                     </div>
                   </div>
                   <div className="space-y-3">
-                    <h3 className="text-2xl font-bold tracking-tight">Synthesizing Business Intelligence</h3>
+                    <h3 className="text-2xl font-bold tracking-tight">
+                      Synthesizing Business Intelligence
+                    </h3>
                     <p className="text-muted-foreground max-w-md mx-auto leading-relaxed">
-                      I'm auditing your financial landscape, inventory efficiency, and growth trajectories to architect a custom strategy.
+                      I'm auditing your financial landscape, inventory
+                      efficiency, and growth trajectories to architect a custom
+                      strategy.
                     </p>
                   </div>
                   <div className="flex flex-col items-center gap-4">
@@ -282,31 +326,52 @@ export default function AIAgent() {
                 </div>
               )}
 
-              {messages.filter(m =>
-                m.role !== 'system' &&
-                !(m.role === 'user' && m.content.includes('Please analyze my current business performance'))
-              ).map((message, index) => (
-                <div
-                  key={index}
-                  className={`flex ${message.role === "user" ? "justify-end" : "justify-start"} animate-in slide-in-from-bottom-4 fade-in duration-500`}
-                >
-                  <div className={`flex gap-4 max-w-[90%] md:max-w-[85%] ${message.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
-                    <div className={`mt-1 flex-shrink-0 h-9 w-9 md:h-10 md:w-10 rounded-xl flex items-center justify-center shadow-sm ${message.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted border"}`}>
-                      {message.role === "user" ? <User size={18} /> : <Bot size={18} className="text-primary" />}
-                    </div>
-                    <div className={`rounded-2xl px-5 py-3 shadow-sm ${message.role === "user"
-                      ? "bg-primary text-primary-foreground rounded-tr-none"
-                      : "bg-muted/50 border border-border/50 rounded-tl-none"
-                      }`}>
-                      <div className={`prose prose-sm md:prose-base dark:prose-invert max-w-none ${message.role === "user" ? "prose-invert text-primary-foreground" : "text-foreground"}`}>
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {message.content}
-                        </ReactMarkdown>
+              {messages
+                .filter(
+                  (m) =>
+                    m.role !== "system" &&
+                    !(
+                      m.role === "user" &&
+                      m.content.includes(
+                        "Please analyze my current business performance",
+                      )
+                    ),
+                )
+                .map((message, index) => (
+                  <div
+                    key={index}
+                    className={`flex ${message.role === "user" ? "justify-end" : "justify-start"} animate-in slide-in-from-bottom-4 fade-in duration-500`}
+                  >
+                    <div
+                      className={`flex gap-4 max-w-[90%] md:max-w-[85%] ${message.role === "user" ? "flex-row-reverse" : "flex-row"}`}
+                    >
+                      <div
+                        className={`mt-1 flex-shrink-0 h-9 w-9 md:h-10 md:w-10 rounded-xl flex items-center justify-center shadow-sm ${message.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted border"}`}
+                      >
+                        {message.role === "user" ? (
+                          <User size={18} />
+                        ) : (
+                          <Bot size={18} className="text-primary" />
+                        )}
+                      </div>
+                      <div
+                        className={`rounded-2xl px-5 py-3 shadow-sm ${
+                          message.role === "user"
+                            ? "bg-primary text-primary-foreground rounded-tr-none"
+                            : "bg-muted/50 border border-border/50 rounded-tl-none"
+                        }`}
+                      >
+                        <div
+                          className={`prose prose-sm md:prose-base dark:prose-invert max-w-none ${message.role === "user" ? "prose-invert text-primary-foreground" : "text-foreground"}`}
+                        >
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {message.content}
+                          </ReactMarkdown>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
 
               {isLoading && messages.length > 0 && (
                 <div className="flex justify-start animate-in fade-in duration-300">

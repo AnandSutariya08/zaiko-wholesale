@@ -1,33 +1,36 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Download, X } from 'lucide-react';
-import { getUserPreference, setUserPreference } from '@/lib/storage';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Download, X } from "lucide-react";
+import { getUserPreference, setUserPreference } from "@/lib/storage";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
 export function PWAInstallPrompt() {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [deferredPrompt, setDeferredPrompt] =
+    useState<BeforeInstallPromptEvent | null>(null);
   const [showDialog, setShowDialog] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
 
   useEffect(() => {
     const checkPWAStatus = async () => {
       // Check if already installed
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-      const isDismissed = await getUserPreference('pwa-install-dismissed');
-      const isAlreadyInstalled = await getUserPreference('pwa-installed');
-      
-      if (isStandalone || isAlreadyInstalled === 'true') {
+      const isStandalone = window.matchMedia(
+        "(display-mode: standalone)",
+      ).matches;
+      const isDismissed = await getUserPreference("pwa-install-dismissed");
+      const isAlreadyInstalled = await getUserPreference("pwa-installed");
+
+      if (isStandalone || isAlreadyInstalled === "true") {
         setIsInstalled(true);
         return;
       }
@@ -35,9 +38,9 @@ export function PWAInstallPrompt() {
       const handleBeforeInstallPrompt = (e: Event) => {
         e.preventDefault();
         setDeferredPrompt(e as BeforeInstallPromptEvent);
-        
+
         // Only show dialog if not dismissed before
-        if (isDismissed !== 'true') {
+        if (isDismissed !== "true") {
           setShowDialog(true);
         }
       };
@@ -45,15 +48,18 @@ export function PWAInstallPrompt() {
       const handleAppInstalled = async () => {
         setIsInstalled(true);
         setShowDialog(false);
-        await setUserPreference('pwa-installed', 'true');
+        await setUserPreference("pwa-installed", "true");
       };
 
-      window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-      window.addEventListener('appinstalled', handleAppInstalled);
+      window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.addEventListener("appinstalled", handleAppInstalled);
 
       return () => {
-        window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-        window.removeEventListener('appinstalled', handleAppInstalled);
+        window.removeEventListener(
+          "beforeinstallprompt",
+          handleBeforeInstallPrompt,
+        );
+        window.removeEventListener("appinstalled", handleAppInstalled);
       };
     };
     checkPWAStatus();
@@ -64,19 +70,19 @@ export function PWAInstallPrompt() {
 
     await deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
-    
-    if (outcome === 'accepted') {
+
+    if (outcome === "accepted") {
       setIsInstalled(true);
-      await setUserPreference('pwa-installed', 'true');
+      await setUserPreference("pwa-installed", "true");
     }
-    
+
     setDeferredPrompt(null);
     setShowDialog(false);
   };
 
   const handleDismiss = async () => {
     setShowDialog(false);
-    await setUserPreference('pwa-install-dismissed', 'true');
+    await setUserPreference("pwa-install-dismissed", "true");
   };
 
   if (isInstalled) return null;
@@ -87,10 +93,11 @@ export function PWAInstallPrompt() {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Download className="h-5 w-5 text-primary" />
-            Install Starlink App
+            Install Invoice MItra App
           </DialogTitle>
           <DialogDescription>
-            Install Starlink on your device for quick access and offline functionality. Get the full app experience!
+            Install Invoice MItra on your device for quick access and offline
+            functionality. Get the full app experience!
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3 mt-4">

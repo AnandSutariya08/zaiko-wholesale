@@ -42,7 +42,7 @@ import {
   MapPin,
   Hash,
 } from "lucide-react";
-import logo from "@/assets/starlink-logo.png";
+import logo from "@/assets/logo.png";
 import { logout, checkSessionExpiry } from "@/pages/Auth";
 import { useNavigate } from "react-router-dom";
 import {
@@ -161,7 +161,7 @@ export default function Settings() {
 
   // Optional: Delete old logo when uploading new one
   const handleLogoUploadWithCleanup = async (
-    e: React.ChangeEvent<HTMLInputElement>
+    e: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -571,7 +571,10 @@ export default function Settings() {
                       if (value) {
                         setFormData({
                           ...formData,
-                          billCreators: [...(formData.billCreators || []), value],
+                          billCreators: [
+                            ...(formData.billCreators || []),
+                            value,
+                          ],
                         });
                         input.value = "";
                       }
@@ -582,7 +585,7 @@ export default function Settings() {
                   type="button"
                   onClick={() => {
                     const input = document.getElementById(
-                      "new-creator"
+                      "new-creator",
                     ) as HTMLInputElement;
                     const value = input.value.trim();
                     if (value) {
@@ -614,7 +617,7 @@ export default function Settings() {
                         setFormData({
                           ...formData,
                           billCreators: formData.billCreators?.filter(
-                            (_, i) => i !== index
+                            (_, i) => i !== index,
                           ),
                         })
                       }
@@ -695,7 +698,7 @@ export default function Settings() {
                       onChange={(e) =>
                         updateCommissionSettings(
                           "defaultCommissionRate",
-                          parseFloat(e.target.value) || 0
+                          parseFloat(e.target.value) || 0,
                         )
                       }
                       className="h-11 pr-8"
@@ -726,7 +729,7 @@ export default function Settings() {
                       onChange={(e) =>
                         updateCommissionSettings(
                           "fixedCommissionAmount",
-                          parseFloat(e.target.value) || 0
+                          parseFloat(e.target.value) || 0,
                         )
                       }
                       className="h-11 pl-6"
@@ -908,7 +911,7 @@ export default function Settings() {
                         <SelectItem key={unit} value={unit}>
                           {unit}
                         </SelectItem>
-                      )
+                      ),
                     )}
                   </SelectContent>
                 </Select>
@@ -921,7 +924,7 @@ export default function Settings() {
                 <Label>Allowed Units (comma separated)</Label>
                 <Input
                   value={(formData.unitOptions || ["kg", "pcs", "box"]).join(
-                    ", "
+                    ", ",
                   )}
                   onChange={(e) => {
                     const units = e.target.value

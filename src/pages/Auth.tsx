@@ -1,25 +1,36 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
-import { Loader2, Lock } from 'lucide-react';
-import { getCompanyProfile, getUserPreference, setUserPreference, getCreators } from '@/lib/storage';
-import { BillCreator } from '@/types';
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { Loader2, Lock } from "lucide-react";
+import {
+  getCompanyProfile,
+  getUserPreference,
+  setUserPreference,
+  getCreators,
+} from "@/lib/storage";
+import { BillCreator } from "@/types";
 
-const AUTH_KEY = 'authenticated';
-const SESSION_EXPIRY_KEY = 'sessionExpiry';
-const USER_ROLE_KEY = 'userRole';
-const USER_NAME_KEY = 'userName';
-const USER_PERMISSIONS_KEY = 'userPermissions';
+const AUTH_KEY = "authenticated";
+const SESSION_EXPIRY_KEY = "sessionExpiry";
+const USER_ROLE_KEY = "userRole";
+const USER_NAME_KEY = "userName";
+const USER_PERMISSIONS_KEY = "userPermissions";
 const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-const ADMIN_CREDENTIALS = { username: 'admin', password: '123' };
+const ADMIN_CREDENTIALS = { username: "admin", password: "123" };
 
 export default function Auth() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [company, setCompany] = useState<any>(null);
   const navigate = useNavigate();
@@ -28,13 +39,13 @@ export default function Auth() {
     const loadData = async () => {
       const companyData = await getCompanyProfile();
       setCompany(companyData);
-      
+
       // Check if session is still valid
       const isAuth = await isAuthenticated();
       if (isAuth) {
         // Redirect to the originally intended path or dashboard
         const params = new URLSearchParams(window.location.search);
-        const from = params.get('from') || '/';
+        const from = params.get("from") || "/";
         navigate(from, { replace: true });
       }
     };
@@ -47,26 +58,31 @@ export default function Auth() {
 
     try {
       // 1. Check Admin Credentials
-      if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
-        loginUser('admin', 'Admin', []);
+      if (
+        username === ADMIN_CREDENTIALS.username &&
+        password === ADMIN_CREDENTIALS.password
+      ) {
+        loginUser("admin", "Admin", []);
         return;
       }
 
       // 2. Check Creator Credentials
       const creators = await getCreators();
       const creator = creators.find(
-        (c: BillCreator) => c.name.toLowerCase() === username.toLowerCase() && c.password === password
+        (c: BillCreator) =>
+          c.name.toLowerCase() === username.toLowerCase() &&
+          c.password === password,
       );
 
       if (creator) {
-        loginUser('creator', creator.name, creator.permissions || []);
+        loginUser("creator", creator.name, creator.permissions || []);
         return;
       }
 
-      toast.error('Invalid credentials. Use admin/123 or your creator login');
+      toast.error("Invalid credentials. Use admin/123 or your creator login");
     } catch (error) {
-      console.error('Login error:', error);
-      toast.error('An error occurred during login');
+      console.error("Login error:", error);
+      toast.error("An error occurred during login");
     } finally {
       setLoading(false);
     }
@@ -74,13 +90,13 @@ export default function Auth() {
 
   const loginUser = (role: string, name: string, permissions: string[]) => {
     const expiryTime = Date.now() + SESSION_DURATION;
-    localStorage.setItem(AUTH_KEY, 'true');
+    localStorage.setItem(AUTH_KEY, "true");
     localStorage.setItem(SESSION_EXPIRY_KEY, expiryTime.toString());
     localStorage.setItem(USER_ROLE_KEY, role);
     localStorage.setItem(USER_NAME_KEY, name);
-    localStorage.setItem(USER_PERMISSIONS_KEY, permissions.join(','));
+    localStorage.setItem(USER_PERMISSIONS_KEY, permissions.join(","));
     toast.success(`Welcome back, ${name}!`);
-    navigate('/');
+    navigate("/");
   };
 
   return (
@@ -89,14 +105,14 @@ export default function Auth() {
         {/* Logo/Header */}
         <div className="text-center space-y-2">
           {company?.logo && (
-            <img 
-              src={company.logo} 
-              alt="Company Logo" 
+            <img
+              src={company.logo}
+              alt="Company Logo"
               className="h-16 md:h-20 mx-auto object-contain mb-4"
             />
           )}
           <h1 className="text-3xl md:text-4xl font-bold text-foreground">
-            {company?.name || 'BillEasy'}
+            {company?.name || "Invoice Mitra"}
           </h1>
           <p className="text-muted-foreground">Invoice Management System</p>
         </div>
@@ -143,9 +159,9 @@ export default function Auth() {
                 />
               </div>
 
-              <Button 
-                type="submit" 
-                className="w-full" 
+              <Button
+                type="submit"
+                className="w-full"
                 size="lg"
                 disabled={loading}
               >
@@ -155,16 +171,16 @@ export default function Auth() {
                     Signing in...
                   </>
                 ) : (
-                  'Sign In'
+                  "Sign In"
                 )}
               </Button>
 
-              <div className="text-center text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">
+              {/* <div className="text-center text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">
                 <p className="font-medium">Admin Credentials:</p>
                 <p>Username: <code className="font-mono">admin</code></p>
                 <p>Password: <code className="font-mono">123</code></p>
                 <p className="mt-2 text-xs opacity-70">Creators can use their own username/password</p>
-              </div>
+              </div> */}
             </form>
           </CardContent>
         </Card>
@@ -181,8 +197,8 @@ export const isAuthenticated = async (): Promise<boolean> => {
   // Check localStorage first (per-device/browser)
   const authStatus = localStorage.getItem(AUTH_KEY);
   const expiryTime = localStorage.getItem(SESSION_EXPIRY_KEY);
-  
-  if (authStatus !== 'true' || !expiryTime) {
+
+  if (authStatus !== "true" || !expiryTime) {
     // Clear any stale data
     localStorage.removeItem(AUTH_KEY);
     localStorage.removeItem(SESSION_EXPIRY_KEY);
@@ -191,11 +207,11 @@ export const isAuthenticated = async (): Promise<boolean> => {
     localStorage.removeItem(USER_PERMISSIONS_KEY);
     return false;
   }
-  
+
   // Check if session has expired (24 hours)
   const now = Date.now();
   const expiry = parseInt(expiryTime, 10);
-  
+
   if (now > expiry) {
     // Session expired, clear auth
     localStorage.removeItem(AUTH_KEY);
@@ -205,7 +221,7 @@ export const isAuthenticated = async (): Promise<boolean> => {
     localStorage.removeItem(USER_PERMISSIONS_KEY);
     return false;
   }
-  
+
   return true;
 };
 
@@ -217,13 +233,13 @@ export const logout = async (): Promise<void> => {
   localStorage.removeItem(USER_NAME_KEY);
   localStorage.removeItem(USER_PERMISSIONS_KEY);
   // Also clear Firestore preference for consistency
-  await setUserPreference(AUTH_KEY, 'false');
+  await setUserPreference(AUTH_KEY, "false");
 };
 
 export const checkSessionExpiry = (): boolean => {
   const expiryTime = localStorage.getItem(SESSION_EXPIRY_KEY);
   if (!expiryTime) return false;
-  
+
   const now = Date.now();
   const expiry = parseInt(expiryTime, 10);
   return now <= expiry;

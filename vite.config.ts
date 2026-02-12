@@ -22,8 +22,8 @@ export default defineConfig(({ mode }) => ({
       },
       includeAssets: ["pwa-512x512.png"],
       manifest: {
-        name: "Starlink - GST Billing Software",
-        short_name: "Starlink",
+        name: "Invoice MItra - GST Billing Software",
+        short_name: "Invoice MItra",
         description: "Complete GST billing solution with inventory management",
         theme_color: "#1a1a2e",
         background_color: "#1a1a2e",
@@ -31,7 +31,7 @@ export default defineConfig(({ mode }) => ({
         start_url: "/",
         icons: [
           {
-            src: "/pwa-512x512.png",
+            src: "/logo.png",
             sizes: "512x512",
             type: "image/png",
           },
@@ -39,7 +39,7 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2}"],
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024 // 5 MB
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
       },
     }),
   ].filter(Boolean),
