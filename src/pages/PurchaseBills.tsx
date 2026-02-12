@@ -16,6 +16,7 @@ import {
   updatePurchaseBill,
   InventoryItemInput,
   getCompanyProfile,
+  getVendors,
 } from "@/lib/storage";
 import { extractBillFromImage } from "@/lib/aiExtractor";
 import {
@@ -23,6 +24,7 @@ import {
   PurchaseBillItem,
   AIExtractionError,
   ProductConflict,
+  Vendor,
 } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -324,6 +326,7 @@ function PurchaseBills() {
     }[]
   >([]);
   const [companyProfile, setCompanyProfile] = useState<any>(null);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
 
   const [products, setProducts] = useState<any[]>([]);
 
@@ -333,7 +336,13 @@ function PurchaseBills() {
     loadBills();
     loadCompanyProfile();
     loadProducts();
+    loadVendors();
   }, []);
+
+  const loadVendors = async () => {
+    const data = await getVendors();
+    setVendors(data);
+  };
 
   const loadProducts = async () => {
     const data = await getProducts();
@@ -558,6 +567,7 @@ function PurchaseBills() {
       const newBill: PurchaseBill = {
         id: crypto.randomUUID(),
         billImage: imageBase64,
+        vendorId: vendors.find(v => v.name.toLowerCase() === extracted.vendorName.toLowerCase())?.id,
         vendorName: extracted.vendorName,
         vendorAddress: extracted.vendorAddress,
         vendorGstin: extracted.vendorGstin,
