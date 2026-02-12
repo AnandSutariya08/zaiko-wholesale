@@ -168,6 +168,7 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType }: 
       setCompanyProfile(companyData);
       setAvailableCreators(creatorsData);
       setBankAccounts(banksData);
+      
       if (initialGstEnabled === undefined) {
         setGstEnabled(companyData?.gstEnabled ?? true);
       }
@@ -351,11 +352,10 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType }: 
         totals.total,
       );
 
-      let billCounter = 0;
-      if (!isEdit) {
-        billCounter = await incrementBillCounter(billType);
+      if (billType === "GST" || billType === "NON_GST" || billType === "SAMPLE") {
+        billCounter = isEdit ? await getBillCounter(billType) : await incrementBillCounter(billType);
       } else {
-        billCounter = await getBillCounter(billType);
+        billCounter = isEdit ? await getBillCounter() : await incrementBillCounter();
       }
 
       // Automatically set creator from logged in user

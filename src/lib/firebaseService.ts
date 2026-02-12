@@ -575,10 +575,11 @@ export const deleteBill = async (id: string): Promise<void> => {
   }
 };
 
-export const getBillCounter = async (): Promise<number> => {
+export const getBillCounter = async (type?: string): Promise<number> => {
   try {
     const userId = getUserId();
-    const docRef = doc(db, COLLECTIONS.BILL_COUNTER, userId);
+    const docId = type ? `${userId}_${type}` : userId;
+    const docRef = doc(db, COLLECTIONS.BILL_COUNTER, docId);
     const docSnap = await getDoc(docRef);
 
     if (docSnap.exists()) {
@@ -591,10 +592,11 @@ export const getBillCounter = async (): Promise<number> => {
   }
 };
 
-export const incrementBillCounter = async (): Promise<number> => {
+export const incrementBillCounter = async (type?: string): Promise<number> => {
   try {
     const userId = getUserId();
-    const docRef = doc(db, COLLECTIONS.BILL_COUNTER, userId);
+    const docId = type ? `${userId}_${type}` : userId;
+    const docRef = doc(db, COLLECTIONS.BILL_COUNTER, docId);
     const docSnap = await getDoc(docRef);
 
     const currentCounter = docSnap.exists() ? docSnap.data().counter || 0 : 0;
