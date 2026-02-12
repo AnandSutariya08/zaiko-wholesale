@@ -76,5 +76,8 @@ export {
   getBankAccounts,
   saveBankAccount,
   deleteBankAccount,
+  getVendors,
+  saveVendor,
+  deleteVendor,
   type InventoryItemInput,
 } from "./firebaseService";
