@@ -40,6 +40,7 @@ import {
   PurchaseReturn,
   PurchaseReturnItem,
   BankAccount,
+  Vendor,
 } from "@/types";
 
 // Collection names

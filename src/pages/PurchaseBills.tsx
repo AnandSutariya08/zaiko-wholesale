@@ -321,6 +321,7 @@ function PurchaseBills() {
       weight: number;
       weightUnit: string;
       barcode?: string; // Added barcode field
+      vendorId?: string; // Added vendor selection
       productId?: string;
       isNewProduct?: boolean;
     }[]
@@ -711,6 +712,7 @@ function PurchaseBills() {
         whereToBuy: (item as any).whereToBuy || bill.vendorName || "",
         weight: (item as any).weight || 0,
         weightUnit: (item as any).weightUnit || "g",
+        vendorId: bill.vendorId || "",
         productId: existingProduct?.id,
         isNewProduct: !existingProduct,
       };
