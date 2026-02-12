@@ -1,6 +1,9 @@
+export type UserRole = "Admin" | "Employee" | "CA" | "Expo";
+
 export interface BillCreator {
   id: string;
   name: string;
+  role: UserRole;
   password?: string;
   type?: "Creator" | "Employee" | "CA" | "Expo"; // Added types
   expoId?: string; // For segmented views
