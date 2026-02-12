@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from "react";
-import { Bill, SampleBill } from "@/types";
+import { Bill, SampleBill, BankAccount } from "@/types";
 import {
   formatCurrency,
   formatDate,
@@ -50,12 +50,14 @@ type BillLike =
   | (Bill & {
       billType?: "domestic" | "international";
       internationalDetails?: InternationalDetailsLike;
+      bankAccount?: BankAccount;
     })
   | (SampleBill & {
       // SampleBill type may not declare these fields, but sample data can include them.
       billType?: "domestic" | "international";
       internationalDetails?: InternationalDetailsLike;
       returnComment?: string;
+      bankAccount?: BankAccount;
     });
 
 const mmToPt = (mm: number) => mm * 2.83465;
