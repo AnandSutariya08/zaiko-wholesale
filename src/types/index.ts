@@ -234,6 +234,8 @@ export interface Expense {
   amount: number;
   description: string;
   category: string;
+  paymentMethod: "Cash" | "Bank";
+  bankAccountId?: string;
   createdAt: string;
 }
 

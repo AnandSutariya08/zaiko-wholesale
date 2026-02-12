@@ -62,12 +62,15 @@ export default function Expenses() {
     null
   );
 
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split("T")[0],
     time: new Date().toTimeString().slice(0, 5),
     amount: 0,
     description: "",
     category: "",
+    paymentMethod: "Cash" as "Cash" | "Bank",
+    bankAccountId: "",
   });
 
   // Load expenses and company profile on mount
@@ -78,15 +81,17 @@ export default function Expenses() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [expensesData, profile] = await Promise.all([
+      const [expensesData, profile, banks] = await Promise.all([
         getExpenses(),
         getCompanyProfile(),
+        getBankAccounts(),
       ]);
       setExpenses(expensesData); // Already sorted by createdAt desc from Firestore
       setCompanyProfile(profile);
+      setBankAccounts(banks);
     } catch (error) {
       console.error("Error loading data:", error);
-      toast.error("Failed to load expenses");
+      toast.error("Failed to load data");
     }
     setLoading(false);
   };
@@ -99,6 +104,11 @@ export default function Expenses() {
       return;
     }
 
+    if (formData.paymentMethod === "Bank" && !formData.bankAccountId) {
+      toast.error("Please select a bank account");
+      return;
+    }
+
     setSaving(true);
     try {
       const expense: Expense = {
@@ -108,6 +118,8 @@ export default function Expenses() {
         amount: formData.amount,
         description: formData.description,
         category: formData.category,
+        paymentMethod: formData.paymentMethod,
+        bankAccountId: formData.paymentMethod === "Bank" ? formData.bankAccountId : undefined,
         createdAt: editingExpense?.createdAt || new Date().toISOString(),
       };
 
@@ -139,6 +151,8 @@ export default function Expenses() {
       amount: expense.amount,
       description: expense.description,
       category: expense.category,
+      paymentMethod: expense.paymentMethod || "Cash",
+      bankAccountId: expense.bankAccountId || "",
     });
     setIsOpen(true);
   };
@@ -160,6 +174,8 @@ export default function Expenses() {
       amount: 0,
       description: "",
       category: "",
+      paymentMethod: "Cash",
+      bankAccountId: "",
     });
   };
 
@@ -286,6 +302,47 @@ export default function Expenses() {
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="space-y-2">
+                <Label>Payment Method *</Label>
+                <Select
+                  value={formData.paymentMethod}
+                  onValueChange={(value: "Cash" | "Bank") =>
+                    setFormData({ ...formData, paymentMethod: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select payment method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Cash">Cash</SelectItem>
+                    <SelectItem value="Bank">Bank</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {formData.paymentMethod === "Bank" && (
+                <div className="space-y-2">
+                  <Label>Bank Account *</Label>
+                  <Select
+                    value={formData.bankAccountId}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, bankAccountId: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select bank account" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {bankAccounts.map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.bankName} - {account.accountNumber}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="amount">Amount *</Label>
@@ -417,6 +474,9 @@ export default function Expenses() {
                       </span>
                       <span className="px-2.5 py-1 bg-primary/10 text-primary text-xs rounded-full">
                         {expense.category}
+                      </span>
+                      <span className={`px-2.5 py-1 text-xs rounded-full ${expense.paymentMethod === 'Bank' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
+                        {expense.paymentMethod || 'Cash'}
                       </span>
                     </div>
                     <div className="text-sm text-muted-foreground">
