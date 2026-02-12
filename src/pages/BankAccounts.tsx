@@ -28,6 +28,7 @@ import {
 import { getBankAccounts, saveBankAccount, deleteBankAccount } from "@/lib/storage";
 import { BankAccount } from "@/types";
 import { toast } from "sonner";
+import { BankStatement } from "@/components/BankStatement";
 import {
   Plus,
   Pencil,
@@ -39,6 +40,7 @@ import {
   MapPin,
   QrCode,
   Loader2,
+  FileText,
 } from "lucide-react";
 
 export default function BankAccounts() {
@@ -47,6 +49,7 @@ export default function BankAccounts() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null);
   const [saving, setSaving] = useState(false);
+  const [statementAccount, setStatementAccount] = useState<BankAccount | null>(null);
   const [formData, setFormData] = useState<Partial<BankAccount>>({
     bankName: "",
     accountHolder: "",
@@ -215,6 +218,14 @@ export default function BankAccounts() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            title="View Statement"
+                            onClick={() => setStatementAccount(account)}
+                          >
+                            <FileText className="h-4 w-4 text-blue-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={() => handleOpenDialog(account)}
                           >
                             <Pencil className="h-4 w-4" />
@@ -339,6 +350,14 @@ export default function BankAccounts() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {statementAccount && (
+        <BankStatement
+          account={statementAccount}
+          isOpen={!!statementAccount}
+          onClose={() => setStatementAccount(null)}
+        />
+      )}
     </div>
   );
 }
