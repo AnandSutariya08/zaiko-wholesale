@@ -83,9 +83,13 @@ export default function BillCreators() {
   const [newCreatorName, setNewCreatorName] = useState("");
   const [newCreatorPassword, setNewCreatorPassword] = useState("");
   const [newCreatorPermissions, setNewCreatorPermissions] = useState<string[]>(["/", "/bills", "/sample-bill", "/products", "/clients", "/notes"]);
+  const [newCreatorType, setNewCreatorType] = useState<"Creator" | "Employee" | "CA" | "Expo">("Creator");
+  const [newExpoId, setNewExpoId] = useState("");
   const [editingCreator, setEditingCreator] = useState<BillCreator | null>(null);
   const [editedCreatorName, setEditedCreatorName] = useState("");
   const [editedCreatorPassword, setEditedCreatorPassword] = useState("");
+  const [editedCreatorType, setEditedCreatorType] = useState<"Creator" | "Employee" | "CA" | "Expo">("Creator");
+  const [editedExpoId, setEditedExpoId] = useState("");
   const [editedCreatorPermissions, setEditedCreatorPermissions] = useState<string[]>([]);
   const [creatorToDelete, setCreatorToDelete] = useState<BillCreator | null>(null);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -140,6 +144,8 @@ export default function BillCreators() {
       id: Math.random().toString(36).substr(2, 9),
       name: newCreatorName.trim(),
       password: newCreatorPassword.trim(),
+      type: newCreatorType,
+      expoId: newCreatorType === "Expo" ? newExpoId : undefined,
       permissions: newCreatorPermissions,
       createdAt: new Date().toISOString(),
     };
@@ -169,6 +175,8 @@ export default function BillCreators() {
       ...editingCreator,
       name: editedCreatorName.trim(),
       password: editedCreatorPassword.trim(),
+      type: editedCreatorType,
+      expoId: editedCreatorType === "Expo" ? editedExpoId : undefined,
       permissions: editedCreatorPermissions,
     };
 
@@ -195,6 +203,8 @@ export default function BillCreators() {
     setEditingCreator(creator);
     setEditedCreatorName(creator.name);
     setEditedCreatorPassword(creator.password || "");
+    setEditedCreatorType(creator.type || "Creator");
+    setEditedExpoId(creator.expoId || "");
     setEditedCreatorPermissions(creator.permissions || ["/", "/bills", "/sample-bill", "/products", "/clients", "/notes"]);
     setIsEditDialogOpen(true);
   };
@@ -500,7 +510,14 @@ export default function BillCreators() {
                   </Button>
                 </div>
               </div>
-              <CardTitle>{creator.name}</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                {creator.name}
+                {creator.type && (
+                  <Badge variant="secondary" className="text-[10px] font-normal">
+                    {creator.type}
+                  </Badge>
+                )}
+              </CardTitle>
               <CardDescription>Click to view bills</CardDescription>
             </CardHeader>
             <CardContent>
@@ -543,6 +560,31 @@ export default function BillCreators() {
                 onChange={(e) => setNewCreatorName(e.target.value)}
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="type">User Type</Label>
+              <select
+                id="type"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={newCreatorType}
+                onChange={(e) => setNewCreatorType(e.target.value as any)}
+              >
+                <option value="Creator">Creator</option>
+                <option value="Employee">Employee</option>
+                <option value="CA">CA</option>
+                <option value="Expo">Expo</option>
+              </select>
+            </div>
+            {newCreatorType === "Expo" && (
+              <div className="space-y-2">
+                <Label htmlFor="expoId">Expo ID</Label>
+                <Input
+                  id="expoId"
+                  placeholder="e.g. EXPO-001"
+                  value={newExpoId}
+                  onChange={(e) => setNewExpoId(e.target.value)}
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <div className="relative">

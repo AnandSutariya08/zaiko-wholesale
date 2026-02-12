@@ -2,6 +2,8 @@ export interface BillCreator {
   id: string;
   name: string;
   password?: string;
+  type?: "Creator" | "Employee" | "CA" | "Expo"; // Added types
+  expoId?: string; // For segmented views
   permissions?: string[]; // Array of paths or keys they can access
   createdAt: string;
 }
