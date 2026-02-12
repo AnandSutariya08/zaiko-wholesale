@@ -980,12 +980,15 @@ export const savePurchaseReturn = async (
       const updatedReturns = [...currentReturns, returnOrder];
       
       // Calculate new totals
-      const newTotal = (bill.total || 0) - returnOrder.totalReturnValue;
-      const newPaymentStatus = (bill.paidAmount || 0) >= newTotal ? "paid" : bill.paymentStatus;
+      const currentTotal = bill.total || 0;
+      const currentPaidAmount = bill.paidAmount || 0;
+      const newTotal = currentTotal - returnOrder.totalReturnValue;
+      
+      // Update payment status based on new total
+      const newPaymentStatus = currentPaidAmount >= newTotal ? "paid" : (currentPaidAmount > 0 ? "partial" : "pending");
 
       batch.update(billRef, {
         returns: removeUndefined(updatedReturns),
-        total: newTotal,
         paymentStatus: newPaymentStatus,
         updatedAt: new Date().toISOString()
       });
@@ -1058,12 +1061,12 @@ export const deletePurchaseReturn = async (returnId: string, purchaseBillId: str
       const bill = billSnap.data() as PurchaseBill;
       const updatedReturns = (bill.returns || []).filter(r => r.id !== returnId);
       
-      const newTotal = (bill.total || 0) + returnOrder.totalReturnValue;
-      const newPaymentStatus = (bill.paidAmount || 0) >= newTotal ? "paid" : "pending";
+      const currentPaidAmount = bill.paidAmount || 0;
+      const currentTotal = bill.total || 0;
+      const newPaymentStatus = currentPaidAmount >= currentTotal ? "paid" : (currentPaidAmount > 0 ? "partial" : "pending");
 
       batch.update(billRef, {
         returns: removeUndefined(updatedReturns),
-        total: newTotal,
         paymentStatus: newPaymentStatus,
         updatedAt: new Date().toISOString()
       });
