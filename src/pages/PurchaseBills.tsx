@@ -568,7 +568,7 @@ function PurchaseBills() {
       const newBill: PurchaseBill = {
         id: crypto.randomUUID(),
         billImage: imageBase64,
-        vendorId: vendors.find(v => v.name.toLowerCase() === extracted.vendorName.toLowerCase())?.id,
+        vendorId: vendors.find(v => v.name.toLowerCase().trim() === extracted.vendorName.toLowerCase().trim())?.id,
         vendorName: extracted.vendorName,
         vendorAddress: extracted.vendorAddress,
         vendorGstin: extracted.vendorGstin,

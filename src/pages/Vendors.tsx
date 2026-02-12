@@ -41,6 +41,11 @@ export default function Vendors() {
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [historySearchQuery, setHistorySearchQuery] = useState("");
+  const [dateFilter, setDateFilter] = useState({
+    start: "",
+    end: "",
+  });
   const [formData, setFormData] = useState({
     name: "",
     address: "",
@@ -123,7 +128,29 @@ export default function Vendors() {
       }
     });
 
-    return transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return transactions
+      .filter(tx => {
+        const matchesSearch = tx.reference.toLowerCase().includes(historySearchQuery.toLowerCase()) || 
+                             tx.type.toLowerCase().includes(historySearchQuery.toLowerCase());
+        
+        let matchesDate = true;
+        if (dateFilter.start || dateFilter.end) {
+          const txDate = new Date(tx.date);
+          if (dateFilter.start) {
+            const startDate = new Date(dateFilter.start);
+            startDate.setHours(0, 0, 0, 0);
+            if (txDate < startDate) matchesDate = false;
+          }
+          if (dateFilter.end) {
+            const endDate = new Date(dateFilter.end);
+            endDate.setHours(23, 59, 59, 999);
+            if (txDate > endDate) matchesDate = false;
+          }
+        }
+        
+        return matchesSearch && matchesDate;
+      })
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   };
 
   const getVendorStats = (vendorId: string, vendorName: string) => {
@@ -376,7 +403,50 @@ export default function Vendors() {
                 </TabsContent>
                 <TabsContent value="transactions" className="mt-4">
                   <Card>
-                    <CardHeader><CardTitle className="text-sm">Transaction History</CardTitle></CardHeader>
+                    <CardHeader>
+                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <CardTitle className="text-sm">Transaction History</CardTitle>
+                        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                          <div className="relative flex-1 md:w-48">
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                            <Input 
+                              placeholder="Search reference..." 
+                              value={historySearchQuery}
+                              onChange={(e) => setHistorySearchQuery(e.target.value)}
+                              className="pl-7 h-8 text-xs"
+                            />
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Input 
+                              type="date" 
+                              value={dateFilter.start}
+                              onChange={(e) => setDateFilter(prev => ({ ...prev, start: e.target.value }))}
+                              className="h-8 text-xs w-32"
+                            />
+                            <span className="text-xs text-muted-foreground">to</span>
+                            <Input 
+                              type="date" 
+                              value={dateFilter.end}
+                              onChange={(e) => setDateFilter(prev => ({ ...prev, end: e.target.value }))}
+                              className="h-8 text-xs w-32"
+                            />
+                            {(dateFilter.start || dateFilter.end || historySearchQuery) && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => {
+                                  setDateFilter({ start: "", end: "" });
+                                  setHistorySearchQuery("");
+                                }}
+                                className="h-8 px-2 text-xs"
+                              >
+                                Reset
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </CardHeader>
                     <CardContent>
                       <div className="space-y-3">
                         {getVendorTransactions(viewingVendor.id, viewingVendor.name).length > 0 ? (
