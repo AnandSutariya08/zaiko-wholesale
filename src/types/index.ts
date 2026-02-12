@@ -69,6 +69,7 @@ export interface Product {
   id: string;
   name: string;
   hsnCode: string;
+  barcode?: string; // Added barcode field
   gstRate: number;
   unit: string;
   price: number; // Selling price (legacy support)
