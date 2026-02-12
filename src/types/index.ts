@@ -6,6 +6,16 @@ export interface BillCreator {
   createdAt: string;
 }
 
+export interface BankAccount {
+  id: string;
+  bankName: string;
+  accountHolder: string;
+  accountNumber: string;
+  branchAndIFSC: string;
+  upiId?: string;
+  isDefault?: boolean;
+}
+
 export interface CompanyProfile {
   id: string;
   name: string;
@@ -16,10 +26,10 @@ export interface CompanyProfile {
   phone: string;
   email: string;
   logo?: string;
-  upiId?: string; // UPI ID for "Scan & Pay" QR on bills (e.g., name@bank)
+  upiId?: string; // Legacy: UPI ID for "Scan & Pay" QR on bills (e.g., name@bank)
   defaultUnit?: string; // Default unit for new products
   unitOptions?: string[]; // Allowed product units
-  bankDetails: {
+  bankDetails?: {
     accountHolder: string;
     bankName: string;
     accountNumber: string;
@@ -123,6 +133,8 @@ export interface Bill {
   createdAt: string;
   updatedAt: string;
   originalItems?: BillItem[];
+  bankAccountId?: string;
+  bankAccount?: BankAccount;
 
   // International Bill Fields
   billType?: "domestic" | "international"; // Bill type selection

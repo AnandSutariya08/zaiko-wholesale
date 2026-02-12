@@ -73,5 +73,8 @@ export {
   saveSampleBill,
   getSampleBillCounter,
   incrementSampleBillCounter,
+  getBankAccounts,
+  saveBankAccount,
+  deleteBankAccount,
   type InventoryItemInput,
 } from "./firebaseService";

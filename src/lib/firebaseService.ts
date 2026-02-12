@@ -39,6 +39,7 @@ import {
   PaymentTransaction,
   PurchaseReturn,
   PurchaseReturnItem,
+  BankAccount,
 } from "@/types";
 
 // Collection names
@@ -61,6 +62,7 @@ const COLLECTIONS = {
   COUNTERS: "counters",
   PURCHASE_RETURNS: "purchaseReturns",
   CREATORS: "creators",
+  BANK_ACCOUNTS: "bankAccounts",
 };
 
 // Helper function to get user ID (for multi-user support in future)
@@ -125,6 +127,46 @@ export const deleteCreator = async (id: string): Promise<void> => {
     await deleteDoc(docRef);
   } catch (error) {
     console.error("Error deleting creator:", error);
+    throw error;
+  }
+};
+
+// Bank Accounts
+export const getBankAccounts = async (): Promise<BankAccount[]> => {
+  try {
+    const userId = getUserId();
+    const q = query(
+      collection(db, COLLECTIONS.BANK_ACCOUNTS),
+      where("userId", "==", userId)
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as BankAccount[];
+  } catch (error) {
+    console.error("Error getting bank accounts:", error);
+    return [];
+  }
+};
+
+export const saveBankAccount = async (account: BankAccount): Promise<void> => {
+  try {
+    const userId = getUserId();
+    const docRef = doc(db, COLLECTIONS.BANK_ACCOUNTS, account.id);
+    await setDoc(docRef, removeUndefined({ ...account, userId }), { merge: true });
+  } catch (error) {
+    console.error("Error saving bank account:", error);
+    throw error;
+  }
+};
+
+export const deleteBankAccount = async (id: string): Promise<void> => {
+  try {
+    const docRef = doc(db, COLLECTIONS.BANK_ACCOUNTS, id);
+    await deleteDoc(docRef);
+  } catch (error) {
+    console.error("Error deleting bank account:", error);
     throw error;
   }
 };

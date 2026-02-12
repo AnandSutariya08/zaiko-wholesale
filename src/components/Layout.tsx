@@ -23,6 +23,7 @@ import {
   LogOut,
   Sparkles,
   X,
+  CreditCard,
 } from "lucide-react";
 import { getCompanyProfile } from "@/lib/storage";
 import { cn } from "@/lib/utils";
@@ -207,6 +208,7 @@ export function Layout({ children }: LayoutProps) {
     { path: "/files", icon: FolderOpen, label: "Files" },
     { path: "/notes", icon: StickyNote, label: "Notes" },
     { path: "/ai-agent", icon: Sparkles, label: "AI" },
+    { path: "/bank-accounts", icon: CreditCard, label: "Banks" },
     { path: "/bill-creators", icon: UserCheck, label: "Users" },
     { path: "/settings", icon: Settings, label: "Settings" },
   ];
