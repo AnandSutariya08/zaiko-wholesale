@@ -18,7 +18,9 @@ import { Button } from "./ui/button";
 import { BankAccount, Bill, SampleBill, Expense } from "@/types";
 import { getBills, getSampleBills, getExpenses } from "@/lib/storage";
 import { formatCurrency, formatDate } from "@/lib/billUtils";
-import { Download, Loader2, FileText } from "lucide-react";
+import { Download, Loader2, FileText, FileDown } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface BankStatementProps {
   account: BankAccount;
@@ -114,6 +116,54 @@ export function BankStatement({ account, isOpen, onClose }: BankStatementProps) 
     document.body.removeChild(link);
   };
 
+  const downloadPDF = () => {
+    const doc = new jsPDF();
+    
+    // Add title and account details
+    doc.setFontSize(20);
+    doc.text("Bank Statement", 14, 22);
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`${account.bankName} - ${account.accountNumber}`, 14, 30);
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 36);
+    doc.text(`Current Balance: ${formatCurrency(totalReceived)}`, 14, 42);
+
+    // Prepare table data
+    const tableColumn = ["Date", "Description/Bill No.", "Type", "Total", "Amount", "Status"];
+    const tableRows = statementData.map(item => [
+      formatDate(item.date),
+      item.billNumber === "EXPENSE" ? item.clientName : `${item.billNumber} (${item.clientName})`,
+      item.type === 'expense' ? 'Debit' : 'Credit',
+      formatCurrency(item.total),
+      item.amount < 0 ? `- ${formatCurrency(Math.abs(item.amount))}` : formatCurrency(item.amount),
+      item.type === 'expense' ? 'Paid' : item.status.toUpperCase()
+    ]);
+
+    // Add table
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 50,
+      theme: 'grid',
+      headStyles: { fillColor: [79, 70, 229] }, // Brand primary color
+      columnStyles: {
+        4: { fontStyle: 'bold' } // Amount column bold
+      },
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.column.index === 4) {
+          const amount = statementData[data.row.index].amount;
+          if (amount < 0) {
+            data.cell.styles.textColor = [225, 29, 72]; // rose-600
+          } else {
+            data.cell.styles.textColor = [5, 150, 105]; // emerald-600
+          }
+        }
+      }
+    });
+
+    doc.save(`Statement_${account.bankName}_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[800px] max-h-[80vh] flex flex-col">
@@ -125,20 +175,37 @@ export function BankStatement({ account, isOpen, onClose }: BankStatementProps) 
                 {account.bankName} - {account.accountNumber}
               </DialogDescription>
             </div>
-            <Button onClick={downloadCSV} variant="outline" size="sm" className="gap-2">
-              <Download className="h-4 w-4" />
-              Download CSV
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={downloadCSV} variant="outline" size="sm" className="gap-2">
+                <Download className="h-4 w-4" />
+                CSV
+              </Button>
+              <Button onClick={downloadPDF} variant="outline" size="sm" className="gap-2">
+                <FileDown className="h-4 w-4" />
+                PDF
+              </Button>
+            </div>
           </div>
         </DialogHeader>
 
         <div className="flex-1 overflow-auto py-4">
-          <div className="bg-primary/5 p-4 rounded-lg mb-6 flex justify-between items-center border border-primary/10">
+          <div className="bg-primary/5 p-4 rounded-lg mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4 border border-primary/10">
+            <div>
+              <p className="text-sm text-muted-foreground">Total Credits</p>
+              <h3 className="text-xl font-bold text-emerald-600">
+                {formatCurrency(statementData.filter(i => i.amount > 0).reduce((sum, i) => sum + i.amount, 0))}
+              </h3>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Total Debits</p>
+              <h3 className="text-xl font-bold text-rose-600">
+                {formatCurrency(Math.abs(statementData.filter(i => i.amount < 0).reduce((sum, i) => sum + i.amount, 0)))}
+              </h3>
+            </div>
             <div>
               <p className="text-sm text-muted-foreground">Current Balance</p>
-              <h3 className="text-2xl font-bold text-primary">{formatCurrency(totalReceived)}</h3>
+              <h3 className="text-xl font-bold text-primary">{formatCurrency(totalReceived)}</h3>
             </div>
-            <FileText className="h-10 w-10 text-primary/20" />
           </div>
 
           {loading ? (
