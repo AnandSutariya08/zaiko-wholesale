@@ -27,6 +27,7 @@ import Notes from "@/pages/Notes";
 import SampleBill from "@/pages/SampleBill";
 import BillCreators from "@/pages/BillCreators";
 import BankAccounts from "@/pages/BankAccounts";
+import ExpoDashboard from "@/pages/Expo/ExpoDashboard";
 import AIAgent from "@/pages/AIAgent";
 import { LoadingSpinner } from "./components/LoadingSpinner";
 import { Suspense } from "react";
@@ -72,6 +73,7 @@ const App = () => (
                       <Route path="/notes" element={<Notes />} />
                       <Route path="/bank-accounts" element={<BankAccounts />} />
                       <Route path="/bill-creators" element={<BillCreators />} />
+                      <Route path="/expo-dashboard/:expoId" element={<ExpoDashboard />} />
                       <Route path="/ai-agent" element={<AIAgent />} />
                       <Route path="*" element={<NotFound />} />
                       <Route path="/sample-bills" element={<SampleBills />} />
