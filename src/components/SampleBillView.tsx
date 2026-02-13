@@ -225,9 +225,9 @@ const handlePrint = () => {
 
     const message = `Hi ${clientName},
 
-📄 *Sample Invoice Details*
+📄 *Invoice Details*
 ━━━━━━━━━━━━━━━━━━━━
-Invoice No: ${billNumber}
+Invoice Number: ${billNumber}
 Date: ${billDate}
 Amount: ${formatCurrency(billTotal)}
 Status: ${bill.paymentStatus.toUpperCase()}
@@ -360,7 +360,7 @@ Thank you!`;
 
                     <div className="w-1/2 text-right">
                       <p className="text-[10px]">
-                        <strong>Invoice No. & Date:</strong> {bill.billNumber}{" "}
+                        <strong>Invoice Number & Date:</strong> {bill.billNumber}{" "}
                         {formatDate(bill.date)}
                       </p>
                       <p className="text-[10px] mt-0.5">

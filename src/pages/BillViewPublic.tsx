@@ -175,7 +175,7 @@
 //                 {gstEnabled ? 'TAX INVOICE' : 'INVOICE'}
 //               </h2>
 //               <div className="text-[10px] space-y-0.5 break-words">
-//                 <p><strong>Invoice No.:</strong> {bill.billNumber}</p>
+//                 <p><strong>Invoice Number:</strong> {bill.billNumber}</p>
 //                 <p><strong>Date:</strong> {formatDate(bill.date)}</p>
 //                 <p><strong>Due Date:</strong> {formatDate(bill.dueDate)}</p>
 //                 {bill.deliveryNote && <p><strong>Delivery Note:</strong> {bill.deliveryNote}</p>}

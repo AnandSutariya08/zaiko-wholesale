@@ -348,7 +348,7 @@ export const BillPDF = ({
               <View style={{ ...exportStyles.col48, textAlign: "right" }}>
                 <Text>
                   <Text style={{ fontWeight: "bold" }}>
-                    Invoice No. & Date:
+                    Invoice Number & Date:
                   </Text>{" "}
                   {bill.billNumber} {formatDate(bill.date)}
                 </Text>
