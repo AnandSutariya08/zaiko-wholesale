@@ -168,15 +168,8 @@ export function PaymentDialog({ bill, open, onOpenChange, onPaymentCollected }: 
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading} className="w-full sm:w-auto text-sm">
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                isPurchase ? 'Record Payment' : 'Collect Payment'
-              )}
+            <Button type="submit" loading={loading} className="w-full sm:w-auto text-sm">
+              {isPurchase ? 'Record Payment' : 'Collect Payment'}
             </Button>
           </DialogFooter>
         </form>

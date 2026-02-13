@@ -1513,19 +1513,10 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
           onClick={handleSubmit}
           size="lg"
           className="flex-1"
-          disabled={saving}
+          loading={saving}
         >
-          {saving ? (
-            <>
-              <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-              {isEdit ? "Updating..." : "Creating..."}
-            </>
-          ) : (
-            <>
-              <Save className="h-5 w-5 mr-2" />
-              {isEdit ? "Update Bill" : "Create Bill"}
-            </>
-          )}
+          <Save className="h-5 w-5 mr-2" />
+          {isEdit ? "Update Bill" : "Create Bill"}
         </Button>
         <Button
           variant="outline"

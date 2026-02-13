@@ -147,16 +147,9 @@ export default function Auth() {
                 type="submit" 
                 className="w-full" 
                 size="lg"
-                disabled={loading}
+                loading={loading}
               >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Signing in...
-                  </>
-                ) : (
-                  'Sign In'
-                )}
+                Sign In
               </Button>
 
               <div className="text-center text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">
