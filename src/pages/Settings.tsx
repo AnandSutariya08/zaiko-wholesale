@@ -309,10 +309,10 @@ export default function Settings() {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-5xl mx-auto pb-6 sm:pb-8 px-3 sm:px-4 md:px-0 w-full max-w-full overflow-x-hidden relative">
+    <div className="space-y-4 sm:space-y-6 max-w-5xl mx-auto pb-24 sm:pb-32 px-3 sm:px-4 md:px-0 w-full max-w-full overflow-x-hidden relative">
       {/* Conditional Floating Save Button - Only shows when there are changes */}
       {isDirty && (
-        <div className="fixed bottom-24 right-6 z-[100] flex items-center justify-center">
+        <div className="fixed bottom-6 right-6 z-[100] flex items-center justify-center">
           <Button
             onClick={() => handleSubmit()}
             loading={saving}
