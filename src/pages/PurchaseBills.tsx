@@ -1533,9 +1533,15 @@ function PurchaseBills() {
                                 <DropdownMenuItem
                                   onSelect={(e) => e.preventDefault()}
                                   className="gap-2 text-destructive focus:text-destructive"
+                                  disabled={bill.itemsAddedToInventory}
                                 >
                                   <Trash2 className="h-4 w-4" />
                                   Delete Bill
+                                  {bill.itemsAddedToInventory && (
+                                    <span className="text-[10px] ml-auto opacity-70">
+                                      (In Inventory)
+                                    </span>
+                                  )}
                                 </DropdownMenuItem>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
