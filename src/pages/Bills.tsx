@@ -128,11 +128,13 @@ export default function Bills() {
       filtered = filtered.filter((bill) => bill.paymentStatus === statusFilter);
     }
 
-    // Tab filter (GST/Non-GST)
+    // Tab filter (GST/Non-GST/International)
     if (activeTab === "gst") {
-      filtered = filtered.filter((bill) => bill.totalTax > 0);
+      filtered = filtered.filter((bill) => bill.totalTax > 0 && bill.billType !== "international");
     } else if (activeTab === "non-gst") {
-      filtered = filtered.filter((bill) => bill.totalTax === 0);
+      filtered = filtered.filter((bill) => bill.totalTax === 0 && bill.billType !== "international");
+    } else if (activeTab === "international") {
+      filtered = filtered.filter((bill) => bill.billType === "international");
     }
 
     // Sort
@@ -249,10 +251,11 @@ export default function Bills() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-          <TabsList className="grid grid-cols-3 w-full sm:w-[400px]">
+          <TabsList className="grid grid-cols-4 w-full sm:w-[500px]">
             <TabsTrigger value="all">All Bills</TabsTrigger>
             <TabsTrigger value="gst">GST Bills</TabsTrigger>
             <TabsTrigger value="non-gst">Non-GST</TabsTrigger>
+            <TabsTrigger value="international">International</TabsTrigger>
           </TabsList>
 
           {/* <div className="flex gap-2 w-full sm:w-auto">
@@ -341,7 +344,9 @@ export default function Bills() {
                       ? "No GST bills matching your criteria."
                       : activeTab === "non-gst"
                         ? "No Non-GST bills matching your criteria."
-                        : "Get started by creating your first invoice"}
+                        : activeTab === "international"
+                          ? "No International bills matching your criteria."
+                          : "Get started by creating your first invoice"}
                   </p>
                 </CardContent>
               </Card>

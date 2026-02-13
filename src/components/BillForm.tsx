@@ -721,31 +721,8 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Bill Type Selection */}
-
-            <div className="space-y-2 md:col-span-2">
-              <Label>Bill Type *</Label>
-              <Select
-                value={billType}
-                onValueChange={(value: "domestic" | "international") =>
-                  setBillType(value)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select bill type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="domestic">Domestic</SelectItem>
-                  <SelectItem value="international">International</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                {billType === "international"
-                  ? "International bills include additional shipping and customs details"
-                  : "Domestic bills for transactions within the country"}
-              </p>
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Bill Type Selection removed */}
 
             {/* Client Combobox */}
             <div className="space-y-2">
