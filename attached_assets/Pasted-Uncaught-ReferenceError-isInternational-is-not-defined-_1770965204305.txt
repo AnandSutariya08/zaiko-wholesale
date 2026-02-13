@@ -1,0 +1,33 @@
+Uncaught ReferenceError: isInternational is not defined
+    at BillView (BillView.tsx:2127:12)
+
+injected.js:37 The above error occurred in the <BillView> component:
+
+    at BillView (https://749b1438-2c48-437b-8f71-9655937944ed-00-p9avmzwlwqp3.janeway.replit.dev/src/components/BillView.tsx:3548:28)
+    at div
+    at BillDetail (https://749b1438-2c48-437b-8f71-9655937944ed-00-p9avmzwlwqp3.janeway.replit.dev/src/pages/BillDetail.tsx:30:20)
+    at RenderedRoute (https://749b1438-2c48-437b-8f71-9655937944ed-00-p9avmzwlwqp3.janeway.replit.dev/node_modules/.vite/deps/react-router-dom.js?v=d9ee45eb:4131:5)
+    at Routes (https://749b1438-2c48-437b-8f71-9655937944ed-00-p9avmzwlwqp3.janeway.replit.dev/node_modules/.vite/deps/react-router-dom.js?v=d9ee45eb:4601:5)
+    at div
+    at main
+    at div
+    at div
+    at Provider (https://749b1438-2c48-437b-8f71-9655937944ed-00-p9avmzwlwqp3.janeway.replit.dev/node_modules/.vite/deps/chunk-CC7PQEWU.js?v=d9ee45eb:44:15)
+    at TooltipProvider (https://749b1438-2c48-437b-8f71-9655937944ed-00-p9avmzwlwqp3.janeway.replit.dev/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=d9ee45eb:158:5)
+    at https://749b1438-2c48-437b-8f71-9655937944ed-00-p9avmzwlwqp3.janeway.replit.dev/src/components/ui/sidebar.tsx:50:72
+    at Layout (https://749b1438-2c48-437b-8f71-9655937944ed-00-p9avmzwlwqp3.janeway.replit.dev/src/components/Layout.tsx:462:26)
+    at ProtectedRoute (https://749b1438-2c48-437b-8f71-9655937944ed-00-p9avmzwlwqp3.janeway.replit.dev/src/components/ProtectedRoute.tsx:25:34)
+    at RenderedRoute (https://749b1438-2c48-437b-8f71-9655937944ed-00-p9avmzwlwqp3.janeway.replit.dev/node_modules/.vite/deps/react-router-dom.js?v=d9ee45eb:4131:5)
+    at Routes (https://749b1438-2c48-437b-8f71-9655937944ed-00-p9avmzwlwqp3.janeway.replit.dev/node_modules/.vite/deps/react-router-dom.js?v=d9ee45eb:4601:5)
+    at Router (https://749b1438-2c48-437b-8f71-9655937944ed-00-p9avmzwlwqp3.janeway.replit.dev/node_modules/.vite/deps/react-router-dom.js?v=d9ee45eb:4544:15)
+    at BrowserRouter (https://749b1438-2c48-437b-8f71-9655937944ed-00-p9avmzwlwqp3.janeway.replit.dev/node_modules/.vite/deps/react-router-dom.js?v=d9ee45eb:5290:5)
+    at Provider (https://749b1438-2c48-437b-8f71-9655937944ed-00-p9avmzwlwqp3.janeway.replit.dev/node_modules/.vite/deps/chunk-CC7PQEWU.js?v=d9ee45eb:44:15)
+    at TooltipProvider (https://749b1438-2c48-437b-8f71-9655937944ed-00-p9avmzwlwqp3.janeway.replit.dev/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=d9ee45eb:158:5)
+    at ThemeProvider (https://749b1438-2c48-437b-8f71-9655937944ed-00-p9avmzwlwqp3.janeway.replit.dev/src/contexts/ThemeContext.tsx:25:33)
+    at QueryClientProvider (https://749b1438-2c48-437b-8f71-9655937944ed-00-p9avmzwlwqp3.janeway.replit.dev/node_modules/.vite/deps/@tanstack_react-query.js?v=d9ee45eb:3168:3)
+    at App
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+chunk-CPR2DGMD.js?v=d9ee45eb:19413 Uncaught ReferenceError: isInternational is not defined
+    at BillView (BillView.tsx:2127:12)

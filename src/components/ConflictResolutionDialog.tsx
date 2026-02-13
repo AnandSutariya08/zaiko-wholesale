@@ -17,12 +17,14 @@ interface ConflictResolutionDialogProps {
   conflicts: ProductConflict[];
   onResolve: (resolutions: Map<string, string>) => void;
   onCancel: () => void;
+  resolving?: boolean;
 }
 
 export function ConflictResolutionDialog({
   conflicts,
   onResolve,
   onCancel,
+  resolving = false,
 }: ConflictResolutionDialogProps) {
   const [resolutions, setResolutions] = useState<Map<string, string>>(
     new Map()
@@ -139,12 +141,13 @@ export function ConflictResolutionDialog({
           ))}
 
           <div className="flex gap-3 justify-end pt-4 border-t">
-            <Button variant="outline" onClick={onCancel}>
+            <Button variant="outline" onClick={onCancel} disabled={resolving}>
               Cancel
             </Button>
             <Button
               onClick={handleConfirm}
               className="bg-emerald-600 hover:bg-emerald-700"
+              loading={resolving}
             >
               Confirm and Add to Inventory
             </Button>

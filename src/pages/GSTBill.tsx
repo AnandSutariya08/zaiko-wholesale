@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { BillForm } from '@/components/BillForm';
-import { ArrowLeft, Plus, Search, Calendar, FileText, Eye, Edit, Trash2, IndianRupee, User, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Calendar, FileText, Eye, Edit, Trash2, IndianRupee, User, Loader2, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { getBills, deleteBill, updateBillPayment } from '@/lib/storage';
@@ -88,7 +88,7 @@ export default function GSTBill() {
           </Button>
           <h1 className="text-xl sm:text-2xl font-bold">Create GST Bill</h1>
         </div>
-        <BillForm initialGstEnabled={true} billType="GST" />
+        <BillForm initialGstEnabled={true} billType="domestic" />
       </div>
     );
   }
@@ -194,6 +194,19 @@ export default function GSTBill() {
                         <Badge variant="default" className="bg-green-600 text-white h-8">✓ Paid</Badge>
                       )}
                       <div className="flex gap-2">
+                        <Button variant="outline" size="sm" className="h-8 w-8 p-0" title="Share on WhatsApp"
+                          onClick={() => {
+                            const phone = bill.client.phone?.replace(/\D/g, "");
+                            if (!phone) {
+                              toast.error("Client phone number not available");
+                              return;
+                            }
+                            const billLink = `${window.location.origin}/view/bill/${bill.id}`;
+                            const text = encodeURIComponent(`Hello ${bill.client.name}, please find your bill ${bill.billNumber} here: ${billLink}`);
+                            window.open(`https://wa.me/${phone}?text=${text}`, "_blank");
+                          }}>
+                          <MessageCircle className="h-3.5 w-3.5 text-green-600" />
+                        </Button>
                         <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => navigate(`/bills/${bill.id}`)}>
                           <Eye className="h-3.5 w-3.5" />
                         </Button>

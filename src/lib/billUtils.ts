@@ -190,7 +190,7 @@ export const formatCurrency = (amount: number): string => {
     currency: "INR",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(roundedAmount).replace("INR", "₹");
+  }).format(roundedAmount).replace("₹", "Rs. ").replace("INR", "Rs. ");
 };
 
 export const formatDate = (date: string): string => {
@@ -204,14 +204,20 @@ export const formatDate = (date: string): string => {
 export const generateBillNumber = (
   counter: number,
   companyPrefix: string,
-  type?: string
+  type?: string,
+  gstEnabled: boolean = true
 ): string => {
   const year = new Date().getFullYear();
-  const nextYear = year + 1;
-  const prefix = type ? `${type}-` : "";
-  return `${prefix}${companyPrefix}/${counter}/${year.toString().slice(2)}-${nextYear
-    .toString()
-    .slice(2)}`;
+  const paddedCounter = counter.toString().padStart(3, "0");
+  
+  if (type === "international") {
+    return `EXP-${year}-${paddedCounter}`;
+  } else if (type === "sample") {
+    return `SMP-${year}-${paddedCounter}`;
+  }
+  
+  const prefix = gstEnabled ? "GST" : "NON";
+  return `${prefix}-${year}-${paddedCounter}`;
 };
 
 export const calculateDueDate = (

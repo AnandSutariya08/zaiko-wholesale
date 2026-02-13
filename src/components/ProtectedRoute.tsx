@@ -39,6 +39,11 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
 
+  // Allow public bill view without authentication
+  if (location.pathname.startsWith('/view/bill/')) {
+    return <>{children}</>;
+  }
+
   if (!authenticated) {
     return <Navigate to={`/auth?from=${encodeURIComponent(location.pathname + location.search)}`} replace />;
   }

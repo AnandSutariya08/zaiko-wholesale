@@ -164,17 +164,10 @@ export function SamplePaymentDialog({
             </Button>
             <Button
               type="submit"
-              disabled={loading}
+              loading={loading}
               className="w-full sm:w-auto text-sm"
             >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                "Collect Payment"
-              )}
+              Collect Payment
             </Button>
           </DialogFooter>
         </form>

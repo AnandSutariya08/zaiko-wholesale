@@ -17,8 +17,9 @@
     width: 100%;
     position: relative;
     /* Prevent body scroll on mobile - only main content should scroll */
-    height: 100vh;
-    overflow-y: hidden;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    overflow-y: auto;
   }
 
   /* On desktop, allow body to scroll normally */
@@ -33,8 +34,10 @@
     overflow-x: hidden;
     width: 100%;
     max-width: 100vw;
-    height: 100vh;
-    overflow-y: hidden;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    display: flex;
+    flex-direction: column;
   }
 
   /* On desktop, allow root to scroll normally */
@@ -71,6 +74,30 @@
 
   .safe-area-inset-top {
     padding-top: env(safe-area-inset-top);
+  }
+
+  /* Professional Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/20 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/40;
+  }
+
+  /* Firefox support */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.2) transparent;
   }
 
   /* Better touch targets for mobile */

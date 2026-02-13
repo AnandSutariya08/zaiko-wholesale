@@ -197,15 +197,8 @@ export function ClientForm({ open, onOpenChange, onSuccess }: ClientFormProps) {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Adding...
-                </>
-              ) : (
-                "Add Client"
-              )}
+            <Button type="submit" loading={saving}>
+              Add Client
             </Button>
           </div>
         </form>

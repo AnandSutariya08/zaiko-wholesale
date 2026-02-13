@@ -33,12 +33,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { getVendors, saveVendor, deleteVendor, getPurchaseBills } from "@/lib/storage";
 import { Vendor, PurchaseBill } from "@/types";
-import { Plus, Edit, Trash2, Store, Eye, Loader2, Search, Receipt, History } from "lucide-react";
+import { Plus, Edit, Trash2, Store, Eye, Loader2, Search, Receipt, History, Download, FileSpreadsheet, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCurrency, formatDate } from "@/lib/billUtils";
 import { Badge } from "@/components/ui/badge";
+import { pdf } from "@react-pdf/renderer";
+import { VendorLedgerPDF } from "@/components/VendorLedgerPDF";
+import * as XLSX from "xlsx";
 
 export default function Vendors() {
   const navigate = useNavigate();
@@ -190,10 +193,57 @@ export default function Vendors() {
 
     return {
       totalPurchase,
+      totalPaid,
       pendingAmount,
       totalReturn,
       billCount: vendorBills.length
     };
+  };
+
+  const downloadExcel = (vendor: Vendor) => {
+    try {
+      const transactions = getVendorTransactions(vendor.id, vendor.name);
+      const stats = getVendorStats(vendor.id, vendor.name);
+      
+      const data = transactions.map(tx => ({
+        Date: formatDate(tx.date),
+        Type: tx.type,
+        Reference: tx.reference,
+        Method: tx.method || "-",
+        Amount: tx.amount,
+        Direction: tx.type === 'Purchase' ? 'DR' : 'CR'
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Vendor Ledger");
+      XLSX.writeFile(wb, `${vendor.name}_Ledger.xlsx`);
+      toast.success("Excel ledger downloaded");
+    } catch (error) {
+      console.error("Excel download error:", error);
+      toast.error("Failed to download Excel");
+    }
+  };
+
+  const downloadPDF = async (vendor: Vendor) => {
+    try {
+      const transactions = getVendorTransactions(vendor.id, vendor.name);
+      const stats = getVendorStats(vendor.id, vendor.name);
+
+      const doc = <VendorLedgerPDF vendor={vendor} transactions={transactions} stats={stats} />;
+      const blob = await pdf(doc).toBlob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${vendor.name}_Ledger.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+      
+      toast.success("PDF ledger downloaded");
+    } catch (error) {
+      console.error("PDF download error:", error);
+      toast.error("Failed to download PDF");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -293,7 +343,7 @@ export default function Vendors() {
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={saving}>{saving ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}{editingVendor ? "Update" : "Add"} Vendor</Button>
+                <Button type="submit" loading={saving}>{editingVendor ? "Update" : "Add"} Vendor</Button>
               </div>
             </form>
           </DialogContent>
@@ -336,14 +386,32 @@ export default function Vendors() {
       {viewingVendor && (
         <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>Vendor Details: {viewingVendor.name}</DialogTitle></DialogHeader>
+            <DialogHeader>
+              <div className="flex justify-between items-center pr-8">
+                <DialogTitle>Vendor Details: {viewingVendor.name}</DialogTitle>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => downloadExcel(viewingVendor)} className="h-8 gap-1">
+                    <FileSpreadsheet className="h-4 w-4" /> Excel
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => downloadPDF(viewingVendor)} className="h-8 gap-1">
+                    <FileText className="h-4 w-4" /> PDF
+                  </Button>
+                </div>
+              </div>
+            </DialogHeader>
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Card className="bg-primary/5 border-primary/20">
                   <CardContent className="pt-4">
                     <p className="text-xs text-muted-foreground uppercase font-semibold">Total Purchase</p>
                     <p className="text-2xl font-bold">{formatCurrency(getVendorStats(viewingVendor.id, viewingVendor.name).totalPurchase)}</p>
                     <p className="text-[10px] text-muted-foreground">{getVendorStats(viewingVendor.id, viewingVendor.name).billCount} Bills</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-green-50 border-green-200">
+                  <CardContent className="pt-4">
+                    <p className="text-xs text-green-600 uppercase font-semibold">Total Paid</p>
+                    <p className="text-2xl font-bold text-green-700">{formatCurrency(getVendorStats(viewingVendor.id, viewingVendor.name).totalPaid)}</p>
                   </CardContent>
                 </Card>
                 <Card className="bg-orange-50 border-orange-200">

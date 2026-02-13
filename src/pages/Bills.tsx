@@ -31,11 +31,17 @@ import {
   User,
   Receipt,
   FileText,
+  Download,
+  Share2,
+  MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { PaymentDialog } from "@/components/PaymentDialog";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { BillPDF } from "@/components/BillView";
+import { pdf } from "@react-pdf/renderer";
+import QRCode from "qrcode";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -122,11 +128,13 @@ export default function Bills() {
       filtered = filtered.filter((bill) => bill.paymentStatus === statusFilter);
     }
 
-    // Tab filter (GST/Non-GST)
+    // Tab filter (GST/Non-GST/International)
     if (activeTab === "gst") {
-      filtered = filtered.filter((bill) => bill.totalTax > 0);
+      filtered = filtered.filter((bill) => bill.totalTax > 0 && bill.billType !== "international");
     } else if (activeTab === "non-gst") {
-      filtered = filtered.filter((bill) => bill.totalTax === 0);
+      filtered = filtered.filter((bill) => bill.totalTax === 0 && bill.billType !== "international");
+    } else if (activeTab === "international") {
+      filtered = filtered.filter((bill) => bill.billType === "international");
     }
 
     // Sort
@@ -243,10 +251,11 @@ export default function Bills() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-          <TabsList className="grid grid-cols-3 w-full sm:w-[400px]">
+          <TabsList className="grid grid-cols-4 w-full sm:w-[500px]">
             <TabsTrigger value="all">All Bills</TabsTrigger>
             <TabsTrigger value="gst">GST Bills</TabsTrigger>
             <TabsTrigger value="non-gst">Non-GST</TabsTrigger>
+            <TabsTrigger value="international">International</TabsTrigger>
           </TabsList>
 
           {/* <div className="flex gap-2 w-full sm:w-auto">
@@ -335,7 +344,9 @@ export default function Bills() {
                       ? "No GST bills matching your criteria."
                       : activeTab === "non-gst"
                         ? "No Non-GST bills matching your criteria."
-                        : "Get started by creating your first invoice"}
+                        : activeTab === "international"
+                          ? "No International bills matching your criteria."
+                          : "Get started by creating your first invoice"}
                   </p>
                 </CardContent>
               </Card>
@@ -424,6 +435,72 @@ export default function Bills() {
                         )}
 
                         <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            title="Download Bill"
+                            onClick={async () => {
+                              toast.info("Generating PDF...");
+                              try {
+                                const qrDataURL = await QRCode.toDataURL(window.location.origin + `/bills/${bill.id}`);
+                                const doc = <BillPDF bill={bill} company={company} qrDataURL={qrDataURL} />;
+                                const blob = await pdf(doc).toBlob();
+                                const url = URL.createObjectURL(blob);
+                                const link = document.createElement('a');
+                                link.href = url;
+                                link.download = `Bill_${bill.billNumber}.pdf`;
+                                link.click();
+                                URL.revokeObjectURL(url);
+                                toast.success("PDF downloaded successfully");
+                              } catch (error) {
+                                console.error("Error generating PDF:", error);
+                                toast.error("Failed to generate PDF");
+                              }
+                            }}
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            title="Share on WhatsApp"
+                            onClick={() => {
+                              const phone = bill.client.phone?.replace(/\D/g, "");
+                              if (!phone) {
+                                toast.error("Client phone number not available");
+                                return;
+                              }
+                              // Direct share link for public bill view page
+                              const billLink = `${window.location.origin}/view/bill/${bill.id}`;
+                              const text = encodeURIComponent(`Hello ${bill.client.name}, please find your bill ${bill.billNumber} here: ${billLink}`);
+                              window.open(`https://wa.me/${phone}?text=${text}`, "_blank");
+                            }}
+                          >
+                            <MessageCircle className="h-3.5 w-3.5 text-green-600" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            title="Share Bill"
+                            onClick={() => {
+                              const publicUrl = `${window.location.origin}/view/bill/${bill.id}`;
+                              if (navigator.share) {
+                                navigator.share({
+                                  title: `Bill ${bill.billNumber}`,
+                                  text: `Check out bill ${bill.billNumber} for ${bill.client.name}`,
+                                  url: publicUrl,
+                                }).catch(console.error);
+                              } else {
+                                navigator.clipboard.writeText(publicUrl);
+                                toast.success("Link copied to clipboard");
+                              }
+                            }}
+                          >
+                            <Share2 className="h-3.5 w-3.5" />
+                          </Button>
                           <Link to={`/bills/${bill.id}`}>
                             <Button
                               variant="outline"

@@ -74,11 +74,19 @@ interface BillFormProps {
   bill?: Bill;
   isEdit?: boolean;
   initialGstEnabled?: boolean;
-  billType?: "GST" | "NON_GST" | "SAMPLE";
+  billType?: "domestic" | "international";
 }
 
-export function BillForm({ bill, isEdit = false, initialGstEnabled, billType }: BillFormProps) {
+export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: propBillType }: BillFormProps) {
   const navigate = useNavigate();
+  const [billType, setBillType] = useState<"domestic" | "international">(propBillType || "domestic");
+  
+  useEffect(() => {
+    if (propBillType) {
+      setBillType(propBillType);
+    }
+  }, [propBillType]);
+
   useEffect(() => {
     if (bill && isEdit && bill.paymentStatus === "paid") {
       toast.error("Fully paid bills cannot be edited");
@@ -152,6 +160,17 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType }: 
 
   const [companyProfile, setCompanyProfile] = useState<any>(null);
   const [gstEnabled, setGstEnabled] = useState(initialGstEnabled ?? true);
+
+  // Auto-set GST and type based on props
+  useEffect(() => {
+    if (initialGstEnabled !== undefined) {
+      setGstEnabled(initialGstEnabled);
+    }
+    if (propBillType) {
+      setBillType(propBillType);
+      setInternalBillType(propBillType);
+    }
+  }, [initialGstEnabled, propBillType]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -352,12 +371,9 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType }: 
         totals.total,
       );
 
+      const typeForCounter = (internalBillType as string) === "international" ? "international" : (gstEnabled ? "gst" : "non_gst");
       let billCounterVal;
-      if (billType === "GST" || billType === "NON_GST" || billType === "SAMPLE") {
-        billCounterVal = isEdit ? await getBillCounter(billType) : await incrementBillCounter(billType);
-      } else {
-        billCounterVal = isEdit ? await getBillCounter() : await incrementBillCounter();
-      }
+      billCounterVal = isEdit ? await getBillCounter(typeForCounter) : await incrementBillCounter(typeForCounter);
 
       // Automatically set creator from logged in user
       const user = getCurrentUser();
@@ -374,7 +390,8 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType }: 
           generateBillNumber(
             billCounterVal,
             companyProfile.name.substring(0, 6).toUpperCase(),
-            billType
+            internalBillType,
+            gstEnabled
           ),
         date: formData.date,
         clientId: selectedClient.id,
@@ -399,8 +416,8 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType }: 
         notes: formData.notes,
         createdBy: isEdit ? bill?.createdBy : creator,
         payments: bill?.payments || [],
-        bankAccountId: selectedBankAccount?.id,
-        bankAccount: selectedBankAccount,
+        bankAccountId: selectedBankAccount?.id || "",
+        bankAccount: selectedBankAccount || undefined,
         createdAt: bill?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         originalItems: isEdit ? originalBillItems : undefined,
@@ -707,31 +724,8 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType }: 
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Bill Type Selection */}
-
-            <div className="space-y-2 md:col-span-2">
-              <Label>Bill Type *</Label>
-              <Select
-                value={billType}
-                onValueChange={(value: "domestic" | "international") =>
-                  setBillType(value)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select bill type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="domestic">Domestic</SelectItem>
-                  <SelectItem value="international">International</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                {billType === "international"
-                  ? "International bills include additional shipping and customs details"
-                  : "Domestic bills for transactions within the country"}
-              </p>
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Bill Type Selection removed */}
 
             {/* Client Combobox */}
             <div className="space-y-2">
@@ -1105,17 +1099,20 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType }: 
         </Card>
       )}
 
-      <div className="flex items-center justify-between md:col-span-2 p-4 border rounded-lg bg-muted/30">
-        <div className="space-y-0.5">
-          <Label className="text-base">GST Billing</Label>
-          <p className="text-sm text-muted-foreground">
-            {gstEnabled
-              ? "GST is enabled for this bill"
-              : "GST is disabled for this bill"}
-          </p>
+      {/* GST Switch - Only show for domestic bills */}
+      {billType !== "international" && (
+        <div className="flex items-center justify-between md:col-span-2 p-4 border rounded-lg bg-muted/30">
+          <div className="space-y-0.5">
+            <Label className="text-base">GST Billing</Label>
+            <p className="text-sm text-muted-foreground">
+              {gstEnabled
+                ? "GST is enabled for this bill"
+                : "GST is disabled for this bill"}
+            </p>
+          </div>
+          <Switch checked={gstEnabled} onCheckedChange={setGstEnabled} />
         </div>
-        <Switch checked={gstEnabled} onCheckedChange={setGstEnabled} />
-      </div>
+      )}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
@@ -1509,19 +1506,10 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType }: 
           onClick={handleSubmit}
           size="lg"
           className="flex-1"
-          disabled={saving}
+          loading={saving}
         >
-          {saving ? (
-            <>
-              <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-              {isEdit ? "Updating..." : "Creating..."}
-            </>
-          ) : (
-            <>
-              <Save className="h-5 w-5 mr-2" />
-              {isEdit ? "Update Bill" : "Create Bill"}
-            </>
-          )}
+          <Save className="h-5 w-5 mr-2" />
+          {isEdit ? "Update Bill" : "Create Bill"}
         </Button>
         <Button
           variant="outline"

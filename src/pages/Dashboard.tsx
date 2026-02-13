@@ -73,6 +73,7 @@ import {
   Calculator,
   Percent,
   Calendar,
+  Clock,
   Award,
   Target,
   Activity,
@@ -1535,6 +1536,26 @@ export default function Dashboard() {
 
       {/* Financial Overview */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 w-full max-w-full">
+        <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20 w-full">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6">
+            <CardTitle className="text-[10px] sm:text-xs md:text-sm font-medium text-blue-600 dark:text-blue-400 truncate pr-2">
+              Pending Amount
+            </CardTitle>
+            <Clock className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-blue-500 flex-shrink-0" />
+          </CardHeader>
+          <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
+            <div className="text-lg sm:text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400 break-words ">
+              {formatCurrency(stats.pendingAmount)}
+            </div>
+            <div className="flex items-center gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
+              <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500 flex-shrink-0" />
+              <span className="text-[10px] sm:text-xs md:text-sm text-muted-foreground break-words">
+                Unpaid receivable amount
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border-emerald-500/20 w-full">
           <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6">
             <CardTitle className="text-[10px] sm:text-xs md:text-sm font-medium text-emerald-600 dark:text-emerald-400 truncate pr-2">

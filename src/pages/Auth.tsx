@@ -163,7 +163,7 @@ export default function Auth() {
                 type="submit"
                 className="w-full"
                 size="lg"
-                disabled={loading}
+                loading={loading}
               >
                 {loading ? (
                   <>

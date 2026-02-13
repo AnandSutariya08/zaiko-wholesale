@@ -322,10 +322,8 @@ export const PurchaseBillPDF: React.FC<PurchaseBillPDFProps> = ({ bill }) => {
               <Text style={styles.invoiceTitle}>PURCHASE INVOICE</Text>
               <View style={styles.billDetails}>
                 <Text style={styles.billDetailRow}>
-                  <Text style={{ fontWeight: "bold" }}>Invoice No: </Text>
-                  <Text style={styles.billNumber}>
-                    {bill.billNumber || "N/A"}
-                  </Text>
+                  <Text style={{ fontWeight: 'bold' }}>Invoice Number: </Text>
+                  <Text style={styles.billNumber}>{bill.billNumber || 'N/A'}</Text>
                 </Text>
                 <Text style={styles.billDetailRow}>
                   <Text style={{ fontWeight: "bold" }}>Date: </Text>

@@ -119,49 +119,96 @@ export function BankStatement({ account, isOpen, onClose }: BankStatementProps) 
   const downloadPDF = () => {
     const doc = new jsPDF();
     
-    // Add title and account details
-    doc.setFontSize(20);
-    doc.text("Bank Statement", 14, 22);
-    doc.setFontSize(11);
+    // Add Company/Bank Title
+    doc.setFontSize(22);
+    doc.setTextColor(40);
+    doc.text("BANK STATEMENT / LEDGER", 14, 22);
+    
+    // Horizontal Line
+    doc.setDrawColor(200);
+    doc.line(14, 25, 196, 25);
+
+    // Account Details Section
+    doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text(`${account.bankName} - ${account.accountNumber}`, 14, 30);
-    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 36);
-    doc.text(`Current Balance: ${formatCurrency(totalReceived)}`, 14, 42);
+    doc.text("Account Information:", 14, 32);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(0);
+    doc.text(`Bank: ${account.bankName}`, 14, 38);
+    doc.text(`A/c No: ${account.accountNumber}`, 14, 44);
+    doc.text(`Holder: ${account.accountHolder}`, 14, 50);
+    
+    // Summary Section on the right
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text("Summary:", 140, 32);
+    doc.setFontSize(11);
+    doc.setTextColor(0);
+    doc.text(`Opening Balance: Rs. 0.00`, 140, 38);
+    doc.text(`Total Credits: Rs. ${statementData.filter(i => i.amount > 0).reduce((sum, i) => sum + i.amount, 0).toFixed(2)}`, 140, 44);
+    doc.text(`Total Debits: Rs. ${Math.abs(statementData.filter(i => i.amount < 0).reduce((sum, i) => sum + i.amount, 0)).toFixed(2)}`, 140, 50);
+    doc.setFontSize(12);
+    doc.setTextColor(79, 70, 229); // Primary color
+    doc.text(`Net Balance: Rs. ${totalReceived.toFixed(2)}`, 140, 58);
+
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Statement Period: All Time`, 14, 65);
+    doc.text(`Generated on: ${new Date().toLocaleDateString('en-IN')}`, 14, 70);
 
     // Prepare table data
-    const tableColumn = ["Date", "Description/Bill No.", "Type", "Total", "Amount", "Status"];
-    const tableRows = statementData.map(item => [
-      formatDate(item.date),
-      item.billNumber === "EXPENSE" ? item.clientName : `${item.billNumber} (${item.clientName})`,
-      item.type === 'expense' ? 'Debit' : 'Credit',
-      formatCurrency(item.total),
-      item.amount < 0 ? `- ${formatCurrency(Math.abs(item.amount))}` : formatCurrency(item.amount),
-      item.type === 'expense' ? 'Paid' : item.status.toUpperCase()
-    ]);
+    const tableColumn = ["Date", "Particulars / Description", "Ref No.", "Credit", "Debit", "Balance"];
+    
+    let runningBalance = 0;
+    // Sort by date ascending for ledger format
+    const sortedStatement = [...statementData].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    const tableRows = sortedStatement.map(item => {
+      runningBalance += item.amount;
+      return [
+        formatDate(item.date),
+        item.billNumber === "EXPENSE" ? item.clientName : `Payment received from ${item.clientName}`,
+        item.billNumber === "EXPENSE" ? "EXP" : item.billNumber,
+        item.amount > 0 ? item.amount.toFixed(2) : "-",
+        item.amount < 0 ? Math.abs(item.amount).toFixed(2) : "-",
+        runningBalance.toFixed(2)
+      ];
+    });
 
     // Add table
     autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
-      startY: 50,
+      startY: 75,
       theme: 'grid',
-      headStyles: { fillColor: [79, 70, 229] }, // Brand primary color
-      columnStyles: {
-        4: { fontStyle: 'bold' } // Amount column bold
+      headStyles: { 
+        fillColor: [71, 85, 105], // Slate-600
+        textColor: [255, 255, 255],
+        fontSize: 10,
+        halign: 'center'
       },
-      didParseCell: (data) => {
-        if (data.section === 'body' && data.column.index === 4) {
-          const amount = statementData[data.row.index].amount;
-          if (amount < 0) {
-            data.cell.styles.textColor = [225, 29, 72]; // rose-600
-          } else {
-            data.cell.styles.textColor = [5, 150, 105]; // emerald-600
-          }
-        }
-      }
+      columnStyles: {
+        0: { cellWidth: 25 },
+        1: { cellWidth: 'auto' },
+        2: { cellWidth: 25, halign: 'center' },
+        3: { cellWidth: 30, halign: 'right' },
+        4: { cellWidth: 30, halign: 'right' },
+        5: { cellWidth: 30, halign: 'right', fontStyle: 'bold' }
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252]
+      },
+      margin: { top: 75 }
     });
 
-    doc.save(`Statement_${account.bankName}_${new Date().toISOString().split('T')[0]}.pdf`);
+    // Footer
+    const finalY = (doc as any).lastAutoTable.finalY || 150;
+    doc.setFontSize(10);
+    doc.setTextColor(150);
+    doc.text("This is a computer generated statement.", 14, finalY + 15);
+
+    doc.save(`Ledger_${account.bankName}_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   return (

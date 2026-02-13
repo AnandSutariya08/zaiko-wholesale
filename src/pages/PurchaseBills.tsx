@@ -231,6 +231,7 @@ function PurchaseBills() {
 
   const saveEditedTransaction = async () => {
     if (!editingTransaction || !selectedBillForHistory) return;
+    setIsUpdatingTransaction(editingTransaction.id);
     try {
       const amount = parseFloat(transactionAmount);
       if (isNaN(amount)) return;
@@ -257,11 +258,14 @@ function PurchaseBills() {
         description: "Failed to update payment",
         variant: "destructive",
       });
+    } finally {
+      setIsUpdatingTransaction(null);
     }
   };
 
   const handleDeleteTransaction = async (entry: any) => {
     if (!selectedBillForHistory) return;
+    setIsUpdatingTransaction(entry.id);
     try {
       if (entry.type === "payment") {
         const paymentId = entry.id.replace("payment-", "");
@@ -284,6 +288,8 @@ function PurchaseBills() {
         description: "Failed to delete transaction",
         variant: "destructive",
       });
+    } finally {
+      setIsUpdatingTransaction(null);
     }
   };
   const [editedBill, setEditedBill] = useState<PurchaseBill | null>(null);
@@ -297,6 +303,9 @@ function PurchaseBills() {
     [],
   );
   const [loading, setLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isUpdatingTransaction, setIsUpdatingTransaction] = useState<string | null>(null);
   const [pendingInventoryBill, setPendingInventoryBill] =
     useState<PurchaseBill | null>(null);
   const [pendingInventoryItems, setPendingInventoryItems] = useState<
@@ -621,12 +630,24 @@ function PurchaseBills() {
   };
 
   const handleDelete = async (id: string) => {
-    await deletePurchaseBill(id);
-    await loadBills();
-    toast({
-      title: "Deleted",
-      description: "Purchase bill deleted successfully",
-    });
+    setIsDeleting(id);
+    try {
+      await deletePurchaseBill(id);
+      await loadBills();
+      toast({
+        title: "Deleted",
+        description: "Purchase bill deleted successfully",
+      });
+    } catch (error) {
+      console.error("Error deleting bill:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete bill",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(null);
+    }
   };
 
   const handlePaymentCollected = async (
@@ -1154,7 +1175,7 @@ function PurchaseBills() {
           <Button
             variant="outline"
             onClick={() => cameraInputRef.current?.click()}
-            disabled={isExtracting || isCompressing}
+            disabled={isExtracting || isCompressing || loading}
           >
             {isCompressing ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1165,7 +1186,7 @@ function PurchaseBills() {
           </Button>
           <Button
             onClick={() => fileInputRef.current?.click()}
-            disabled={isExtracting || isCompressing}
+            disabled={isExtracting || isCompressing || loading}
           >
             {isCompressing ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1533,9 +1554,15 @@ function PurchaseBills() {
                                 <DropdownMenuItem
                                   onSelect={(e) => e.preventDefault()}
                                   className="gap-2 text-destructive focus:text-destructive"
+                                  disabled={bill.itemsAddedToInventory}
                                 >
                                   <Trash2 className="h-4 w-4" />
                                   Delete Bill
+                                  {bill.itemsAddedToInventory && (
+                                    <span className="text-[10px] ml-auto opacity-70">
+                                      (In Inventory)
+                                    </span>
+                                  )}
                                 </DropdownMenuItem>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
@@ -1553,7 +1580,9 @@ function PurchaseBills() {
                                   <AlertDialogAction
                                     onClick={() => handleDelete(bill.id)}
                                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    disabled={!!isDeleting}
                                   >
+                                    {isDeleting === bill.id ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                                     Delete
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
@@ -1694,18 +1723,9 @@ function PurchaseBills() {
                     <Button
                       size="default"
                       onClick={saveEditedBill}
-                      disabled={savingEditedBill}
+                      loading={savingEditedBill}
                     >
-                      {savingEditedBill ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />{" "}
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <Save className="h-4 w-4 mr-2" /> Save
-                        </>
-                      )}
+                      <Save className="h-4 w-4 mr-2" /> Save
                     </Button>
                   </div>
                 )}
@@ -2580,8 +2600,13 @@ function PurchaseBills() {
                     onClick={() => handleAddToInventory(selectedBill)}
                     size="default"
                     className="bg-emerald-600 hover:bg-emerald-700"
+                    disabled={loadingInventory === selectedBill.id}
                   >
-                    <PackagePlus className="h-4 w-4 mr-2" />
+                    {loadingInventory === selectedBill.id ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <PackagePlus className="h-4 w-4 mr-2" />
+                    )}
                     Add to Inventory
                   </Button>
                 ) : (
@@ -2906,14 +2931,16 @@ function PurchaseBills() {
               <Button
                 variant="outline"
                 onClick={() => setInventoryDialogBill(null)}
+                disabled={!!loadingInventory}
               >
                 Cancel
               </Button>
               <Button
                 onClick={() => confirmAddToInventory()}
                 className="bg-emerald-600 hover:bg-emerald-700"
+                disabled={!!loadingInventory}
               >
-                <PackagePlus className="h-4 w-4 mr-2" />
+                {loadingInventory ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <PackagePlus className="h-4 w-4 mr-2" />}
                 Add to Inventory
               </Button>
             </div>
@@ -2924,6 +2951,7 @@ function PurchaseBills() {
         conflicts={productConflicts}
         onResolve={handleConflictResolution}
         onCancel={handleConflictCancel}
+        resolving={loading}
       />
       {selectedBillForPayment && (
         <PaymentDialog
@@ -3126,8 +3154,13 @@ function PurchaseBills() {
                                     size="sm"
                                     className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-muted"
                                     onClick={() => handleEditTransaction(entry)}
+                                    disabled={isUpdatingTransaction === entry.id}
                                   >
-                                    <Edit2 className="h-4 w-4" />
+                                    {isUpdatingTransaction === entry.id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Edit2 className="h-4 w-4" />
+                                    )}
                                   </Button>
                                   <AlertDialog>
                                     <AlertDialogTrigger asChild>
@@ -3135,8 +3168,13 @@ function PurchaseBills() {
                                         variant="ghost"
                                         size="sm"
                                         className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                        disabled={isUpdatingTransaction === entry.id}
                                       >
-                                        <Trash2 className="h-4 w-4" />
+                                        {isUpdatingTransaction === entry.id ? (
+                                          <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                          <Trash2 className="h-4 w-4" />
+                                        )}
                                       </Button>
                                     </AlertDialogTrigger>
                                     <AlertDialogContent className="rounded-2xl">
@@ -3151,7 +3189,10 @@ function PurchaseBills() {
                                         </AlertDialogDescription>
                                       </AlertDialogHeader>
                                       <AlertDialogFooter>
-                                        <AlertDialogCancel className="rounded-xl">
+                                        <AlertDialogCancel 
+                                          className="rounded-xl"
+                                          disabled={isUpdatingTransaction === entry.id}
+                                        >
                                           Cancel
                                         </AlertDialogCancel>
                                         <AlertDialogAction
@@ -3159,7 +3200,11 @@ function PurchaseBills() {
                                             handleDeleteTransaction(entry)
                                           }
                                           className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                          disabled={isUpdatingTransaction === entry.id}
                                         >
+                                          {isUpdatingTransaction === entry.id ? (
+                                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                          ) : null}
                                           Delete Forever
                                         </AlertDialogAction>
                                       </AlertDialogFooter>
@@ -3204,13 +3249,18 @@ function PurchaseBills() {
                     variant="outline"
                     onClick={() => setEditingTransaction(null)}
                     className="h-12 px-6 rounded-xl"
+                    disabled={!!isUpdatingTransaction}
                   >
                     Cancel
                   </Button>
                   <Button
                     onClick={saveEditedTransaction}
                     className="h-12 px-8 rounded-xl font-bold"
+                    disabled={!!isUpdatingTransaction}
                   >
+                    {isUpdatingTransaction ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : null}
                     Save Changes
                   </Button>
                 </div>

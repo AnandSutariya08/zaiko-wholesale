@@ -334,7 +334,8 @@ export function SampleBillForm({ bill, isEdit = false }: SampleBillFormProps) {
           bill?.billNumber ||
           generateBillNumber(
             billCounter,
-            companyProfile.name.substring(0, 6).toUpperCase() + "-SAMPLE"
+            companyProfile.name.substring(0, 6).toUpperCase(),
+            "sample"
           ),
         date: formData.date,
         clientId: selectedClient.id,
