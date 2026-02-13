@@ -619,20 +619,20 @@ export const BillPDF = ({
               >
                 Description of Goods
               </Text>
-              {gstEnabled && (
-                <Text
-                  style={{
-                    width: "12%",
-                    textAlign: "center",
-                    padding: 5,
-                    borderRightWidth: 0.5,
-                    borderRightColor: "black",
-                    borderRightStyle: "solid",
-                  }}
-                >
-                  HSN/SAC
-                </Text>
-              )}
+            {gstEnabled && bill.totalTax > 0 && (
+              <View
+                style={{
+                  width: hsnWidth,
+                  textAlign: "center",
+                  padding: 5,
+                  borderRightWidth: 0.5,
+                  borderRightColor: "black",
+                  borderRightStyle: "solid",
+                }}
+              >
+                <Text>HSN/SAC</Text>
+              </View>
+            )}
               <Text
                 style={{
                   width: "10%",
@@ -1260,7 +1260,7 @@ export const BillPDF = ({
             <Text style={{ flex: 1, ...styles.tableCell }}>
               Description of Goods
             </Text>
-            {gstEnabled && (
+            {gstEnabled && !isInternational && bill.totalTax > 0 && (
               <Text
                 style={{
                   width: hsnWidth,
@@ -1271,7 +1271,7 @@ export const BillPDF = ({
                 HSN/SAC
               </Text>
             )}
-            {gstEnabled && !isInternational && (
+            {gstEnabled && !isInternational && bill.totalTax > 0 && (
               <Text
                 style={{
                   width: gstRateWidth,
@@ -1352,7 +1352,7 @@ export const BillPDF = ({
                     </Text>
                   )}
               </View>
-              {gstEnabled && (
+              {gstEnabled && bill.totalTax > 0 && (
                 <Text
                   style={{
                     width: hsnWidth,
@@ -1363,7 +1363,7 @@ export const BillPDF = ({
                   {item.hsnCode}
                 </Text>
               )}
-              {gstEnabled && !isInternational && (
+              {gstEnabled && !isInternational && bill.totalTax > 0 && (
                 <Text
                   style={{
                     width: gstRateWidth,
