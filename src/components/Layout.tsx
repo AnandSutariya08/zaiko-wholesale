@@ -86,44 +86,47 @@ function AppSidebarContent({
 
   return (
     <>
-      <SidebarHeader className="border-b border-sidebar-border/60 p-4 pb-3 bg-gradient-to-b from-sidebar-accent/30 to-transparent">
-        <div className="flex items-center gap-3">
-          <div className="relative shrink-0">
+      <SidebarHeader className="border-b border-sidebar-border/40 p-5 bg-gradient-to-br from-primary/10 via-transparent to-transparent">
+        <div className="flex items-center gap-3.5">
+          <div className="relative shrink-0 group-data-[collapsible=icon]:mx-auto">
             {company?.logo ? (
               <img
                 src={company.logo}
                 alt="Logo"
-                className="h-11 w-11 object-contain rounded-xl border border-sidebar-border/80 bg-sidebar-accent/50 p-1.5 shadow-sm ring-1 ring-sidebar-border/50"
+                className="h-10 w-10 object-contain rounded-lg border border-primary/20 bg-background shadow-sm transition-transform duration-300 group-hover:scale-105"
               />
             ) : (
-              <div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center border border-sidebar-border/80">
-                <LayoutDashboard className="h-5 w-5 text-primary" />
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20 shadow-inner">
+                <Sparkles className="h-5 w-5 text-primary animate-pulse" />
               </div>
             )}
           </div>
           <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
-            <h2 className="font-bold text-sidebar-foreground truncate text-base tracking-tight">
+            <h2 className="font-bold text-sidebar-foreground truncate text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/70">
               {company?.name || "BillEasy"}
             </h2>
-            <p className="text-xs text-sidebar-foreground/60 truncate mt-0.5 font-medium">
-              {user.name}
-            </p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+              <p className="text-[11px] text-sidebar-foreground/50 truncate font-medium uppercase tracking-wider">
+                {user.name}
+              </p>
+            </div>
           </div>
           <Button
             variant="ghost"
             size="icon"
-            className="md:hidden shrink-0 h-9 w-9 rounded-lg hover:bg-sidebar-accent"
+            className="md:hidden shrink-0 h-8 w-8 rounded-full hover:bg-primary/10 hover:text-primary"
             onClick={() => isMobile && setOpenMobile(false)}
             aria-label="Close menu"
           >
-            <X className="size-5" />
+            <X className="size-4" />
           </Button>
         </div>
       </SidebarHeader>
-      <SidebarContent className="px-2 py-3">
-        <SidebarGroup>
+      <SidebarContent className="px-3 py-4 space-y-1">
+        <SidebarGroup className="p-0">
           <SidebarGroupContent>
-            <SidebarMenu className="gap-1">
+            <SidebarMenu className="gap-1.5">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.path);
@@ -142,43 +145,47 @@ function AppSidebarContent({
                             tooltip={item.label}
                             size="lg"
                             className={cn(
-                              "rounded-lg px-3 h-11 transition-all duration-200",
-                              "group-data-[collapsible=icon]:!h-10 group-data-[collapsible=icon]:!rounded-lg",
-                              active && "bg-primary/15 text-primary font-semibold shadow-md ring-2 ring-primary/30 group-data-[collapsible=icon]:ring-2"
+                              "rounded-xl px-4 h-12 transition-all duration-300 group-hover/collapsible:translate-x-1",
+                              active 
+                                ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 font-semibold" 
+                                : "hover:bg-primary/5 text-sidebar-foreground/70 hover:text-primary"
                             )}
                           >
-                            <Icon className={cn("size-5 shrink-0", active && "text-primary")} />
-                            <span className="font-medium">{item.label}</span>
-                            <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                            <Icon className={cn("size-5 shrink-0 transition-transform duration-300", active ? "text-primary-foreground" : "group-hover/collapsible:scale-110")} />
+                            <span className="font-medium ml-1">{item.label}</span>
+                            <ChevronRight className={cn(
+                              "ml-auto transition-transform duration-300 size-4 opacity-50",
+                              "group-data-[state=open]/collapsible:rotate-90"
+                            )} />
                           </SidebarMenuButton>
                         </CollapsibleTrigger>
-                        <CollapsibleContent>
-                          <SidebarMenuSub>
+                        <CollapsibleContent className="data-[state=closed]:animate-slide-up data-[state=open]:animate-slide-down">
+                          <SidebarMenuSub className="ml-4 border-l border-primary/20 pl-2 space-y-1 mt-1">
                             <SidebarMenuSubItem>
-                              <SidebarMenuSubButton asChild isActive={location.pathname === "/bills"}>
+                              <SidebarMenuSubButton asChild isActive={location.pathname === "/bills"} className="h-9 transition-colors hover:bg-primary/5 rounded-md">
                                 <Link to="/bills" onClick={handleNavClick}>
-                                  <span>All Bills</span>
+                                  <span className="text-sm">All Bills</span>
                                 </Link>
                               </SidebarMenuSubButton>
                             </SidebarMenuSubItem>
                             <SidebarMenuSubItem>
-                              <SidebarMenuSubButton asChild isActive={location.pathname === "/bills/gst"}>
+                              <SidebarMenuSubButton asChild isActive={location.pathname === "/bills/gst"} className="h-9 transition-colors hover:bg-primary/5 rounded-md">
                                 <Link to="/bills/gst" onClick={handleNavClick}>
-                                  <span>GST Bill</span>
+                                  <span className="text-sm">GST Bill</span>
                                 </Link>
                               </SidebarMenuSubButton>
                             </SidebarMenuSubItem>
                             <SidebarMenuSubItem>
-                              <SidebarMenuSubButton asChild isActive={location.pathname === "/bills/non-gst"}>
+                              <SidebarMenuSubButton asChild isActive={location.pathname === "/bills/non-gst"} className="h-9 transition-colors hover:bg-primary/5 rounded-md">
                                 <Link to="/bills/non-gst" onClick={handleNavClick}>
-                                  <span>Non-GST Bill</span>
+                                  <span className="text-sm">Non-GST Bill</span>
                                 </Link>
                               </SidebarMenuSubButton>
                             </SidebarMenuSubItem>
                             <SidebarMenuSubItem>
-                              <SidebarMenuSubButton asChild isActive={location.pathname === "/sample-bill"}>
+                              <SidebarMenuSubButton asChild isActive={location.pathname === "/sample-bill"} className="h-9 transition-colors hover:bg-primary/5 rounded-md">
                                 <Link to="/sample-bill" onClick={handleNavClick}>
-                                  <span>Sample Bill</span>
+                                  <span className="text-sm">Sample Bill</span>
                                 </Link>
                               </SidebarMenuSubButton>
                             </SidebarMenuSubItem>
@@ -199,14 +206,15 @@ function AppSidebarContent({
                       tooltip={item.label}
                       size="lg"
                       className={cn(
-                        "rounded-lg px-3 h-11 transition-all duration-200",
-                        "group-data-[collapsible=icon]:!h-10 group-data-[collapsible=icon]:!rounded-lg",
-                        active && "bg-primary/15 text-primary font-semibold shadow-md ring-2 ring-primary/30 group-data-[collapsible=icon]:ring-2"
+                        "rounded-xl px-4 h-12 transition-all duration-300 hover:translate-x-1",
+                        active 
+                          ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 font-semibold" 
+                          : "hover:bg-primary/5 text-sidebar-foreground/70 hover:text-primary"
                       )}
                     >
                       <Link to={item.path} onClick={handleNavClick}>
-                        <Icon className={cn("size-5 shrink-0", active && "text-primary")} />
-                        <span className="font-medium">{item.label}</span>
+                        <Icon className={cn("size-5 shrink-0 transition-transform duration-300", active ? "text-primary-foreground" : "group-hover:scale-110")} />
+                        <span className="font-medium ml-1">{item.label}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -216,13 +224,17 @@ function AppSidebarContent({
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="border-t border-sidebar-border/60 p-3 bg-gradient-to-t from-sidebar-accent/20 to-transparent group-data-[collapsible=icon]:hidden">
-        <div className="rounded-lg bg-sidebar-accent/50 px-3 py-2 border border-sidebar-border/50">
-          <p className="text-[11px] text-sidebar-foreground/60 font-medium">
-            <kbd className="px-1.5 py-0.5 rounded bg-sidebar-background/80 text-[10px] font-mono">⌘</kbd>
-            <span className="mx-1">+</span>
-            <kbd className="px-1.5 py-0.5 rounded bg-sidebar-background/80 text-[10px] font-mono">B</kbd>
-            <span className="ml-1.5">Toggle</span>
+      <SidebarFooter className="border-t border-sidebar-border/40 p-4 bg-gradient-to-t from-primary/5 to-transparent group-data-[collapsible=icon]:hidden">
+        <div className="rounded-xl bg-primary/5 px-4 py-3 border border-primary/10 backdrop-blur-sm shadow-inner">
+          <div className="flex items-center gap-2 mb-1.5">
+             <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+             <p className="text-[10px] text-primary font-bold uppercase tracking-widest">Shortcut</p>
+          </div>
+          <p className="text-[11px] text-sidebar-foreground/60 font-medium flex items-center gap-1.5">
+            <kbd className="px-2 py-0.5 rounded-md bg-background border border-sidebar-border/50 text-[10px] font-mono shadow-sm">⌘</kbd>
+            <span className="opacity-40">+</span>
+            <kbd className="px-2 py-0.5 rounded-md bg-background border border-sidebar-border/50 text-[10px] font-mono shadow-sm">B</kbd>
+            <span className="ml-1 opacity-70">to Sidebar</span>
           </p>
         </div>
       </SidebarFooter>
