@@ -177,6 +177,13 @@ function AppSidebarContent({
                               </SidebarMenuSubButton>
                             </SidebarMenuSubItem>
                             <SidebarMenuSubItem>
+                              <SidebarMenuSubButton asChild isActive={location.pathname === "/bills/international"} className="h-8 rounded-sm">
+                                <Link to="/bills/international" onClick={handleNavClick}>
+                                  <span className="text-sm">International Bill</span>
+                                </Link>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                            <SidebarMenuSubItem>
                               <SidebarMenuSubButton asChild isActive={location.pathname === "/sample-bill"} className="h-8 rounded-sm">
                                 <Link to="/sample-bill" onClick={handleNavClick}>
                                   <span className="text-sm">Sample Bill</span>
