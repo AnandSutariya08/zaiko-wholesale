@@ -158,8 +158,18 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
     countryOfFinalDestination: "",
   });
 
-  const [companyProfile, setCompanyProfile] = useState<any>(null);
   const [gstEnabled, setGstEnabled] = useState(initialGstEnabled ?? true);
+
+  // Auto-set GST and type based on props
+  useEffect(() => {
+    if (initialGstEnabled !== undefined) {
+      setGstEnabled(initialGstEnabled);
+    }
+    if (propBillType) {
+      setBillType(propBillType);
+      setInternalBillType(propBillType);
+    }
+  }, [initialGstEnabled, propBillType]);
 
   useEffect(() => {
     const loadData = async () => {
