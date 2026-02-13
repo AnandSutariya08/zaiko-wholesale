@@ -481,17 +481,8 @@ export function ProductForm({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {editingProduct ? "Updating..." : "Creating..."}
-                </>
-              ) : editingProduct ? (
-                "Update Product"
-              ) : (
-                "Create Product"
-              )}
+            <Button type="submit" loading={saving}>
+              {editingProduct ? "Update Product" : "Create Product"}
             </Button>
           </div>
         </form>
