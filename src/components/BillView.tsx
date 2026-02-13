@@ -1352,28 +1352,28 @@ export const BillPDF = ({
                     </Text>
                   )}
               </View>
-              {gstEnabled && bill.totalTax > 0 && (
-                <Text
-                  style={{
-                    width: hsnWidth,
-                    ...styles.textCenter,
-                    ...styles.tableCell,
-                  }}
-                >
-                  {item.hsnCode}
-                </Text>
-              )}
-              {gstEnabled && !isInternational && bill.totalTax > 0 && (
-                <Text
-                  style={{
-                    width: gstRateWidth,
-                    ...styles.textCenter,
-                    ...styles.tableCell,
-                  }}
-                >
-                  {item.gstRate}%
-                </Text>
-              )}
+            {gstEnabled && !isInternational && bill.totalTax > 0 && (
+              <Text
+                style={{
+                  width: hsnWidth,
+                  ...styles.textCenter,
+                  ...styles.tableCell,
+                }}
+              >
+                {item.hsnCode}
+              </Text>
+            )}
+            {gstEnabled && !isInternational && bill.totalTax > 0 && (
+              <Text
+                style={{
+                  width: gstRateWidth,
+                  ...styles.textCenter,
+                  ...styles.tableCell,
+                }}
+              >
+                {item.gstRate}%
+              </Text>
+            )}
               <Text
                 style={{
                   width: qtyWidth,

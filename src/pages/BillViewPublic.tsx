@@ -228,8 +228,8 @@
 //               <tr style={{ backgroundColor: company.themeColor, color: 'white' }}>
 //                 <th className="border border-black p-1.5 text-center" style={{ width: '30px' }}>Sl</th>
 //                 <th className="border border-black p-1.5 text-left">Description of Goods</th>
-//                 {gstEnabled && <th className="border border-black p-1.5 text-center" style={{ width: '60px' }}>HSN/SAC</th>}
-//                 {gstEnabled && <th className="border border-black p-1.5 text-center" style={{ width: '40px' }}>GST%</th>}
+//                 {gstEnabled && bill.totalTax > 0 && <th className="border border-black p-1.5 text-center" style={{ width: '60px' }}>HSN/SAC</th>}
+//                 {gstEnabled && bill.totalTax > 0 && <th className="border border-black p-1.5 text-center" style={{ width: '40px' }}>GST%</th>}
 //                 <th className="border border-black p-1.5 text-center" style={{ width: '50px' }}>Qty</th>
 //                 <th className="border border-black p-1.5 text-center" style={{ width: '45px' }}>Unit</th>
 //                 <th className="border border-black p-1.5 text-center" style={{ width: '60px' }}>Rate</th>
@@ -241,8 +241,8 @@
 //                 <tr key={`item-${index}`} className={index % 2 === 0 ? 'bg-gray-50' : ''}>
 //                   <td className="border border-black p-1.5 text-center">{index + 1}</td>
 //                   <td className="border border-black p-1.5 break-words">{item.productName}</td>
-//                   {gstEnabled && <td className="border border-black p-1.5 text-center text-[9px]">{item.hsnCode}</td>}
-//                   {gstEnabled && <td className="border border-black p-1.5 text-center">{item.gstRate}%</td>}
+//                   {gstEnabled && bill.totalTax > 0 && <td className="border border-black p-1.5 text-center text-[9px]">{item.hsnCode}</td>}
+//                   {gstEnabled && bill.totalTax > 0 && <td className="border border-black p-1.5 text-center">{item.gstRate}%</td>}
 //                   <td className="border border-black p-1.5 text-center">{item.quantity}</td>
 //                   <td className="border border-black p-1.5 text-center">{item.unit}</td>
 //                   <td className="border border-black p-1.5 text-right whitespace-nowrap">{formatCurrency(item.ratePerUnit)}</td>
@@ -251,7 +251,7 @@
 //               ))}
 //               {/* Subtotal Row */}
 //               <tr className="font-semibold bg-gray-100">
-//                 <td colSpan={gstEnabled ? 7 : 5} className="border border-black p-1.5 text-right">
+//                 <td colSpan={gstEnabled && bill.totalTax > 0 ? 7 : 5} className="border border-black p-1.5 text-right">
 //                   Subtotal
 //                 </td>
 //                 <td className="border border-black p-1.5 text-right whitespace-nowrap">{formatCurrency(bill.subtotal)}</td>
@@ -321,7 +321,7 @@
 //               )}
 //               {/* Grand Total Row */}
 //               <tr className="font-bold" style={{ backgroundColor: company.themeColor, color: 'white' }}>
-//                 <td colSpan={gstEnabled ? 7 : 5} className="border border-black p-1.5 text-right">
+//                 <td colSpan={gstEnabled && bill.totalTax > 0 ? 7 : 5} className="border border-black p-1.5 text-right">
 //                   Grand Total
 //                 </td>
 //                 <td className="border border-black p-1.5 text-right whitespace-nowrap">{formatCurrency(bill.total)}</td>
