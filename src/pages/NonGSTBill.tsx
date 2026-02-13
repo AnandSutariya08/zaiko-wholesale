@@ -56,7 +56,7 @@ export default function NonGSTBill() {
     try {
       setLoading(true);
       const allBills = await getBills();
-      setBills(allBills.filter((b) => b.totalTax === 0));
+      setBills(allBills.filter((b) => b.totalTax === 0 && b.billType !== "international"));
     } catch (error) {
       console.error("Error loading bills:", error);
       toast.error("Failed to load bills");
