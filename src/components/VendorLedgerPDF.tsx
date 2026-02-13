@@ -1,108 +1,119 @@
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer';
-import { Vendor, PurchaseBill } from '@/types';
-import { formatCurrency, formatDate } from '@/lib/billUtils';
+import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Vendor } from '@/types';
 
-// Define styles for PDF
+// Define styles for PDF matching ClientPDF UI
 const styles = StyleSheet.create({
   page: {
-    padding: 30,
+    padding: 40,
     fontSize: 10,
-    fontFamily: 'Helvetica',
+    fontFamily: "Helvetica",
+    backgroundColor: "#ffffff",
   },
   header: {
     marginBottom: 20,
-    borderBottom: 1,
-    paddingBottom: 10,
-    textAlign: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: "#111827",
+    paddingBottom: 15,
   },
-  title: {
+  companyName: {
     fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 5,
+    fontWeight: "bold",
+    color: "#111827",
   },
-  vendorInfo: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
+  reportTitle: {
     fontSize: 14,
-    fontWeight: 'bold',
+    marginTop: 5,
+    color: "#374151",
+  },
+  period: {
+    fontSize: 9,
+    marginTop: 5,
+    color: "#6b7280",
+  },
+  section: {
+    marginTop: 15,
     marginBottom: 10,
-    marginTop: 10,
   },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: '#f6f6f6',
-    padding: 10,
-    marginBottom: 20,
-    borderRadius: 4,
-  },
-  statBox: {
-    flex: 1,
-  },
-  statLabel: {
-    fontSize: 8,
-    color: '#666',
-    textTransform: 'uppercase',
-  },
-  statValue: {
-    fontSize: 12,
-    fontWeight: 'bold',
+  sectionHeader: {
+    fontSize: 11,
+    fontWeight: "bold",
+    backgroundColor: "#f3f4f6",
+    padding: 6,
+    borderLeftWidth: 3,
+    borderLeftColor: "#111827",
+    color: "#111827",
+    marginBottom: 8,
   },
   table: {
-    display: 'flex',
-    width: 'auto',
-    borderStyle: 'solid',
-    borderWidth: 1,
-    borderRightWidth: 0,
-    borderBottomWidth: 0,
-    marginTop: 10,
+    width: "auto",
   },
   tableRow: {
-    margin: 'auto',
-    flexDirection: 'row',
+    flexDirection: "row",
+    borderBottomColor: "#e5e7eb",
+    borderBottomWidth: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
   },
-  tableColHeader: {
-    width: '16.6%',
-    borderStyle: 'solid',
-    borderWidth: 1,
-    borderLeftWidth: 0,
-    borderTopWidth: 0,
-    backgroundColor: '#2980b9',
-    color: 'white',
-    padding: 5,
-    fontWeight: 'bold',
+  tableRowHeader: {
+    flexDirection: "row",
+    backgroundColor: "#f9fafb",
+    borderBottomColor: "#d1d5db",
+    borderBottomWidth: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    fontWeight: "bold",
   },
-  tableCol: {
-    width: '16.6%',
-    borderStyle: 'solid',
-    borderWidth: 1,
-    borderLeftWidth: 0,
-    borderTopWidth: 0,
-    padding: 5,
+  tableCellLabel: {
+    flex: 2,
+    textAlign: "left",
+    color: "#4b5563",
+    fontSize: 9,
   },
-  tableCellHeader: {
-    fontSize: 8,
-    fontWeight: 'bold',
+  tableCellValue: {
+    flex: 1,
+    textAlign: "right",
+    fontWeight: "bold",
+    color: "#111827",
+    fontSize: 9,
   },
   tableCell: {
+    flex: 1,
+    textAlign: "left",
     fontSize: 8,
+    color: "#374151",
   },
-  amountCell: {
-    textAlign: 'right',
+  tableCellRight: {
+    flex: 1,
+    textAlign: "right",
+    fontSize: 8,
+    color: "#374151",
+  },
+  summaryBox: {
+    marginTop: 15,
+    padding: 12,
+    backgroundColor: "#f9fafb",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+  },
+  profit: {
+    color: "#059669",
+  },
+  loss: {
+    color: "#dc2626",
   },
   footer: {
-    position: 'absolute',
-    bottom: 30,
-    left: 30,
-    right: 30,
-    textAlign: 'center',
-    color: '#666',
-    fontSize: 8,
-    borderTop: 0.5,
-    paddingTop: 10,
-  }
+    position: "absolute",
+    bottom: 20,
+    left: 40,
+    right: 40,
+    textAlign: "center",
+    color: "#9ca3af",
+    fontSize: 7,
+    borderTopWidth: 1,
+    borderTopColor: "#e5e7eb",
+    paddingTop: 8,
+  },
 });
 
 interface VendorLedgerPDFProps {
@@ -115,66 +126,119 @@ interface VendorLedgerPDFProps {
     totalReturn: number;
     billCount: number;
   };
+  companyProfile?: any;
 }
 
-export const VendorLedgerPDF = ({ vendor, transactions, stats }: VendorLedgerPDFProps) => (
+const formatCurrency = (amount: number) => {
+  const formatted = new Intl.NumberFormat("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Math.abs(amount));
+  return `${amount < 0 ? "-" : ""}Rs. ${formatted}`;
+};
+
+const formatDate = (date: string) => {
+  if (!date) return "N/A";
+  return new Date(date).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+};
+
+export const VendorLedgerPDF = ({ vendor, transactions, stats, companyProfile }: VendorLedgerPDFProps) => (
   <Document>
     <Page size="A4" style={styles.page}>
       <View style={styles.header}>
-        <Text style={styles.title}>VENDOR LEDGER</Text>
-        <Text>Statement Date: {formatDate(new Date().toISOString())}</Text>
+        <Text style={styles.companyName}>
+          {companyProfile?.name || "VENDOR LEDGER"}
+        </Text>
+        <Text style={styles.reportTitle}>
+          Vendor Statement - {vendor.name}
+        </Text>
+        <Text style={styles.period}>
+          Generated: {new Date().toLocaleDateString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </Text>
       </View>
 
-      <View style={styles.vendorInfo}>
-        <Text style={{ fontWeight: 'bold', fontSize: 12 }}>{vendor.name}</Text>
-        <Text>GSTIN: {vendor.gstin || 'N/A'}</Text>
-        <Text>Phone: {vendor.phone || 'N/A'}</Text>
-        <Text>Address: {vendor.address || 'N/A'}</Text>
-      </View>
-
-      <View style={styles.statsContainer}>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Total Purchase</Text>
-          <Text style={styles.statValue}>{formatCurrency(stats.totalPurchase)}</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Total Paid</Text>
-          <Text style={styles.statValue}>{formatCurrency(stats.totalPaid)}</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Total Return</Text>
-          <Text style={styles.statValue}>{formatCurrency(stats.totalReturn)}</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Balance Due</Text>
-          <Text style={[styles.statValue, { color: '#e67e22' }]}>{formatCurrency(stats.pendingAmount)}</Text>
-        </View>
-      </View>
-
-      <Text style={styles.sectionTitle}>Transaction History</Text>
-      <View style={styles.table}>
-        <View style={styles.tableRow}>
-          <View style={styles.tableColHeader}><Text style={styles.tableCellHeader}>Date</Text></View>
-          <View style={styles.tableColHeader}><Text style={styles.tableCellHeader}>Type</Text></View>
-          <View style={styles.tableColHeader}><Text style={styles.tableCellHeader}>Reference</Text></View>
-          <View style={styles.tableColHeader}><Text style={styles.tableCellHeader}>Mode</Text></View>
-          <View style={styles.tableColHeader}><Text style={styles.tableCellHeader}>Debit</Text></View>
-          <View style={styles.tableColHeader}><Text style={styles.tableCellHeader}>Credit</Text></View>
-        </View>
-        {transactions.map((tx, index) => (
-          <View style={styles.tableRow} key={index}>
-            <View style={styles.tableCol}><Text style={styles.tableCell}>{formatDate(tx.date)}</Text></View>
-            <View style={styles.tableCol}><Text style={styles.tableCell}>{tx.type}</Text></View>
-            <View style={styles.tableCol}><Text style={styles.tableCell}>{tx.reference}</Text></View>
-            <View style={styles.tableCol}><Text style={styles.tableCell}>{tx.method || '-'}</Text></View>
-            <View style={styles.tableCol}><Text style={[styles.tableCell, styles.amountCell]}>{tx.type === 'Purchase' ? formatCurrency(tx.amount) : '-'}</Text></View>
-            <View style={styles.tableCol}><Text style={[styles.tableCell, styles.amountCell]}>{tx.type !== 'Purchase' ? formatCurrency(tx.amount) : '-'}</Text></View>
+      <View style={styles.section}>
+        <Text style={styles.sectionHeader}>VENDOR INFORMATION</Text>
+        <View style={styles.table}>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableCellLabel}>Vendor Name</Text>
+            <Text style={styles.tableCellValue}>{vendor.name}</Text>
           </View>
-        ))}
+          {vendor.gstin && (
+            <View style={styles.tableRow}>
+              <Text style={styles.tableCellLabel}>GSTIN</Text>
+              <Text style={styles.tableCellValue}>{vendor.gstin}</Text>
+            </View>
+          )}
+          {vendor.phone && (
+            <View style={styles.tableRow}>
+              <Text style={styles.tableCellLabel}>Phone</Text>
+              <Text style={styles.tableCellValue}>{vendor.phone}</Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionHeader}>FINANCIAL SUMMARY</Text>
+        <View style={styles.table}>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableCellLabel}>Total Purchase</Text>
+            <Text style={styles.tableCellValue}>{formatCurrency(stats.totalPurchase)}</Text>
+          </View>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableCellLabel}>Total Paid</Text>
+            <Text style={[styles.tableCellValue, styles.profit]}>{formatCurrency(stats.totalPaid)}</Text>
+          </View>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableCellLabel}>Total Return</Text>
+            <Text style={[styles.tableCellValue, styles.loss]}>{formatCurrency(stats.totalReturn)}</Text>
+          </View>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableCellLabel}>Balance Due</Text>
+            <Text style={[styles.tableCellValue, styles.loss]}>{formatCurrency(stats.pendingAmount)}</Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionHeader}>TRANSACTION HISTORY</Text>
+        <View style={styles.table}>
+          <View style={styles.tableRowHeader}>
+            <Text style={[styles.tableCell, { flex: 1 }]}>Date</Text>
+            <Text style={[styles.tableCell, { flex: 1 }]}>Type</Text>
+            <Text style={[styles.tableCell, { flex: 1.5 }]}>Reference</Text>
+            <Text style={styles.tableCellRight}>Debit</Text>
+            <Text style={styles.tableCellRight}>Credit</Text>
+          </View>
+          {transactions.map((tx, index) => (
+            <View key={index} style={styles.tableRow}>
+              <Text style={[styles.tableCell, { flex: 1 }]}>{formatDate(tx.date)}</Text>
+              <Text style={[styles.tableCell, { flex: 1 }]}>{tx.type}</Text>
+              <Text style={[styles.tableCell, { flex: 1.5 }]}>{tx.reference}</Text>
+              <Text style={styles.tableCellRight}>
+                {tx.type === 'Purchase' ? formatCurrency(tx.amount) : '-'}
+              </Text>
+              <Text style={styles.tableCellRight}>
+                {tx.type !== 'Purchase' ? formatCurrency(tx.amount) : '-'}
+              </Text>
+            </View>
+          ))}
+        </View>
       </View>
 
       <Text style={styles.footer}>
-        Generated on {new Date().toLocaleString()} - Page 1
+        {companyProfile?.name || "Company"} | Generated on {new Date().toLocaleDateString("en-IN")}
       </Text>
     </Page>
   </Document>
