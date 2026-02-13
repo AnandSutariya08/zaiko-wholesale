@@ -201,60 +201,100 @@ export default function Vendors() {
   };
 
   const downloadExcel = (vendor: Vendor) => {
-    const transactions = getVendorTransactions(vendor.id, vendor.name);
-    const stats = getVendorStats(vendor.id, vendor.name);
-    
-    const data = transactions.map(tx => ({
-      Date: formatDate(tx.date),
-      Type: tx.type,
-      Reference: tx.reference,
-      Method: tx.method || "-",
-      Amount: tx.amount,
-      Direction: tx.type === 'Purchase' ? 'DR' : 'CR'
-    }));
+    try {
+      const transactions = getVendorTransactions(vendor.id, vendor.name);
+      const stats = getVendorStats(vendor.id, vendor.name);
+      
+      const data = transactions.map(tx => ({
+        Date: formatDate(tx.date),
+        Type: tx.type,
+        Reference: tx.reference,
+        Method: tx.method || "-",
+        Amount: tx.amount,
+        Direction: tx.type === 'Purchase' ? 'DR' : 'CR'
+      }));
 
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Vendor Ledger");
-    XLSX.writeFile(wb, `${vendor.name}_Ledger.xlsx`);
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Vendor Ledger");
+      XLSX.writeFile(wb, `${vendor.name}_Ledger.xlsx`);
+      toast.success("Excel ledger downloaded");
+    } catch (error) {
+      console.error("Excel download error:", error);
+      toast.error("Failed to download Excel");
+    }
   };
 
   const downloadPDF = (vendor: Vendor) => {
-    const doc = new jsPDF();
-    const transactions = getVendorTransactions(vendor.id, vendor.name);
-    const stats = getVendorStats(vendor.id, vendor.name);
+    try {
+      const doc = new jsPDF();
+      const transactions = getVendorTransactions(vendor.id, vendor.name);
+      const stats = getVendorStats(vendor.id, vendor.name);
 
-    doc.setFontSize(20);
-    doc.text("Vendor Ledger", 105, 15, { align: "center" });
-    
-    doc.setFontSize(12);
-    doc.text(`Vendor: ${vendor.name}`, 14, 25);
-    doc.text(`GSTIN: ${vendor.gstin || "N/A"}`, 14, 32);
-    doc.text(`Date: ${formatDate(new Date().toISOString())}`, 14, 39);
+      // Add Company Header if possible (simplified for now)
+      doc.setFontSize(22);
+      doc.setTextColor(40, 40, 40);
+      doc.text("VENDOR LEDGER", 105, 20, { align: "center" });
+      
+      doc.setDrawColor(0, 0, 0);
+      doc.line(14, 25, 196, 25);
 
-    doc.text(`Total Purchase: ${formatCurrency(stats.totalPurchase)}`, 140, 25);
-    doc.text(`Total Paid: ${formatCurrency(stats.totalPaid)}`, 140, 32);
-    doc.text(`Total Return: ${formatCurrency(stats.totalReturn)}`, 140, 39);
-    doc.text(`Pending: ${formatCurrency(stats.pendingAmount)}`, 140, 46);
+      doc.setFontSize(11);
+      doc.setTextColor(60, 60, 60);
+      doc.text(`Vendor: ${vendor.name}`, 14, 35);
+      doc.text(`GSTIN: ${vendor.gstin || "N/A"}`, 14, 42);
+      doc.text(`Phone: ${vendor.phone || "N/A"}`, 14, 49);
+      doc.text(`Statement Date: ${formatDate(new Date().toISOString())}`, 14, 56);
 
-    const tableData = transactions.map(tx => [
-      formatDate(tx.date),
-      tx.type,
-      tx.reference,
-      tx.method || "-",
-      tx.type === 'Purchase' ? formatCurrency(tx.amount) : "",
-      tx.type !== 'Purchase' ? formatCurrency(tx.amount) : ""
-    ]);
+      // Stats Box
+      doc.setFillColor(245, 245, 245);
+      doc.rect(130, 30, 66, 32, 'F');
+      doc.setFontSize(10);
+      doc.text(`Total Purchase:`, 134, 37);
+      doc.text(`${formatCurrency(stats.totalPurchase)}`, 192, 37, { align: "right" });
+      doc.text(`Total Paid:`, 134, 44);
+      doc.text(`${formatCurrency(stats.totalPaid)}`, 192, 44, { align: "right" });
+      doc.text(`Total Return:`, 134, 51);
+      doc.text(`${formatCurrency(stats.totalReturn)}`, 192, 51, { align: "right" });
+      
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Balance Due:`, 134, 59);
+      doc.text(`${formatCurrency(stats.pendingAmount)}`, 192, 59, { align: "right" });
+      doc.setFont("helvetica", "normal");
 
-    (doc as any).autoTable({
-      startY: 55,
-      head: [['Date', 'Type', 'Reference', 'Mode', 'Debit (Purchase)', 'Credit (Payment/Return)']],
-      body: tableData,
-      theme: 'grid',
-      headStyles: { fillColor: [66, 66, 66] },
-    });
+      const tableData = transactions.map(tx => [
+        formatDate(tx.date),
+        tx.type,
+        tx.reference,
+        tx.method || "-",
+        tx.type === 'Purchase' ? formatCurrency(tx.amount) : "-",
+        tx.type !== 'Purchase' ? formatCurrency(tx.amount) : "-"
+      ]);
 
-    doc.save(`${vendor.name}_Ledger.pdf`);
+      (doc as any).autoTable({
+        startY: 70,
+        head: [['Date', 'Type', 'Reference', 'Mode', 'Debit (Purchase)', 'Credit (Pay/Ret)']],
+        body: tableData,
+        theme: 'striped',
+        headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+        columnStyles: {
+          4: { halign: 'right' },
+          5: { halign: 'right' }
+        },
+        margin: { top: 70 },
+        didDrawPage: (data: any) => {
+          doc.setFontSize(8);
+          doc.text(`Page ${data.pageNumber}`, 196, 285, { align: "right" });
+        }
+      });
+
+      doc.save(`${vendor.name}_Ledger.pdf`);
+      toast.success("PDF ledger downloaded");
+    } catch (error) {
+      console.error("PDF download error:", error);
+      toast.error("Failed to download PDF. Please check if jspdf-autotable is loaded correctly.");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
