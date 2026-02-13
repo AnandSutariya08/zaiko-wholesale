@@ -262,8 +262,7 @@ export function PurchaseReturnForm({ open, onOpenChange, bill, onSuccess, editRe
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={saving || totalReturnAmount === 0}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            <Button type="submit" loading={saving} disabled={totalReturnAmount === 0}>
               Confirm Return
             </Button>
           </DialogFooter>

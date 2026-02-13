@@ -2906,12 +2906,14 @@ function PurchaseBills() {
               <Button
                 variant="outline"
                 onClick={() => setInventoryDialogBill(null)}
+                disabled={loading}
               >
                 Cancel
               </Button>
               <Button
                 onClick={() => confirmAddToInventory()}
                 className="bg-emerald-600 hover:bg-emerald-700"
+                loading={loading}
               >
                 <PackagePlus className="h-4 w-4 mr-2" />
                 Add to Inventory
@@ -2924,6 +2926,7 @@ function PurchaseBills() {
         conflicts={productConflicts}
         onResolve={handleConflictResolution}
         onCancel={handleConflictCancel}
+        resolving={loading}
       />
       {selectedBillForPayment && (
         <PaymentDialog

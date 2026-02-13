@@ -315,15 +315,11 @@ export default function Settings() {
         <div className="fixed bottom-24 right-6 z-[100] flex items-center justify-center">
           <Button
             onClick={() => handleSubmit()}
-            disabled={saving}
+            loading={saving}
             size="lg"
             className="rounded-full h-14 px-6 shadow-2xl transition-all hover:scale-105 active:scale-95 bg-primary hover:bg-primary/90 text-primary-foreground gap-2 ring-4 ring-primary/20 animate-in fade-in zoom-in slide-in-from-bottom-4 duration-300"
           >
-            {saving ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <Save className="h-5 w-5" />
-            )}
+            <Save className="h-5 w-5" />
             <span className="font-semibold">Save Changes</span>
           </Button>
         </div>
