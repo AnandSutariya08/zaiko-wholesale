@@ -1518,62 +1518,62 @@ export const BillPDF = ({
                   {formatCurrency(bill.totalTax)}
                 </Text>
               </View>
-            {gstEnabled && !isInternational && bill.totalTax > 0 && (
-              <View style={styles.tableRow}>
-                <Text
-                  style={{
-                    flex: 1,
-                    ...styles.textRight,
-                    ...styles.tableCell,
-                    paddingRight: 8,
-                  }}
-                >
-                  CGST
-                </Text>
-                <Text
-                  style={{
-                    width: amountWidth,
-                    ...styles.textRight,
-                    ...styles.tableCell,
-                  }}
-                >
-                  {formatCurrency(
-                    bill.items.reduce(
-                      (sum, item) => sum + (item.cgst || 0),
-                      0
-                    ),
-                  )}
-                </Text>
-              </View>
-            )}
-            {gstEnabled && !isInternational && bill.totalTax > 0 && (
-              <View style={styles.tableRow}>
-                <Text
-                  style={{
-                    flex: 1,
-                    ...styles.textRight,
-                    ...styles.tableCell,
-                    paddingRight: 8,
-                  }}
-                >
-                  SGST
-                </Text>
-                <Text
-                  style={{
-                    width: amountWidth,
-                    ...styles.textRight,
-                    ...styles.tableCell,
-                  }}
-                >
-                  {formatCurrency(
-                    bill.items.reduce(
-                      (sum, item) => sum + (item.sgst || 0),
-                      0
-                    ),
-                  )}
-                </Text>
-              </View>
-            )}
+            ) : (
+              <>
+                <View style={styles.tableRow}>
+                  <Text
+                    style={{
+                      flex: 1,
+                      ...styles.textRight,
+                      ...styles.tableCell,
+                      paddingRight: 8,
+                    }}
+                  >
+                    CGST
+                  </Text>
+                  <Text
+                    style={{
+                      width: amountWidth,
+                      ...styles.textRight,
+                      ...styles.tableCell,
+                    }}
+                  >
+                    {formatCurrency(
+                      bill.items.reduce(
+                        (sum, item) => sum + (item.cgst || 0),
+                        0,
+                      ),
+                    )}
+                  </Text>
+                </View>
+                <View style={styles.tableRow}>
+                  <Text
+                    style={{
+                      flex: 1,
+                      ...styles.textRight,
+                      ...styles.tableCell,
+                      paddingRight: 8,
+                    }}
+                  >
+                    SGST
+                  </Text>
+                  <Text
+                    style={{
+                      width: amountWidth,
+                      ...styles.textRight,
+                      ...styles.tableCell,
+                    }}
+                  >
+                    {formatCurrency(
+                      bill.items.reduce(
+                        (sum, item) => sum + (item.sgst || 0),
+                        0,
+                      ),
+                    )}
+                  </Text>
+                </View>
+              </>
+            ))}
           {/* Total */}
           <View
             style={{
