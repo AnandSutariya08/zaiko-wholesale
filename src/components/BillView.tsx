@@ -9,6 +9,7 @@ import {
 import { getCompanyProfile } from "@/lib/storage";
 import { Button } from "./ui/button";
 import { Download, Printer, MessageCircle } from "lucide-react";
+import { toast } from "sonner";
 import {
   Document,
   Page,
@@ -2040,107 +2041,66 @@ export function BillView({ bill }: BillViewProps) {
   //   };
   // };
 
-  const handlePrintPDF = async () => {
-    if (!company) return;
+  const handlePrint = () => {
+    window.print();
+  };
 
+  const handleDownloadPDF = async () => {
+    toast.info("Generating PDF...");
     try {
-      const blob = await pdf(
-        <BillPDF bill={bill} company={company} qrDataURL={qrDataURL} />
-      ).toBlob();
-
+      const qrDataURLToUse = qrDataURL || (await QRCode.toDataURL(window.location.origin + `/bills/${bill.id}`));
+      const doc = <BillPDF bill={bill} company={company} qrDataURL={qrDataURLToUse} />;
+      const blob = await pdf(doc).toBlob();
       const url = URL.createObjectURL(blob);
-
-      // Create a hidden link and open it in a new window/tab
-      // Using window.open is usually enough to trigger the browser's PDF viewer
-      const newWindow = window.open(url, "_blank");
-      if (newWindow) {
-        newWindow.focus();
-      } else {
-        // Fallback for popup blockers: suggest user to allow popups or download manually
-        alert("Please allow popups to view and print the PDF.");
-      }
-
-      // Optional: Auto-revoke after 60s to free memory
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Bill_${bill.billNumber}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success("PDF downloaded successfully");
     } catch (error) {
-      console.error("PDF generation failed:", error);
-      alert("Failed to generate PDF. Please try again.");
+      console.error("Error generating PDF:", error);
+      toast.error("Failed to generate PDF");
     }
   };
 
-  const handleWhatsAppShare = () => {
-    const clientPhone = bill.client.phone
-      ? bill.client.phone.replace(/\D/g, "")
-      : "";
-    const message = `Hi ${bill.client.name},\n\n📄 *${
-      isInternational ? "INVOICE" : "Invoice"
-    } Details*\n━━━━━━━━━━━━━━━━━━━━\nInvoice No: ${
-      bill.billNumber
-    }\nDate: ${formatDate(bill.date)}\nAmount: ${formatCurrency(bill.total)}\n${
-      !isInternational ? `Status: ${bill.paymentStatus.toUpperCase()}\n` : ""
-    }\n🔗 *View Full Invoice Online:*\n${publicBillUrl}\n\nThank you for your business!`;
-
-    const whatsappUrl = clientPhone
-      ? `https://wa.me/${clientPhone}?text=${encodeURIComponent(message)}`
-      : `https://wa.me/?text=${encodeURIComponent(message)}`;
-
-    window.open(whatsappUrl, "_blank");
+  const handleShareWhatsApp = () => {
+    const phone = bill.client.phone?.replace(/\D/g, "");
+    if (!phone) {
+      toast.error("Client phone number not available");
+      return;
+    }
+    const billLink = window.location.href;
+    const text = encodeURIComponent(`Hello ${bill.client.name}, please find your bill ${bill.billNumber} here: ${billLink}`);
+    window.open(`https://wa.me/${phone}?text=${text}`, "_blank");
   };
-
-  const formatAddress = (address: string) => {
-    return address.split(",").map((line, i, arr) => (
-      <span key={i}>
-        {line.trim()}
-        {i < arr.length - 1 && <br />}
-      </span>
-    ));
-  };
-
-  const isInternational = bill.billType === "international";
-
-  if (!company) {
-    return <div>Please setup company profile first</div>;
-  }
-
-  const gstEnabled = company.gstEnabled ?? true;
-  const isInterState =
-    bill.gstType === "igst" ||
-    (!bill.gstType && company.stateCode !== bill.client.stateCode);
 
   return (
     <div className="w-full max-w-full bg-slate-50 dark:bg-slate-900 min-h-screen p-2 sm:p-4">
       <div className="mb-3 sm:mb-4 flex flex-wrap gap-2 print:hidden px-2 sm:px-0">
-        <PDFDownloadLink
-          document={
-            <BillPDF bill={bill} company={company} qrDataURL={qrDataURL} />
-          }
-          fileName={`${bill.billNumber}.pdf`}
-        >
-          {({ loading }) => (
-            <Button
-              disabled={loading}
-              className="flex-1 sm:flex-none text-xs sm:text-sm touch-manipulation"
-            >
-              <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2" />
-              {loading ? "Generating..." : "Download PDF"}
-            </Button>
-          )}
-        </PDFDownloadLink>
         <Button
-          onClick={handlePrintPDF}
           variant="outline"
-          className="flex-1 sm:flex-none text-xs sm:text-sm touch-manipulation"
+          className="flex-1 sm:flex-none text-xs sm:text-sm touch-manipulation gap-2"
+          onClick={handleShareWhatsApp}
         >
-          <Printer className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2" />
-          Print
+          <MessageCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600" />
+          Share on WhatsApp
         </Button>
         <Button
-          onClick={handleWhatsAppShare}
           variant="outline"
-          className="flex-1 sm:flex-none bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-900/50 text-xs sm:text-sm touch-manipulation"
+          className="flex-1 sm:flex-none text-xs sm:text-sm touch-manipulation gap-2"
+          onClick={handleDownloadPDF}
         >
-          <MessageCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2" />
-          WhatsApp Share
+          <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          Download PDF
+        </Button>
+        <Button
+          variant="outline"
+          className="flex-1 sm:flex-none text-xs sm:text-sm touch-manipulation gap-2"
+          onClick={handlePrint}
+        >
+          <Printer className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          Print
         </Button>
       </div>
       <div id="bill-print-wrapper" className="w-full">
