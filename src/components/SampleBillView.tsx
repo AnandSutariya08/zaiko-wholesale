@@ -33,7 +33,7 @@ export function SampleBillView({ bill }: SampleBillViewProps) {
 
   useEffect(() => {
     let cancelled = false;
-    const upiId = (company?.upiId || "").trim();
+    const upiId = (bill.bankAccount?.upiId || company?.upiId || "").trim();
     if (!upiId) {
       setQrDataURL("");
       return;
@@ -58,7 +58,7 @@ export function SampleBillView({ bill }: SampleBillViewProps) {
     return () => {
       cancelled = true;
     };
-  }, [company?.upiId, company?.name, bill.total, bill.billNumber]);
+  }, [company?.upiId, company?.name, bill.total, bill.billNumber, bill.bankAccount?.upiId]);
 
   useEffect(() => {
     const style = document.createElement("style");
@@ -1078,16 +1078,16 @@ Thank you!`;
                     </h3>
                     <div className="text-[10px] space-y-0.5 mt-1 break-words">
                       <p>
-                        <strong>A/c Holder:</strong> {company.bankDetails.accountHolder}
+                        <strong>A/c Holder:</strong> {bill.bankAccount?.accountHolder || company.bankDetails?.accountHolder || "N.A."}
                       </p>
                       <p>
-                        <strong>Bank Name:</strong> {company.bankDetails.bankName}
+                        <strong>Bank Name:</strong> {bill.bankAccount?.bankName || company.bankDetails?.bankName || "N.A."}
                       </p>
                       <p>
-                        <strong>A/c Number:</strong> {company.bankDetails.accountNumber}
+                        <strong>A/c Number:</strong> {bill.bankAccount?.accountNumber || company.bankDetails?.accountNumber || "N.A."}
                       </p>
                       <p>
-                        <strong>Branch & IFSC:</strong> {company.bankDetails.branchAndIFSC}
+                        <strong>Branch & IFSC:</strong> {bill.bankAccount?.branchAndIFSC || company.bankDetails?.branchAndIFSC || "N.A."}
                       </p>
                     </div>
                     <div className="mt-2 flex items-center gap-2">

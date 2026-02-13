@@ -1908,7 +1908,7 @@ export function BillView({ bill }: BillViewProps) {
   }, []);
 
   useEffect(() => {
-    const upiId = (company?.upiId || "").trim();
+    const upiId = (bill.bankAccount?.upiId || company?.upiId || "").trim();
     if (!upiId) {
       setQrDataURL("");
       return;
@@ -1929,7 +1929,7 @@ export function BillView({ bill }: BillViewProps) {
         console.error("Failed to generate UPI QR:", err);
         setQrDataURL("");
       });
-  }, [company?.upiId, company?.name, bill.total, bill.billNumber]);
+  }, [company?.upiId, company?.name, bill.total, bill.billNumber, bill.bankAccount?.upiId]);
 
   useEffect(() => {
     const calculateScale = () => {
@@ -2444,18 +2444,18 @@ export function BillView({ bill }: BillViewProps) {
                   <p className="font-bold text-[10px] mb-1">
                     PAYMENT INSTRUCTIONS:
                   </p>
-                  <p className="text-[10px]">
-                    {company.bankDetails?.accountHolder || "N.A."}
-                  </p>
-                  <p className="text-[10px]">
-                    A/c No.: {company.bankDetails?.accountNumber || "N.A."}
-                  </p>
-                  <p className="text-[10px]">
-                    Bank: {company.bankDetails?.bankName || "N.A."}
-                  </p>
-                  <p className="text-[10px]">
-                    Branch & IFSC: {company.bankDetails?.branchAndIFSC || "N.A."}
-                  </p>
+                    <p>
+                      <strong>A/c Holder:</strong> {bill.bankAccount?.accountHolder || company.bankDetails?.accountHolder || "N.A."}
+                    </p>
+                    <p>
+                      <strong>Bank Name:</strong> {bill.bankAccount?.bankName || company.bankDetails?.bankName || "N.A."}
+                    </p>
+                    <p>
+                      <strong>A/c Number:</strong> {bill.bankAccount?.accountNumber || company.bankDetails?.accountNumber || "N.A."}
+                    </p>
+                    <p>
+                      <strong>Branch & IFSC:</strong> {bill.bankAccount?.branchAndIFSC || company.bankDetails?.branchAndIFSC || "N.A."}
+                    </p>
                   {qrDataURL && (
                     <div className="mt-2 flex items-center gap-2">
                       <img
@@ -3022,16 +3022,16 @@ export function BillView({ bill }: BillViewProps) {
               </h3>
               <div className="text-[10px] space-y-0.5 mt-1">
                 <p>
-                  <strong>A/c Holder:</strong> {company.bankDetails.accountHolder}
+                  <strong>A/c Holder:</strong> {bill.bankAccount?.accountHolder || company.bankDetails?.accountHolder}
                 </p>
                 <p>
-                  <strong>Bank Name:</strong> {company.bankDetails.bankName}
+                  <strong>Bank Name:</strong> {bill.bankAccount?.bankName || company.bankDetails?.bankName}
                 </p>
                 <p>
-                  <strong>A/c Number:</strong> {company.bankDetails.accountNumber}
+                  <strong>A/c Number:</strong> {bill.bankAccount?.accountNumber || company.bankDetails?.accountNumber}
                 </p>
                 <p>
-                  <strong>Branch & IFSC:</strong> {company.bankDetails.branchAndIFSC}
+                  <strong>Branch & IFSC:</strong> {bill.bankAccount?.branchAndIFSC || company.bankDetails?.branchAndIFSC}
                 </p>
               </div>
               <div className="mt-2 flex items-center gap-2">
