@@ -1,17 +1,30 @@
-import { useEffect, useState } from 'react';
-import { BillForm } from '@/components/BillForm';
-import { ArrowLeft, Plus, Search, Calendar, FileText, Eye, Edit, Trash2, IndianRupee, User, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useNavigate } from 'react-router-dom';
-import { getBills, deleteBill, updateBillPayment } from '@/lib/storage';
-import { Bill, PaymentMethod } from '@/types';
-import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { formatCurrency, formatDate } from '@/lib/billUtils';
-import { toast } from 'sonner';
-import { LoadingSpinner } from '@/components/LoadingSpinner';
-import { PaymentDialog } from '@/components/PaymentDialog';
+import { useEffect, useState } from "react";
+import { BillForm } from "@/components/BillForm";
+import {
+  ArrowLeft,
+  Plus,
+  Search,
+  Calendar,
+  FileText,
+  Eye,
+  Edit,
+  Trash2,
+  IndianRupee,
+  User,
+  Loader2,
+  MessageCircle,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
+import { getBills, deleteBill, updateBillPayment } from "@/lib/storage";
+import { Bill, PaymentMethod } from "@/types";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { formatCurrency, formatDate } from "@/lib/billUtils";
+import { toast } from "sonner";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { PaymentDialog } from "@/components/PaymentDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,15 +35,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+} from "@/components/ui/alert-dialog";
 
 export default function NonGSTBill() {
   const navigate = useNavigate();
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [bills, setBills] = useState<Bill[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [dateFilter, setDateFilter] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -43,35 +56,42 @@ export default function NonGSTBill() {
     try {
       setLoading(true);
       const allBills = await getBills();
-      setBills(allBills.filter(b => b.totalTax === 0));
+      setBills(allBills.filter((b) => b.totalTax === 0));
     } catch (error) {
-      console.error('Error loading bills:', error);
-      toast.error('Failed to load bills');
+      console.error("Error loading bills:", error);
+      toast.error("Failed to load bills");
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredBills = bills.filter(bill => {
-    const matchesSearch = 
-      bill.billNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bill.client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (bill.client.phone && bill.client.phone.includes(searchTerm));
-    
-    const matchesDate = !dateFilter || bill.date.includes(dateFilter);
-    
-    return matchesSearch && matchesDate;
-  }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const filteredBills = bills
+    .filter((bill) => {
+      const matchesSearch =
+        bill.billNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        bill.client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (bill.client.phone && bill.client.phone.includes(searchTerm));
+
+      const matchesDate = !dateFilter || bill.date.includes(dateFilter);
+
+      return matchesSearch && matchesDate;
+    })
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const handleDelete = async (id: string) => {
     setDeletingId(id);
     await deleteBill(id);
     await loadBills();
     setDeletingId(null);
-    toast.success('Bill deleted successfully');
+    toast.success("Bill deleted successfully");
   };
 
-  const handlePaymentCollected = async (amount: number, type: PaymentMethod, note?: string, date?: string) => {
+  const handlePaymentCollected = async (
+    amount: number,
+    type: PaymentMethod,
+    note?: string,
+    date?: string,
+  ) => {
     if (selectedBill) {
       await updateBillPayment(selectedBill.id, amount, type, note, date);
       await loadBills();
@@ -83,7 +103,11 @@ export default function NonGSTBill() {
     return (
       <div className="space-y-4 md:space-y-6 pb-4">
         <div className="flex items-center gap-4">
-          <Button variant="outline" size="icon" onClick={() => setShowForm(false)}>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setShowForm(false)}
+          >
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <h1 className="text-xl sm:text-2xl font-bold">Create Non-GST Bill</h1>
@@ -97,15 +121,27 @@ export default function NonGSTBill() {
     <div className="space-y-4 md:space-y-6 pb-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
-          <Button variant="outline" size="icon" onClick={() => navigate('/bills')} className="flex-shrink-0">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => navigate("/bills")}
+            className="flex-shrink-0"
+          >
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="min-w-0 flex-1">
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground truncate">Non-GST Bills</h1>
-            <p className="text-sm text-muted-foreground">Manage your Non-GST invoices</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground truncate">
+              Non-GST Bills
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Manage your Non-GST invoices
+            </p>
           </div>
         </div>
-        <Button onClick={() => setShowForm(true)} className="w-full sm:w-auto gap-2">
+        <Button
+          onClick={() => setShowForm(true)}
+          className="w-full sm:w-auto gap-2"
+        >
           <Plus className="h-4 w-4" />
           Create Non-GST Bill
         </Button>
@@ -137,37 +173,61 @@ export default function NonGSTBill() {
       </Card>
 
       {loading ? (
-        <LoadingSpinner size="xl" text="Loading Non-GST bills..." contentAreaOnly />
+        <LoadingSpinner
+          size="xl"
+          text="Loading Non-GST bills..."
+          contentAreaOnly
+        />
       ) : (
         <div className="space-y-3">
           {filteredBills.length === 0 ? (
             <Card className="border-2 border-dashed">
               <CardContent className="text-center py-12">
                 <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                <p className="text-lg font-medium text-foreground mb-2">No Non-GST bills found</p>
-                <Button variant="outline" onClick={() => setShowForm(true)}>Create Your First Non-GST Bill</Button>
+                <p className="text-lg font-medium text-foreground mb-2">
+                  No Non-GST bills found
+                </p>
+                <Button variant="outline" onClick={() => setShowForm(true)}>
+                  Create Your First Non-GST Bill
+                </Button>
               </CardContent>
             </Card>
           ) : (
             filteredBills.map((bill) => (
-              <Card key={bill.id} className="hover:shadow-md transition-shadow border-l-4 border-l-orange-500">
+              <Card
+                key={bill.id}
+                className="hover:shadow-md transition-shadow border-l-4 border-l-orange-500"
+              >
                 <CardContent className="p-4">
                   <div className="flex flex-col gap-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <span className="font-bold text-lg">{bill.billNumber}</span>
-                          <Badge variant={bill.paymentStatus === 'paid' ? 'default' : 'secondary'} className="text-xs">
+                          <span className="font-bold text-lg">
+                            {bill.billNumber}
+                          </span>
+                          <Badge
+                            variant={
+                              bill.paymentStatus === "paid"
+                                ? "default"
+                                : "secondary"
+                            }
+                            className="text-xs"
+                          >
                             {bill.paymentStatus.toUpperCase()}
                           </Badge>
                         </div>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <User className="h-3 w-3" />
-                          <span className="font-medium truncate">{bill.client.name}</span>
+                          <span className="font-medium truncate">
+                            {bill.client.name}
+                          </span>
                         </div>
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <p className="text-primary text-xl font-bold">{formatCurrency(bill.total)}</p>
+                        <p className="text-primary text-xl font-bold">
+                          {formatCurrency(bill.total)}
+                        </p>
                       </div>
                     </div>
 
@@ -176,25 +236,45 @@ export default function NonGSTBill() {
                         <Calendar className="h-3 w-3" />
                         <span>{formatDate(bill.date)}</span>
                       </div>
-                      {bill.paymentStatus !== 'paid' && (
+                      {bill.paymentStatus !== "paid" && (
                         <div className="flex items-center gap-1 text-orange-600 font-semibold">
                           <IndianRupee className="h-3.5 w-3.5" />
-                          <span>Pending: {formatCurrency(bill.total - bill.paidAmount)}</span>
+                          <span>
+                            Pending:{" "}
+                            {formatCurrency(bill.total - bill.paidAmount)}
+                          </span>
                         </div>
                       )}
                     </div>
 
                     <div className="flex items-center justify-between gap-2 border-t pt-2">
-                      {bill.paymentStatus !== 'paid' ? (
-                        <Button variant="default" size="sm" onClick={() => { setSelectedBill(bill); setPaymentDialogOpen(true); }} className="h-8 gap-1.5 text-xs">
+                      {bill.paymentStatus !== "paid" ? (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedBill(bill);
+                            setPaymentDialogOpen(true);
+                          }}
+                          className="h-8 gap-1.5 text-xs"
+                        >
                           <IndianRupee className="h-3.5 w-3.5" />
                           Collect
                         </Button>
                       ) : (
-                        <Badge variant="default" className="bg-green-600 text-white h-8">✓ Paid</Badge>
+                        <Badge
+                          variant="default"
+                          className="bg-green-600 text-white h-8"
+                        >
+                          ✓ Paid
+                        </Badge>
                       )}
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm" className="h-8 w-8 p-0" title="Share on WhatsApp"
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          title="Share on WhatsApp"
                           onClick={() => {
                             const phone = bill.client.phone?.replace(/\D/g, "");
                             if (!phone) {
@@ -202,18 +282,39 @@ export default function NonGSTBill() {
                               return;
                             }
                             const billLink = `${window.location.origin}/view/bill/${bill.id}`;
-                            const text = encodeURIComponent(`Hello ${bill.client.name}, please find your bill ${bill.billNumber} here: ${billLink}`);
-                            window.open(`https://wa.me/${phone}?text=${text}`, "_blank");
-                          }}>
+                            const text = encodeURIComponent(
+                              `Hello ${bill.client.name}, please find your bill ${bill.billNumber} here: ${billLink}`,
+                            );
+                            window.open(
+                              `https://wa.me/${phone}?text=${text}`,
+                              "_blank",
+                            );
+                          }}
+                        >
                           <MessageCircle className="h-3.5 w-3.5 text-green-600" />
                         </Button>
-                        <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => navigate(`/bills/${bill.id}`)}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => navigate(`/bills/${bill.id}`)}
+                        >
                           <Eye className="h-3.5 w-3.5" />
                         </Button>
-                        <Button variant="outline" size="sm" className="h-8 w-8 p-0 text-destructive" 
-                          disabled={deletingId === bill.id || bill.paidAmount > 0}
-                          onClick={() => handleDelete(bill.id)}>
-                          {deletingId === bill.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-destructive"
+                          disabled={
+                            deletingId === bill.id || bill.paidAmount > 0
+                          }
+                          onClick={() => handleDelete(bill.id)}
+                        >
+                          {deletingId === bill.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3.5 w-3.5" />
+                          )}
                         </Button>
                       </div>
                     </div>
