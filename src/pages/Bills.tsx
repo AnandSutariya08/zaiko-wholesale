@@ -33,11 +33,15 @@ import {
   FileText,
   Download,
   Share2,
+  MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { PaymentDialog } from "@/components/PaymentDialog";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { BillPDF } from "@/components/BillView";
+import { pdf } from "@react-pdf/renderer";
+import QRCode from "qrcode";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -431,12 +435,45 @@ export default function Bills() {
                             size="sm"
                             className="h-8 w-8 p-0"
                             title="Download Bill"
-                            onClick={() => {
-                              toast.info("Opening bill for download...");
-                              window.open(`/bills/${bill.id}`, '_blank');
+                            onClick={async () => {
+                              toast.info("Generating PDF...");
+                              try {
+                                const qrDataURL = await QRCode.toDataURL(window.location.origin + `/bills/${bill.id}`);
+                                const doc = <BillPDF bill={bill} company={company} qrDataURL={qrDataURL} />;
+                                const blob = await pdf(doc).toBlob();
+                                const url = URL.createObjectURL(blob);
+                                const link = document.createElement('a');
+                                link.href = url;
+                                link.download = `Bill_${bill.billNumber}.pdf`;
+                                link.click();
+                                URL.revokeObjectURL(url);
+                                toast.success("PDF downloaded successfully");
+                              } catch (error) {
+                                console.error("Error generating PDF:", error);
+                                toast.error("Failed to generate PDF");
+                              }
                             }}
                           >
                             <Download className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            title="Share on WhatsApp"
+                            onClick={() => {
+                              const phone = bill.client.phone?.replace(/\D/g, "");
+                              if (!phone) {
+                                toast.error("Client phone number not available");
+                                return;
+                              }
+                              // Direct share link for bill view page
+                              const billLink = `${window.location.origin}/bills/${bill.id}`;
+                              const text = encodeURIComponent(`Hello ${bill.client.name}, please find your bill ${bill.billNumber} here: ${billLink}`);
+                              window.open(`https://wa.me/${phone}?text=${text}`, "_blank");
+                            }}
+                          >
+                            <MessageCircle className="h-3.5 w-3.5 text-green-600" />
                           </Button>
                           <Button
                             variant="outline"
