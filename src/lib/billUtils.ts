@@ -204,7 +204,8 @@ export const formatDate = (date: string): string => {
 export const generateBillNumber = (
   counter: number,
   companyPrefix: string,
-  type?: string
+  type?: string,
+  gstEnabled: boolean = true
 ): string => {
   const year = new Date().getFullYear();
   const paddedCounter = counter.toString().padStart(3, "0");
@@ -215,7 +216,8 @@ export const generateBillNumber = (
     return `SMP-${year}-${paddedCounter}`;
   }
   
-  return `INV-${year}-${paddedCounter}`;
+  const prefix = gstEnabled ? "GST" : "NON";
+  return `${prefix}-${year}-${paddedCounter}`;
 };
 
 export const calculateDueDate = (
