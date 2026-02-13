@@ -371,7 +371,8 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
         totals.total,
       );
 
-      const typeForCounter = internalBillType === "international" ? "international" : (gstEnabled ? "gst" : "non_gst");
+      const typeForCounter = (internalBillType as string) === "international" ? "international" : (gstEnabled ? "gst" : "non_gst");
+      let billCounterVal;
       billCounterVal = isEdit ? await getBillCounter(typeForCounter) : await incrementBillCounter(typeForCounter);
 
       // Automatically set creator from logged in user
