@@ -101,6 +101,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ConflictResolutionDialog } from "@/components/ConflictResolutionDialog";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { compressFile, getBase64SizeKB } from "@/lib/imageCompression";
+import { ProductAutocomplete } from "@/components/ProductAutocomplete";
 
 function PurchaseBills() {
   const navigate = useNavigate();
@@ -1046,6 +1047,35 @@ function PurchaseBills() {
       item.gstAmount = (item.amount * (value || 0)) / 100;
     }
 
+    // Clear error flag after edit
+    item.hasError = false;
+    item.errorMessage = undefined;
+
+    items[index] = item;
+    setEditedBill({ ...editedBill, items });
+  };
+
+  const handleProductSelect = (index: number, product: any) => {
+    if (!editedBill) return;
+    const items = [...editedBill.items];
+    const item = { ...items[index] };
+
+    item.description = product.name; // Update description
+    if (product.hsnCode) item.hsnCode = product.hsnCode; // Update HSN if available
+    
+    // Update rate if available (assuming purchasePrice is the buying rate)
+    if (product.purchasePrice) item.rate = product.purchasePrice;
+    
+    // Update GST rate
+    if (product.gstRate !== undefined) item.gstRate = product.gstRate;
+    
+    // Update Unit
+    if (product.unit) item.unit = product.unit;
+
+    // Recalculate amounts
+    item.amount = item.quantity * item.rate;
+    item.gstAmount = (item.amount * (item.gstRate || 0)) / 100;
+    
     // Clear error flag after edit
     item.hasError = false;
     item.errorMessage = undefined;
@@ -2236,17 +2266,16 @@ function PurchaseBills() {
                               <td className="px-4 py-3 max-w-md">
                                 {isEditing ? (
                                   <div className="space-y-2">
-                                    <Input
+                                    <ProductAutocomplete
+                                      products={products}
                                       value={item.description}
-                                      onChange={(e) =>
-                                        updateEditedItem(
-                                          index,
-                                          "description",
-                                          e.target.value,
-                                        )
+                                      onChange={(val) =>
+                                        updateEditedItem(index, "description", val)
                                       }
-                                      className="h-9 text-sm"
+                                      onSelect={(product) => handleProductSelect(index, product)}
                                       placeholder="Item / Product name"
+                                      type="name"
+                                      className="h-9 text-sm"
                                     />
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                       <Input
@@ -2300,15 +2329,15 @@ function PurchaseBills() {
                               </td>
                               <td className="px-4 py-3 text-center">
                                 {isEditing ? (
-                                  <Input
+                                  <ProductAutocomplete
+                                    products={products}
                                     value={item.hsnCode || ""}
-                                    onChange={(e) =>
-                                      updateEditedItem(
-                                        index,
-                                        "hsnCode",
-                                        e.target.value,
-                                      )
+                                    onChange={(val) =>
+                                      updateEditedItem(index, "hsnCode", val)
                                     }
+                                    onSelect={(product) => handleProductSelect(index, product)}
+                                    placeholder="HSN"
+                                    type="hsn"
                                     className="h-9 w-28 mx-auto text-sm"
                                   />
                                 ) : (
