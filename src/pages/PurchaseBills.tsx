@@ -3154,8 +3154,13 @@ function PurchaseBills() {
                                     size="sm"
                                     className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-muted"
                                     onClick={() => handleEditTransaction(entry)}
+                                    disabled={isUpdatingTransaction === entry.id}
                                   >
-                                    <Edit2 className="h-4 w-4" />
+                                    {isUpdatingTransaction === entry.id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Edit2 className="h-4 w-4" />
+                                    )}
                                   </Button>
                                   <AlertDialog>
                                     <AlertDialogTrigger asChild>
@@ -3163,8 +3168,13 @@ function PurchaseBills() {
                                         variant="ghost"
                                         size="sm"
                                         className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                        disabled={isUpdatingTransaction === entry.id}
                                       >
-                                        <Trash2 className="h-4 w-4" />
+                                        {isUpdatingTransaction === entry.id ? (
+                                          <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                          <Trash2 className="h-4 w-4" />
+                                        )}
                                       </Button>
                                     </AlertDialogTrigger>
                                     <AlertDialogContent className="rounded-2xl">
@@ -3179,7 +3189,10 @@ function PurchaseBills() {
                                         </AlertDialogDescription>
                                       </AlertDialogHeader>
                                       <AlertDialogFooter>
-                                        <AlertDialogCancel className="rounded-xl">
+                                        <AlertDialogCancel 
+                                          className="rounded-xl"
+                                          disabled={isUpdatingTransaction === entry.id}
+                                        >
                                           Cancel
                                         </AlertDialogCancel>
                                         <AlertDialogAction
@@ -3187,7 +3200,11 @@ function PurchaseBills() {
                                             handleDeleteTransaction(entry)
                                           }
                                           className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                          disabled={isUpdatingTransaction === entry.id}
                                         >
+                                          {isUpdatingTransaction === entry.id ? (
+                                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                          ) : null}
                                           Delete Forever
                                         </AlertDialogAction>
                                       </AlertDialogFooter>
@@ -3232,13 +3249,18 @@ function PurchaseBills() {
                     variant="outline"
                     onClick={() => setEditingTransaction(null)}
                     className="h-12 px-6 rounded-xl"
+                    disabled={!!isUpdatingTransaction}
                   >
                     Cancel
                   </Button>
                   <Button
                     onClick={saveEditedTransaction}
                     className="h-12 px-8 rounded-xl font-bold"
+                    disabled={!!isUpdatingTransaction}
                   >
+                    {isUpdatingTransaction ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : null}
                     Save Changes
                   </Button>
                 </div>
