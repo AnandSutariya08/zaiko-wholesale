@@ -207,11 +207,15 @@ export const generateBillNumber = (
   type?: string
 ): string => {
   const year = new Date().getFullYear();
-  const nextYear = year + 1;
-  const prefix = type ? `${type}-` : "";
-  return `${prefix}${companyPrefix}/${counter}/${year.toString().slice(2)}-${nextYear
-    .toString()
-    .slice(2)}`;
+  const paddedCounter = counter.toString().padStart(3, "0");
+  
+  if (type === "international") {
+    return `EXP-${year}-${paddedCounter}`;
+  } else if (type === "sample") {
+    return `SMP-${year}-${paddedCounter}`;
+  }
+  
+  return `INV-${year}-${paddedCounter}`;
 };
 
 export const calculateDueDate = (
