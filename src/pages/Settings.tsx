@@ -104,7 +104,18 @@ export default function Settings() {
 
   useEffect(() => {
     if (!initialData) return;
-    const hasChanged = JSON.stringify(formData) !== JSON.stringify(initialData);
+    
+    // Create copies to compare
+    const currentFormData = { ...formData };
+    const referenceData = { ...initialData };
+    
+    // JSON.stringify can be unreliable for simple comparisons if key order changes
+    // But for React state objects it's usually fine. 
+    // Let's use a slightly more robust check by comparing keys if needed, 
+    // but first let's ensure we're actually seeing the changes.
+    const hasChanged = JSON.stringify(currentFormData) !== JSON.stringify(referenceData);
+    
+    console.log("Form check - Dirty:", hasChanged);
     setIsDirty(hasChanged);
   }, [formData, initialData]);
 
@@ -310,18 +321,12 @@ export default function Settings() {
 
   return (
     <div className="space-y-4 sm:space-y-6 max-w-5xl mx-auto pb-24 sm:pb-32 px-3 sm:px-4 md:px-0 w-full max-w-full overflow-x-hidden relative">
-      {/* Floating Save Button - Always visible but enabled only when dirty or loading */}
       <div className="fixed bottom-6 right-6 z-[100] flex items-center justify-center">
         <Button
           onClick={() => handleSubmit()}
-          disabled={!isDirty && !saving}
           loading={saving}
           size="lg"
-          className={`rounded-full h-14 px-6 shadow-2xl transition-all hover:scale-105 active:scale-95 gap-2 ring-4 ring-primary/20 duration-300 ${
-            isDirty
-              ? "bg-primary hover:bg-primary/90 text-primary-foreground opacity-100 scale-100"
-              : "bg-muted text-muted-foreground opacity-50 scale-90 cursor-not-allowed"
-          }`}
+          className="rounded-full h-14 px-6 shadow-2xl transition-all hover:scale-105 active:scale-95 bg-primary hover:bg-primary/90 text-primary-foreground gap-2 ring-4 ring-primary/20 duration-300"
         >
           <Save className="h-5 w-5" />
           <span className="font-semibold">Save Changes</span>
