@@ -293,7 +293,7 @@ export default function Vendors() {
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={saving}>{saving ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}{editingVendor ? "Update" : "Add"} Vendor</Button>
+                <Button type="submit" loading={saving}>{editingVendor ? "Update" : "Add"} Vendor</Button>
               </div>
             </form>
           </DialogContent>

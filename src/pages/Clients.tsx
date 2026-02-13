@@ -370,15 +370,8 @@ export default function Clients() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={saving}>
-                  {saving ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      {editingClient ? "Updating..." : "Adding..."}
-                    </>
-                  ) : (
-                    <>{editingClient ? "Update" : "Add"} Client</>
-                  )}
+                <Button type="submit" loading={saving}>
+                  {editingClient ? "Update" : "Add"} Client
                 </Button>
               </div>
             </form>
