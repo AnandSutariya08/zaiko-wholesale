@@ -319,17 +319,15 @@ export const BillPDF = ({
                 <Text>TEL: {company.phone}</Text>
                 <Text>GST NO: {company.gstin || "N.A."}</Text>
 
-                {bill.bankAccount && (
-                  <View style={{ marginTop: 8 }}>
-                    <Text style={{ fontWeight: "bold" }}>Bank Details:</Text>
-                    <Text>{bill.bankAccount.bankName}</Text>
-                    <Text>A/C: {bill.bankAccount.accountNumber}</Text>
-                    <Text>IFSC: {bill.bankAccount.branchAndIFSC}</Text>
-                    {bill.bankAccount.upiId && (
-                      <Text>UPI: {bill.bankAccount.upiId}</Text>
-                    )}
-                  </View>
-                )}
+            <View style={{ marginTop: 8 }}>
+              <Text style={{ fontWeight: "bold" }}>Bank Details:</Text>
+              <Text>{bill.bankAccount?.bankName || company.bankDetails?.bankName || "N.A."}</Text>
+              <Text>A/C: {bill.bankAccount?.accountNumber || company.bankDetails?.accountNumber || "N.A."}</Text>
+              <Text>IFSC: {bill.bankAccount?.branchAndIFSC || company.bankDetails?.branchAndIFSC || "N.A."}</Text>
+              {(bill.bankAccount?.upiId || company?.upiId) && (
+                <Text>UPI: {bill.bankAccount?.upiId || company.upiId}</Text>
+              )}
+            </View>
               </View>
 
               {/* Right: Invoice details + Buyer */}
@@ -879,13 +877,13 @@ export const BillPDF = ({
               <Text style={{ fontWeight: "bold", marginBottom: 4 }}>
                 PAYMENT INSTRUCTIONS:
               </Text>
-              <Text>{company.bankDetails?.accountHolder || "N.A."}</Text>
+              <Text>{bill.bankAccount?.accountHolder || company.bankDetails?.accountHolder || "N.A."}</Text>
               <Text>
-                A/c No.: {company.bankDetails?.accountNumber || "N.A."}
+                A/c No.: {bill.bankAccount?.accountNumber || company.bankDetails?.accountNumber || "N.A."}
               </Text>
-              <Text>Bank: {company.bankDetails?.bankName || "N.A."}</Text>
+              <Text>Bank: {bill.bankAccount?.bankName || company.bankDetails?.bankName || "N.A."}</Text>
               <Text>
-                Branch & IFSC: {company.bankDetails?.branchAndIFSC || "N.A."}
+                Branch & IFSC: {bill.bankAccount?.branchAndIFSC || company.bankDetails?.branchAndIFSC || "N.A."}
               </Text>
               {!!qrDataURL && (
                 <View style={{ flexDirection: "row", marginTop: 8 }}>
@@ -1735,59 +1733,58 @@ export const BillPDF = ({
             </View>
           </View>
 
-          {/* Company Bank Details */}
-          <View style={{ flex: 1, padding: mmToPt(2) }}>
-            <View
-              style={{
-                borderBottom: "1pt solid black",
-                paddingBottom: mmToPt(1),
-                marginBottom: mmToPt(1),
-              }}
-            >
-              <Text
-                style={{
-                  fontSize: 9,
-                  fontWeight: "bold",
-                  color: company.themeColor,
-                }}
-              >
-                Company Bank Details
-              </Text>
-            </View>
-            <View style={{ gap: mmToPt(0.5) }}>
-              <Text style={{ fontSize: 8.5 }}>
-                <Text style={{ fontWeight: "bold" }}>A/c Holder:</Text>{" "}
-                {company.bankDetails.accountHolder}
-              </Text>
-              <Text style={{ fontSize: 8.5 }}>
-                <Text style={{ fontWeight: "bold" }}>Bank Name:</Text>{" "}
-                {company.bankDetails.bankName}
-              </Text>
-              <Text style={{ fontSize: 8.5 }}>
-                <Text style={{ fontWeight: "bold" }}>A/c Number:</Text>{" "}
-                {company.bankDetails.accountNumber}
-              </Text>
-              <Text style={{ fontSize: 8.5 }}>
-                <Text style={{ fontWeight: "bold" }}>Branch & IFSC:</Text>{" "}
-                {company.bankDetails.branchAndIFSC}
-              </Text>
-            </View>
-            {qrDataURL && (
+            <View style={{ flex: 1, padding: mmToPt(2) }}>
               <View
                 style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  marginTop: mmToPt(2),
-                  gap: mmToPt(2),
+                  borderBottom: "1pt solid black",
+                  paddingBottom: mmToPt(1),
+                  marginBottom: mmToPt(1),
                 }}
               >
-                <Image src={qrDataURL} style={{ width: 50, height: 50 }} />
-                <Text style={{ fontSize: 7, color: "#4b5563" }}>
-                  Scan & Pay{"\n"}(UPI)
+                <Text
+                  style={{
+                    fontSize: 9,
+                    fontWeight: "bold",
+                    color: company.themeColor,
+                  }}
+                >
+                  Company Bank Details
                 </Text>
               </View>
-            )}
-          </View>
+              <View style={{ gap: mmToPt(0.5) }}>
+                <Text style={{ fontSize: 8.5 }}>
+                  <Text style={{ fontWeight: "bold" }}>A/c Holder:</Text>{" "}
+                  {bill.bankAccount?.accountHolder || company.bankDetails?.accountHolder || "N.A."}
+                </Text>
+                <Text style={{ fontSize: 8.5 }}>
+                  <Text style={{ fontWeight: "bold" }}>Bank Name:</Text>{" "}
+                  {bill.bankAccount?.bankName || company.bankDetails?.bankName || "N.A."}
+                </Text>
+                <Text style={{ fontSize: 8.5 }}>
+                  <Text style={{ fontWeight: "bold" }}>A/c Number:</Text>{" "}
+                  {bill.bankAccount?.accountNumber || company.bankDetails?.accountNumber || "N.A."}
+                </Text>
+                <Text style={{ fontSize: 8.5 }}>
+                  <Text style={{ fontWeight: "bold" }}>Branch & IFSC:</Text>{" "}
+                  {bill.bankAccount?.branchAndIFSC || company.bankDetails?.branchAndIFSC || "N.A."}
+                </Text>
+              </View>
+              {qrDataURL && (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    marginTop: mmToPt(2),
+                    gap: mmToPt(2),
+                  }}
+                >
+                  <Image src={qrDataURL} style={{ width: 50, height: 50 }} />
+                  <Text style={{ fontSize: 7, color: "#4b5563" }}>
+                    Scan & Pay{"\n"}(UPI)
+                  </Text>
+                </View>
+              )}
+            </View>
         </View>
 
         {/* Declaration - Spans full width */}

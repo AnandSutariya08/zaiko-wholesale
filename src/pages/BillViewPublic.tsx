@@ -1267,27 +1267,27 @@ export default function BillViewPublic() {
               <div className="text-[10px] space-y-0.5 mt-1 break-words">
                 <p>
                   <strong>A/c Holder:</strong>{" "}
-                  {company.bankDetails.accountHolder}
+                  {bill.bankAccount?.accountHolder || company.bankDetails?.accountHolder || "N.A."}
                 </p>
                 <p>
-                  <strong>Bank Name:</strong> {company.bankDetails.bankName}
+                  <strong>Bank Name:</strong> {bill.bankAccount?.bankName || company.bankDetails?.bankName || "N.A."}
                 </p>
                 <p>
                   <strong>A/c Number:</strong>{" "}
-                  {company.bankDetails.accountNumber}
+                  {bill.bankAccount?.accountNumber || company.bankDetails?.accountNumber || "N.A."}
                 </p>
                 <p>
                   <strong>Branch & IFSC:</strong>{" "}
-                  {company.bankDetails.branchAndIFSC}
+                  {bill.bankAccount?.branchAndIFSC || company.bankDetails?.branchAndIFSC || "N.A."}
                 </p>
               </div>
               <div className="mt-2 flex items-center gap-2">
-                {company?.upiId ? (
+                {(bill.bankAccount?.upiId || company?.upiId) ? (
                   <>
                     <QRCodeSVG
                       value={
                         `upi://pay?pa=${encodeURIComponent(
-                          String(company.upiId).trim()
+                          String(bill.bankAccount?.upiId || company.upiId).trim()
                         )}` +
                         `&pn=${encodeURIComponent(company?.name || "")}` +
                         `&am=${encodeURIComponent(
