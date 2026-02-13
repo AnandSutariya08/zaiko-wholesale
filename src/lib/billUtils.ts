@@ -190,7 +190,7 @@ export const formatCurrency = (amount: number): string => {
     currency: "INR",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(roundedAmount).replace("INR", "₹");
+  }).format(roundedAmount).replace("₹", "Rs. ").replace("INR", "Rs. ");
 };
 
 export const formatDate = (date: string): string => {
