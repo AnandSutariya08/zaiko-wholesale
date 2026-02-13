@@ -194,6 +194,19 @@ export default function NonGSTBill() {
                         <Badge variant="default" className="bg-green-600 text-white h-8">✓ Paid</Badge>
                       )}
                       <div className="flex gap-2">
+                        <Button variant="outline" size="sm" className="h-8 w-8 p-0" title="Share on WhatsApp"
+                          onClick={() => {
+                            const phone = bill.client.phone?.replace(/\D/g, "");
+                            if (!phone) {
+                              toast.error("Client phone number not available");
+                              return;
+                            }
+                            const billLink = `${window.location.origin}/view/bill/${bill.id}`;
+                            const text = encodeURIComponent(`Hello ${bill.client.name}, please find your bill ${bill.billNumber} here: ${billLink}`);
+                            window.open(`https://wa.me/${phone}?text=${text}`, "_blank");
+                          }}>
+                          <MessageCircle className="h-3.5 w-3.5 text-green-600" />
+                        </Button>
                         <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => navigate(`/bills/${bill.id}`)}>
                           <Eye className="h-3.5 w-3.5" />
                         </Button>

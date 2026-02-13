@@ -467,8 +467,8 @@ export default function Bills() {
                                 toast.error("Client phone number not available");
                                 return;
                               }
-                              // Direct share link for bill view page
-                              const billLink = `${window.location.origin}/bills/${bill.id}`;
+                              // Direct share link for public bill view page
+                              const billLink = `${window.location.origin}/view/bill/${bill.id}`;
                               const text = encodeURIComponent(`Hello ${bill.client.name}, please find your bill ${bill.billNumber} here: ${billLink}`);
                               window.open(`https://wa.me/${phone}?text=${text}`, "_blank");
                             }}
@@ -481,14 +481,15 @@ export default function Bills() {
                             className="h-8 w-8 p-0"
                             title="Share Bill"
                             onClick={() => {
+                              const publicUrl = `${window.location.origin}/view/bill/${bill.id}`;
                               if (navigator.share) {
                                 navigator.share({
                                   title: `Bill ${bill.billNumber}`,
                                   text: `Check out bill ${bill.billNumber} for ${bill.client.name}`,
-                                  url: window.location.origin + `/bills/${bill.id}`,
+                                  url: publicUrl,
                                 }).catch(console.error);
                               } else {
-                                navigator.clipboard.writeText(window.location.origin + `/bills/${bill.id}`);
+                                navigator.clipboard.writeText(publicUrl);
                                 toast.success("Link copied to clipboard");
                               }
                             }}

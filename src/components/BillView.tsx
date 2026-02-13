@@ -246,9 +246,8 @@ export const BillPDF = ({
     bill.gstType === "igst" ||
     (!bill.gstType && company.stateCode !== bill.client.stateCode);
   const isInternational = bill.billType === "international";
-  const isSampleBill = isSample === true;
   const title = isInternational
-    ? "INVOICE"
+    ? "PROFORMA INVOICE"
     : gstEnabled
     ? "TAX INVOICE"
     : "INVOICE";
@@ -1905,20 +1904,14 @@ export function BillView({ bill }: BillViewProps) {
   }, []);
 
   useEffect(() => {
-    const upiId = (bill.bankAccount?.upiId || company?.upiId || "").trim();
-    if (!upiId) {
-      setQrDataURL("");
-      return;
-    }
-
-    // UPI "Scan & Pay" payload
-    const amount = Number(bill.total || 0).toFixed(2);
-    const upiPayUri =
-      `upi://pay?pa=${encodeURIComponent(upiId)}` +
-      `&pn=${encodeURIComponent(company?.name || "")}` +
-      `&am=${encodeURIComponent(amount)}` +
-      `&cu=INR` +
-      `&tn=${encodeURIComponent(`Invoice ${bill.billNumber}`)}`;
+  const upiId = (bill.bankAccount?.upiId || company?.upiId || "").trim();
+  const amount = Number(bill.total || 0).toFixed(2);
+  const upiPayUri =
+    `upi://pay?pa=${encodeURIComponent(upiId)}` +
+    `&pn=${encodeURIComponent(company?.name || "")}` +
+    `&am=${encodeURIComponent(amount)}` +
+    `&cu=INR` +
+    `&tn=${encodeURIComponent(`${isInternational ? 'Proforma' : ''} Invoice ${bill.billNumber}`)}`;
 
     QRCode.toDataURL(upiPayUri, { width: 220, margin: 1 })
       .then(setQrDataURL)
@@ -2067,7 +2060,7 @@ export function BillView({ bill }: BillViewProps) {
       toast.error("Client phone number not available");
       return;
     }
-    const billLink = window.location.href;
+    const billLink = `${window.location.origin}/view/bill/${bill.id}`;
     const text = encodeURIComponent(`Hello ${bill.client.name}, please find your bill ${bill.billNumber} here: ${billLink}`);
     window.open(`https://wa.me/${phone}?text=${text}`, "_blank");
   };
