@@ -2075,6 +2075,29 @@ export function BillView({ bill }: BillViewProps) {
     window.open(`https://wa.me/${phone}?text=${text}`, "_blank");
   };
 
+  const isInternational = bill.billType === "international";
+
+  const formatAddress = (address: string) => {
+    if (!address) return null;
+    return address.split(",").map((line, i, arr) => (
+      <span key={i}>
+        {line.trim()}
+        {i < arr.length - 1 && <br />}
+      </span>
+    ));
+  };
+
+  if (!company) {
+    return <div>Please setup company profile first</div>;
+  }
+
+  const gstEnabled = company.gstEnabled ?? true;
+  const isInterState =
+    bill.gstType === "igst" ||
+    (!bill.gstType && company.stateCode !== bill.client.stateCode);
+
+  const isSampleBill = 'isSample' in bill && bill.isSample;
+
   return (
     <div className="w-full max-w-full bg-slate-50 dark:bg-slate-900 min-h-screen p-2 sm:p-4">
       <div className="mb-3 sm:mb-4 flex flex-wrap gap-2 print:hidden px-2 sm:px-0">
