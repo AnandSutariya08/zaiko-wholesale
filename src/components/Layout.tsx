@@ -86,36 +86,30 @@ function AppSidebarContent({
 
   return (
     <>
-      <SidebarHeader className="border-b border-sidebar-border/40 p-5 bg-gradient-to-br from-primary/10 via-transparent to-transparent">
-        <div className="flex items-center gap-3.5">
-          <div className="relative shrink-0 group-data-[collapsible=icon]:mx-auto">
+      <SidebarHeader className="border-b border-sidebar-border/40 p-4">
+        <div className="flex items-center gap-3">
+          <div className="shrink-0 group-data-[collapsible=icon]:mx-auto">
             {company?.logo ? (
               <img
                 src={company.logo}
                 alt="Logo"
-                className="h-10 w-10 object-contain rounded-lg border border-primary/20 bg-background shadow-sm transition-transform duration-300 group-hover:scale-105"
+                className="h-8 w-8 object-contain rounded-md"
               />
             ) : (
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20 shadow-inner">
-                <Sparkles className="h-5 w-5 text-primary animate-pulse" />
+              <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center">
+                <Sparkles className="h-4 w-4 text-primary" />
               </div>
             )}
           </div>
           <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
-            <h2 className="font-bold text-sidebar-foreground truncate text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/70">
+            <h2 className="font-semibold text-sidebar-foreground truncate text-base tracking-tight">
               {company?.name || "BillEasy"}
             </h2>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-              <p className="text-[11px] text-sidebar-foreground/50 truncate font-medium uppercase tracking-wider">
-                {user.name}
-              </p>
-            </div>
           </div>
           <Button
             variant="ghost"
             size="icon"
-            className="md:hidden shrink-0 h-8 w-8 rounded-full hover:bg-primary/10 hover:text-primary"
+            className="md:hidden shrink-0 h-8 w-8 rounded-md"
             onClick={() => isMobile && setOpenMobile(false)}
             aria-label="Close menu"
           >
@@ -123,10 +117,10 @@ function AppSidebarContent({
           </Button>
         </div>
       </SidebarHeader>
-      <SidebarContent className="px-3 py-4 space-y-1">
+      <SidebarContent className="px-2 py-4">
         <SidebarGroup className="p-0">
           <SidebarGroupContent>
-            <SidebarMenu className="gap-1.5">
+            <SidebarMenu className="gap-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.path);
@@ -143,47 +137,47 @@ function AppSidebarContent({
                         <CollapsibleTrigger asChild>
                           <SidebarMenuButton
                             tooltip={item.label}
-                            size="lg"
+                            size="default"
                             className={cn(
-                              "rounded-xl px-4 h-12 transition-all duration-300 group-hover/collapsible:translate-x-1",
+                              "rounded-md px-3 h-10 transition-colors",
                               active 
-                                ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 font-semibold" 
-                                : "hover:bg-primary/5 text-sidebar-foreground/70 hover:text-primary"
+                                ? "bg-primary text-primary-foreground font-medium" 
+                                : "hover:bg-sidebar-accent text-sidebar-foreground/70"
                             )}
                           >
-                            <Icon className={cn("size-5 shrink-0 transition-transform duration-300", active ? "text-primary-foreground" : "group-hover/collapsible:scale-110")} />
-                            <span className="font-medium ml-1">{item.label}</span>
+                            <Icon className="size-4 shrink-0" />
+                            <span className="ml-2">{item.label}</span>
                             <ChevronRight className={cn(
-                              "ml-auto transition-transform duration-300 size-4 opacity-50",
+                              "ml-auto transition-transform duration-200 size-3.5 opacity-50",
                               "group-data-[state=open]/collapsible:rotate-90"
                             )} />
                           </SidebarMenuButton>
                         </CollapsibleTrigger>
-                        <CollapsibleContent className="data-[state=closed]:animate-slide-up data-[state=open]:animate-slide-down">
-                          <SidebarMenuSub className="ml-4 border-l border-primary/20 pl-2 space-y-1 mt-1">
+                        <CollapsibleContent>
+                          <SidebarMenuSub className="ml-4 border-l border-sidebar-border pl-2 space-y-0.5 mt-1">
                             <SidebarMenuSubItem>
-                              <SidebarMenuSubButton asChild isActive={location.pathname === "/bills"} className="h-9 transition-colors hover:bg-primary/5 rounded-md">
+                              <SidebarMenuSubButton asChild isActive={location.pathname === "/bills"} className="h-8 rounded-sm">
                                 <Link to="/bills" onClick={handleNavClick}>
                                   <span className="text-sm">All Bills</span>
                                 </Link>
                               </SidebarMenuSubButton>
                             </SidebarMenuSubItem>
                             <SidebarMenuSubItem>
-                              <SidebarMenuSubButton asChild isActive={location.pathname === "/bills/gst"} className="h-9 transition-colors hover:bg-primary/5 rounded-md">
+                              <SidebarMenuSubButton asChild isActive={location.pathname === "/bills/gst"} className="h-8 rounded-sm">
                                 <Link to="/bills/gst" onClick={handleNavClick}>
                                   <span className="text-sm">GST Bill</span>
                                 </Link>
                               </SidebarMenuSubButton>
                             </SidebarMenuSubItem>
                             <SidebarMenuSubItem>
-                              <SidebarMenuSubButton asChild isActive={location.pathname === "/bills/non-gst"} className="h-9 transition-colors hover:bg-primary/5 rounded-md">
+                              <SidebarMenuSubButton asChild isActive={location.pathname === "/bills/non-gst"} className="h-8 rounded-sm">
                                 <Link to="/bills/non-gst" onClick={handleNavClick}>
                                   <span className="text-sm">Non-GST Bill</span>
                                 </Link>
                               </SidebarMenuSubButton>
                             </SidebarMenuSubItem>
                             <SidebarMenuSubItem>
-                              <SidebarMenuSubButton asChild isActive={location.pathname === "/sample-bill"} className="h-9 transition-colors hover:bg-primary/5 rounded-md">
+                              <SidebarMenuSubButton asChild isActive={location.pathname === "/sample-bill"} className="h-8 rounded-sm">
                                 <Link to="/sample-bill" onClick={handleNavClick}>
                                   <span className="text-sm">Sample Bill</span>
                                 </Link>
@@ -204,17 +198,17 @@ function AppSidebarContent({
                       asChild
                       isActive={active}
                       tooltip={item.label}
-                      size="lg"
+                      size="default"
                       className={cn(
-                        "rounded-xl px-4 h-12 transition-all duration-300 hover:translate-x-1",
+                        "rounded-md px-3 h-10 transition-colors",
                         active 
-                          ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 font-semibold" 
-                          : "hover:bg-primary/5 text-sidebar-foreground/70 hover:text-primary"
+                          ? "bg-primary text-primary-foreground font-medium" 
+                          : "hover:bg-sidebar-accent text-sidebar-foreground/70"
                       )}
                     >
                       <Link to={item.path} onClick={handleNavClick}>
-                        <Icon className={cn("size-5 shrink-0 transition-transform duration-300", active ? "text-primary-foreground" : "group-hover:scale-110")} />
-                        <span className="font-medium ml-1">{item.label}</span>
+                        <Icon className="size-4 shrink-0" />
+                        <span className="ml-2">{item.label}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -224,18 +218,15 @@ function AppSidebarContent({
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="border-t border-sidebar-border/40 p-4 bg-gradient-to-t from-primary/5 to-transparent group-data-[collapsible=icon]:hidden">
-        <div className="rounded-xl bg-primary/5 px-4 py-3 border border-primary/10 backdrop-blur-sm shadow-inner">
-          <div className="flex items-center gap-2 mb-1.5">
-             <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-             <p className="text-[10px] text-primary font-bold uppercase tracking-widest">Shortcut</p>
+      <SidebarFooter className="border-t border-sidebar-border/40 p-4 group-data-[collapsible=icon]:hidden">
+        <div className="flex items-center gap-2">
+          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
+            {user.name.charAt(0).toUpperCase()}
           </div>
-          <p className="text-[11px] text-sidebar-foreground/60 font-medium flex items-center gap-1.5">
-            <kbd className="px-2 py-0.5 rounded-md bg-background border border-sidebar-border/50 text-[10px] font-mono shadow-sm">⌘</kbd>
-            <span className="opacity-40">+</span>
-            <kbd className="px-2 py-0.5 rounded-md bg-background border border-sidebar-border/50 text-[10px] font-mono shadow-sm">B</kbd>
-            <span className="ml-1 opacity-70">to Sidebar</span>
-          </p>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium text-sidebar-foreground truncate">{user.name}</p>
+            <p className="text-[10px] text-sidebar-foreground/50 truncate uppercase tracking-wider">{user.role}</p>
+          </div>
         </div>
       </SidebarFooter>
     </>
