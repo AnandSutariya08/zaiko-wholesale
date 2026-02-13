@@ -2444,6 +2444,7 @@ export function BillView({ bill }: BillViewProps) {
                   <p className="font-bold text-[10px] mb-1">
                     PAYMENT INSTRUCTIONS:
                   </p>
+                  <div className="text-[10px] space-y-0.5 mt-1">
                     <p>
                       <strong>A/c Holder:</strong> {bill.bankAccount?.accountHolder || company.bankDetails?.accountHolder || "N.A."}
                     </p>
@@ -2456,6 +2457,7 @@ export function BillView({ bill }: BillViewProps) {
                     <p>
                       <strong>Branch & IFSC:</strong> {bill.bankAccount?.branchAndIFSC || company.bankDetails?.branchAndIFSC || "N.A."}
                     </p>
+                  </div>
                   {qrDataURL && (
                     <div className="mt-2 flex items-center gap-2">
                       <img

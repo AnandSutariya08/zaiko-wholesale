@@ -199,6 +199,8 @@ export interface SampleBill {
   placeOfSupply?: string;
   createdAt: string;
   updatedAt: string;
+  bankAccountId?: string;
+  bankAccount?: BankAccount;
   isSample: true; // Flag to identify sample bills
 }
 
