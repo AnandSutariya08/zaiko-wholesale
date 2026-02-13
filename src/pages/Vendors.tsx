@@ -39,8 +39,8 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCurrency, formatDate } from "@/lib/billUtils";
 import { Badge } from "@/components/ui/badge";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
+import { pdf } from "@react-pdf/renderer";
+import { VendorLedgerPDF } from "@/components/VendorLedgerPDF";
 import * as XLSX from "xlsx";
 
 export default function Vendors() {
@@ -225,75 +225,24 @@ export default function Vendors() {
     }
   };
 
-  const downloadPDF = (vendor: Vendor) => {
+  const downloadPDF = async (vendor: Vendor) => {
     try {
-      const doc = new jsPDF();
       const transactions = getVendorTransactions(vendor.id, vendor.name);
       const stats = getVendorStats(vendor.id, vendor.name);
 
-      // Add Company Header if possible (simplified for now)
-      doc.setFontSize(22);
-      doc.setTextColor(40, 40, 40);
-      doc.text("VENDOR LEDGER", 105, 20, { align: "center" });
+      const doc = <VendorLedgerPDF vendor={vendor} transactions={transactions} stats={stats} />;
+      const blob = await pdf(doc).toBlob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${vendor.name}_Ledger.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
       
-      doc.setDrawColor(0, 0, 0);
-      doc.line(14, 25, 196, 25);
-
-      doc.setFontSize(11);
-      doc.setTextColor(60, 60, 60);
-      doc.text(`Vendor: ${vendor.name}`, 14, 35);
-      doc.text(`GSTIN: ${vendor.gstin || "N/A"}`, 14, 42);
-      doc.text(`Phone: ${vendor.phone || "N/A"}`, 14, 49);
-      doc.text(`Statement Date: ${formatDate(new Date().toISOString())}`, 14, 56);
-
-      // Stats Box
-      doc.setFillColor(245, 245, 245);
-      doc.rect(130, 30, 66, 32, 'F');
-      doc.setFontSize(10);
-      doc.text(`Total Purchase:`, 134, 37);
-      doc.text(`${formatCurrency(stats.totalPurchase)}`, 192, 37, { align: "right" });
-      doc.text(`Total Paid:`, 134, 44);
-      doc.text(`${formatCurrency(stats.totalPaid)}`, 192, 44, { align: "right" });
-      doc.text(`Total Return:`, 134, 51);
-      doc.text(`${formatCurrency(stats.totalReturn)}`, 192, 51, { align: "right" });
-      
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.text(`Balance Due:`, 134, 59);
-      doc.text(`${formatCurrency(stats.pendingAmount)}`, 192, 59, { align: "right" });
-      doc.setFont("helvetica", "normal");
-
-      const tableData = transactions.map(tx => [
-        formatDate(tx.date),
-        tx.type,
-        tx.reference,
-        tx.method || "-",
-        tx.type === 'Purchase' ? formatCurrency(tx.amount) : "-",
-        tx.type !== 'Purchase' ? formatCurrency(tx.amount) : "-"
-      ]);
-
-      (doc as any).autoTable({
-        startY: 70,
-        head: [['Date', 'Type', 'Reference', 'Mode', 'Debit (Purchase)', 'Credit (Pay/Ret)']],
-        body: tableData,
-        theme: 'striped',
-        headStyles: { fillColor: [41, 128, 185], textColor: 255 },
-        columnStyles: {
-          4: { halign: 'right' },
-          5: { halign: 'right' }
-        },
-        margin: { top: 70 },
-        didDrawPage: (data: any) => {
-          doc.setFontSize(8);
-          doc.text(`Page ${data.pageNumber}`, 196, 285, { align: "right" });
-        }
-      });
-
-      doc.save(`${vendor.name}_Ledger.pdf`);
       toast.success("PDF ledger downloaded");
     } catch (error) {
       console.error("PDF download error:", error);
-      toast.error("Failed to download PDF. Please check if jspdf-autotable is loaded correctly.");
+      toast.error("Failed to download PDF");
     }
   };
 
