@@ -31,6 +31,8 @@ import {
   User,
   Receipt,
   FileText,
+  Download,
+  Share2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -424,6 +426,38 @@ export default function Bills() {
                         )}
 
                         <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            title="Download Bill"
+                            onClick={() => {
+                              toast.info("Opening bill for download...");
+                              window.open(`/bills/${bill.id}`, '_blank');
+                            }}
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            title="Share Bill"
+                            onClick={() => {
+                              if (navigator.share) {
+                                navigator.share({
+                                  title: `Bill ${bill.billNumber}`,
+                                  text: `Check out bill ${bill.billNumber} for ${bill.client.name}`,
+                                  url: window.location.origin + `/bills/${bill.id}`,
+                                }).catch(console.error);
+                              } else {
+                                navigator.clipboard.writeText(window.location.origin + `/bills/${bill.id}`);
+                                toast.success("Link copied to clipboard");
+                              }
+                            }}
+                          >
+                            <Share2 className="h-3.5 w-3.5" />
+                          </Button>
                           <Link to={`/bills/${bill.id}`}>
                             <Button
                               variant="outline"

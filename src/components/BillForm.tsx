@@ -74,11 +74,19 @@ interface BillFormProps {
   bill?: Bill;
   isEdit?: boolean;
   initialGstEnabled?: boolean;
-  billType?: "GST" | "NON_GST" | "SAMPLE";
+  billType?: "domestic" | "international";
 }
 
-export function BillForm({ bill, isEdit = false, initialGstEnabled, billType }: BillFormProps) {
+export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: propBillType }: BillFormProps) {
   const navigate = useNavigate();
+  const [billType, setBillType] = useState<"domestic" | "international">(propBillType || "domestic");
+  
+  useEffect(() => {
+    if (propBillType) {
+      setBillType(propBillType);
+    }
+  }, [propBillType]);
+
   useEffect(() => {
     if (bill && isEdit && bill.paymentStatus === "paid") {
       toast.error("Fully paid bills cannot be edited");
@@ -353,11 +361,7 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType }: 
       );
 
       let billCounterVal;
-      if (billType === "GST" || billType === "NON_GST" || billType === "SAMPLE") {
-        billCounterVal = isEdit ? await getBillCounter(billType) : await incrementBillCounter(billType);
-      } else {
-        billCounterVal = isEdit ? await getBillCounter() : await incrementBillCounter();
-      }
+      billCounterVal = isEdit ? await getBillCounter() : await incrementBillCounter();
 
       // Automatically set creator from logged in user
       const user = getCurrentUser();
