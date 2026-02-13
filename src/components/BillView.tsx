@@ -243,9 +243,9 @@ export const BillPDF = ({
 }) => {
   const isSampleBill = isSample;
   const gstEnabled = company.gstEnabled ?? true;
-  const isInterState =
+  const isInterState: boolean =
     bill.gstType === "igst" ||
-    (!bill.gstType && company.stateCode !== bill.client.stateCode);
+    (!bill.gstType && (company?.stateCode ?? "") !== bill.client.stateCode);
   const isInternational = bill.billType === "international";
   const title = isInternational
     ? "PROFORMA INVOICE"
@@ -1495,6 +1495,7 @@ export const BillPDF = ({
           {/* Taxes */}
           {gstEnabled &&
             !isInternational &&
+            bill.totalTax > 0 &&
             (isInterState ? (
               <View style={styles.tableRow}>
                 <Text
@@ -1517,62 +1518,62 @@ export const BillPDF = ({
                   {formatCurrency(bill.totalTax)}
                 </Text>
               </View>
-            ) : (
-              <>
-                <View style={styles.tableRow}>
-                  <Text
-                    style={{
-                      flex: 1,
-                      ...styles.textRight,
-                      ...styles.tableCell,
-                      paddingRight: 8,
-                    }}
-                  >
-                    CGST
-                  </Text>
-                  <Text
-                    style={{
-                      width: amountWidth,
-                      ...styles.textRight,
-                      ...styles.tableCell,
-                    }}
-                  >
-                    {formatCurrency(
-                      bill.items.reduce(
-                        (sum, item) => sum + (item.cgst || 0),
-                        0,
-                      ),
-                    )}
-                  </Text>
-                </View>
-                <View style={styles.tableRow}>
-                  <Text
-                    style={{
-                      flex: 1,
-                      ...styles.textRight,
-                      ...styles.tableCell,
-                      paddingRight: 8,
-                    }}
-                  >
-                    SGST
-                  </Text>
-                  <Text
-                    style={{
-                      width: amountWidth,
-                      ...styles.textRight,
-                      ...styles.tableCell,
-                    }}
-                  >
-                    {formatCurrency(
-                      bill.items.reduce(
-                        (sum, item) => sum + (item.sgst || 0),
-                        0,
-                      ),
-                    )}
-                  </Text>
-                </View>
-              </>
-            ))}
+            {gstEnabled && !isInternational && bill.totalTax > 0 && (
+              <View style={styles.tableRow}>
+                <Text
+                  style={{
+                    flex: 1,
+                    ...styles.textRight,
+                    ...styles.tableCell,
+                    paddingRight: 8,
+                  }}
+                >
+                  CGST
+                </Text>
+                <Text
+                  style={{
+                    width: amountWidth,
+                    ...styles.textRight,
+                    ...styles.tableCell,
+                  }}
+                >
+                  {formatCurrency(
+                    bill.items.reduce(
+                      (sum, item) => sum + (item.cgst || 0),
+                      0
+                    ),
+                  )}
+                </Text>
+              </View>
+            )}
+            {gstEnabled && !isInternational && bill.totalTax > 0 && (
+              <View style={styles.tableRow}>
+                <Text
+                  style={{
+                    flex: 1,
+                    ...styles.textRight,
+                    ...styles.tableCell,
+                    paddingRight: 8,
+                  }}
+                >
+                  SGST
+                </Text>
+                <Text
+                  style={{
+                    width: amountWidth,
+                    ...styles.textRight,
+                    ...styles.tableCell,
+                  }}
+                >
+                  {formatCurrency(
+                    bill.items.reduce(
+                      (sum, item) => sum + (item.sgst || 0),
+                      0
+                    ),
+                  )}
+                </Text>
+              </View>
+            )}
           {/* Total */}
           <View
             style={{
@@ -1968,7 +1969,7 @@ export function BillView({ bill }: BillViewProps) {
       `&pn=${encodeURIComponent(company?.name || "")}` +
       `&am=${encodeURIComponent(amount)}` +
       `&cu=INR` +
-      `&tn=${encodeURIComponent(`${isInternational ? "Proforma" : ""} Invoice ${bill.billNumber}`)}`;
+      `&tn=${encodeURIComponent(`${bill.billType === "international" ? "Proforma" : ""} Invoice ${bill.billNumber}`)}`;
 
     QRCode.toDataURL(upiPayUri, { width: 220, margin: 1 })
       .then(setQrDataURL)
@@ -2157,9 +2158,9 @@ export function BillView({ bill }: BillViewProps) {
   }
 
   const gstEnabled = company.gstEnabled ?? true;
-  const isInterState =
+  const isInterState: boolean =
     bill.gstType === "igst" ||
-    (!bill.gstType && company.stateCode !== bill.client.stateCode);
+    (!bill.gstType && (company?.stateCode ?? "") !== bill.client.stateCode);
 
   const isSampleBill = "isSample" in bill && bill.isSample;
 
@@ -2357,7 +2358,7 @@ export function BillView({ bill }: BillViewProps) {
                       >
                         Description of Goods
                       </th>
-                      {gstEnabled && (
+                      {gstEnabled && bill.totalTax > 0 && (
                         <th
                           className="p-1.5 text-center border-r border-black"
                           style={{ width: "12%" }}
@@ -2404,7 +2405,7 @@ export function BillView({ bill }: BillViewProps) {
                             </div>
                           )}
                         </td>
-                        {gstEnabled && (
+                        {gstEnabled && bill.totalTax > 0 && (
                           <td className="p-1.5 text-center border-r border-black/10">
                             {item.hsnCode || "-"}
                           </td>
@@ -2426,7 +2427,7 @@ export function BillView({ bill }: BillViewProps) {
 
                     <tr className="border-t border-black bg-gray-50">
                       <td
-                        colSpan={gstEnabled ? 6 : 5}
+                        colSpan={gstEnabled && bill.totalTax > 0 ? 6 : 5}
                         className="p-1.5 text-right font-bold"
                       >
                         Subtotal
@@ -2438,7 +2439,7 @@ export function BillView({ bill }: BillViewProps) {
                     {bill.discount !== undefined && bill.discount > 0 && (
                       <tr className="border-t border-black text-red-600">
                         <td
-                          colSpan={gstEnabled ? 6 : 5}
+                          colSpan={gstEnabled && bill.totalTax > 0 ? 6 : 5}
                           className="p-1.5 text-right font-bold"
                         >
                           Discount{" "}
@@ -2455,7 +2456,7 @@ export function BillView({ bill }: BillViewProps) {
                       bill.otherCharges > 0 && (
                         <tr className="border-t border-black">
                           <td
-                            colSpan={gstEnabled ? 6 : 5}
+                            colSpan={gstEnabled && bill.totalTax > 0 ? 6 : 5}
                             className="p-1.5 text-right font-bold"
                           >
                             Other Charges
@@ -2467,7 +2468,7 @@ export function BillView({ bill }: BillViewProps) {
                       )}
                     <tr className="border-t border-black bg-gray-200">
                       <td
-                        colSpan={gstEnabled ? 6 : 5}
+                        colSpan={gstEnabled && bill.totalTax > 0 ? 6 : 5}
                         className="p-2 text-right font-bold"
                       >
                         TOTAL
@@ -2804,7 +2805,7 @@ export function BillView({ bill }: BillViewProps) {
                       <th className="border border-black p-1.5 text-left">
                         Description of Goods
                       </th>
-                      {gstEnabled && (
+                      {gstEnabled && bill.totalTax > 0 && (
                         <th
                           className="border border-black p-1.5 text-center"
                           style={{ width: "60px" }}
@@ -2812,7 +2813,7 @@ export function BillView({ bill }: BillViewProps) {
                           HSN/SAC
                         </th>
                       )}
-                      {gstEnabled && !isInternational && (
+                      {gstEnabled && !isInternational && bill.totalTax > 0 && (
                         <th
                           className="border border-black p-1.5 text-center"
                           style={{ width: "40px" }}
@@ -2880,12 +2881,12 @@ export function BillView({ bill }: BillViewProps) {
                               </div>
                             )}
                         </td>
-                        {gstEnabled && (
+                        {gstEnabled && bill.totalTax > 0 && (
                           <td className="border border-black p-1.5 text-center text-[9px]">
                             {item.hsnCode}
                           </td>
                         )}
-                        {gstEnabled && !isInternational && (
+                        {gstEnabled && !isInternational && bill.totalTax > 0 && (
                           <td className="border border-black p-1.5 text-center">
                             {item.gstRate}%
                           </td>
@@ -2907,7 +2908,7 @@ export function BillView({ bill }: BillViewProps) {
                     {/* Subtotal */}
                     <tr className="font-semibold bg-gray-100">
                       <td
-                        colSpan={gstEnabled ? (isInternational ? 6 : 7) : 5}
+                        colSpan={gstEnabled && bill.totalTax > 0 ? (isInternational ? 6 : 7) : 5}
                         className="border border-black p-1.5 text-right"
                       >
                         Subtotal
@@ -2919,7 +2920,7 @@ export function BillView({ bill }: BillViewProps) {
                     {bill.discount !== undefined && bill.discount > 0 && (
                       <tr>
                         <td
-                          colSpan={gstEnabled ? (isInternational ? 6 : 7) : 5}
+                          colSpan={gstEnabled && bill.totalTax > 0 ? (isInternational ? 6 : 7) : 5}
                           className="border border-black p-1.5 text-right text-red-600"
                         >
                           Discount{" "}
@@ -2936,7 +2937,7 @@ export function BillView({ bill }: BillViewProps) {
                       bill.otherCharges > 0 && (
                         <tr>
                           <td
-                            colSpan={gstEnabled ? (isInternational ? 6 : 7) : 5}
+                            colSpan={gstEnabled && bill.totalTax > 0 ? (isInternational ? 6 : 7) : 5}
                             className="border border-black p-1.5 text-right"
                           >
                             Other Charges
@@ -2946,9 +2947,9 @@ export function BillView({ bill }: BillViewProps) {
                           </td>
                         </tr>
                       )}
-                    {/* Tax Rows */}
                     {gstEnabled &&
                       !isInternational &&
+                      bill.totalTax > 0 &&
                       (isInterState ? (
                         <tr>
                           <td
@@ -2973,8 +2974,8 @@ export function BillView({ bill }: BillViewProps) {
                             <td className="border border-black p-1.5 text-right">
                               {formatCurrency(
                                 bill.items.reduce(
-                                  (sum, item) => sum + item.cgst,
-                                  0,
+                                  (sum, item) => sum + (item.cgst || 0),
+                                  0
                                 ),
                               )}
                             </td>
@@ -2989,8 +2990,8 @@ export function BillView({ bill }: BillViewProps) {
                             <td className="border border-black p-1.5 text-right">
                               {formatCurrency(
                                 bill.items.reduce(
-                                  (sum, item) => sum + item.sgst,
-                                  0,
+                                  (sum, item) => sum + (item.sgst || 0),
+                                  0
                                 ),
                               )}
                             </td>
@@ -3006,7 +3007,7 @@ export function BillView({ bill }: BillViewProps) {
                       }}
                     >
                       <td
-                        colSpan={gstEnabled ? (isInternational ? 6 : 7) : 5}
+                        colSpan={gstEnabled && bill.totalTax > 0 ? (isInternational ? 6 : 7) : 5}
                         className="border border-black p-1.5 text-right"
                       >
                         Total
