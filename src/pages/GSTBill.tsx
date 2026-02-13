@@ -88,7 +88,7 @@ export default function GSTBill() {
           </Button>
           <h1 className="text-xl sm:text-2xl font-bold">Create GST Bill</h1>
         </div>
-        <BillForm initialGstEnabled={true} billType="GST" />
+        <BillForm initialGstEnabled={true} billType="domestic" />
       </div>
     );
   }

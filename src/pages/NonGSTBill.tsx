@@ -112,7 +112,7 @@ export default function NonGSTBill() {
           </Button>
           <h1 className="text-xl sm:text-2xl font-bold">Create Non-GST Bill</h1>
         </div>
-        <BillForm initialGstEnabled={false} billType="NON_GST" />
+        <BillForm initialGstEnabled={false} billType="domestic" />
       </div>
     );
   }
