@@ -1099,17 +1099,20 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
         </Card>
       )}
 
-      <div className="flex items-center justify-between md:col-span-2 p-4 border rounded-lg bg-muted/30">
-        <div className="space-y-0.5">
-          <Label className="text-base">GST Billing</Label>
-          <p className="text-sm text-muted-foreground">
-            {gstEnabled
-              ? "GST is enabled for this bill"
-              : "GST is disabled for this bill"}
-          </p>
+      {/* GST Switch - Only show for domestic bills */}
+      {billType !== "international" && (
+        <div className="flex items-center justify-between md:col-span-2 p-4 border rounded-lg bg-muted/30">
+          <div className="space-y-0.5">
+            <Label className="text-base">GST Billing</Label>
+            <p className="text-sm text-muted-foreground">
+              {gstEnabled
+                ? "GST is enabled for this bill"
+                : "GST is disabled for this bill"}
+            </p>
+          </div>
+          <Switch checked={gstEnabled} onCheckedChange={setGstEnabled} />
         </div>
-        <Switch checked={gstEnabled} onCheckedChange={setGstEnabled} />
-      </div>
+      )}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
