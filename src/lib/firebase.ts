@@ -8,19 +8,19 @@ import { getStorage, FirebaseStorage } from "firebase/storage";
 const firebaseConfig = {
   apiKey:
     import.meta.env.VITE_FIREBASE_API_KEY ||
-    "AIzaSyDsdTCK3XOodXcuC1TWHAmxLAETDYv7AjE",
+    "AIzaSyDIYMfn51U_e2uU6sbVfjRc44qb66KKY98",
   authDomain:
     import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ||
-    "zaiko-wholesale.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "zaiko-wholesale",
+    "supergames-ai.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "supergames-ai",
   storageBucket:
     import.meta.env.VITE_FIREBASE_STORAGE_BUCKET ||
-    "zaiko-wholesale.firebasestorage.app",
+    "supergames-ai.firebasestorage.app",
   messagingSenderId:
-    import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "539852019524",
+    import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "254966835658",
   appId:
     import.meta.env.VITE_FIREBASE_APP_ID ||
-    "1:539852019524:web:a820bcd48462efd9532911",
+    "1:254966835658:web:095c44a0c6c83bb2198733",
 };
 
 // Initialize Firebase
