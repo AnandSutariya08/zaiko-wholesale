@@ -107,7 +107,9 @@ export default function Products() {
   const [stockValues, setStockValues] = useState<Record<string, number>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [avgPriceFilter, setAvgPriceFilter] = useState<string>("all");
-  const [stockSortOrder, setStockSortOrder] = useState<"none" | "low-to-high" | "high-to-low">("none");
+  const [stockSortOrder, setStockSortOrder] = useState<
+    "none" | "low-to-high" | "high-to-low"
+  >("none");
   const [formData, setFormData] = useState({
     name: "",
     hsnCode: "",
@@ -701,21 +703,26 @@ export default function Products() {
   if (loading) {
     return (
       <div className="min-h-screen">
-        <LoadingSpinner size="xl" text="Loading products..." fullScreen contentAreaOnly />
+        <LoadingSpinner
+          size="xl"
+          text="Loading products..."
+          fullScreen
+          contentAreaOnly
+        />
       </div>
     );
   }
 
   return (
     <div className="space-y-6 p-4">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="items-start sm:items-center gap-4">
         <div>
           <h1 className="page-title">Products</h1>
           <p className="page-subtitle">Manage your product inventory</p>
         </div>
-        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto pt-8">
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <div className="relative flex-1 sm:w-64">
+            {/* <div className="relative flex-1 sm:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search products..."
@@ -723,8 +730,11 @@ export default function Products() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
               />
-            </div>
-            <Select value={stockSortOrder} onValueChange={(value: any) => setStockSortOrder(value)}>
+            </div> */}
+            <Select
+              value={stockSortOrder}
+              onValueChange={(value: any) => setStockSortOrder(value)}
+            >
               <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Sort by Stock" />
               </SelectTrigger>
