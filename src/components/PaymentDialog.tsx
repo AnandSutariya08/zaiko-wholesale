@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -44,6 +44,13 @@ export function PaymentDialog({ bill, open, onOpenChange, onPaymentCollected }: 
   const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split("T")[0]);
   const [paymentNote, setPaymentNote] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Sync payment amount when dialog opens or bill changes
+  useEffect(() => {
+    if (open) {
+      setPaymentAmount(pendingAmount.toString());
+    }
+  }, [open, pendingAmount]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
