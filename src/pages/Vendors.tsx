@@ -106,7 +106,8 @@ export default function Vendors() {
       // Add the bill itself as a "Purchase" transaction
       transactions.push({
         id: `bill-${bill.id}`,
-        date: bill.billDate || bill.createdAt,
+        date: bill.createdAt, // Use createdAt for exact chronological order
+        displayDate: bill.billDate || bill.createdAt,
         type: "Purchase",
         reference: bill.billNumber || "N/A",
         amount: bill.total,
@@ -119,7 +120,8 @@ export default function Vendors() {
         bill.payments.forEach(payment => {
           transactions.push({
             id: `pay-${payment.id}`,
-            date: payment.date,
+            date: payment.date, // Assuming payment.date is ISO or has time info
+            displayDate: payment.date,
             type: "Payment",
             reference: `For Bill #${bill.billNumber || ""}`,
             amount: payment.amount,
@@ -134,7 +136,8 @@ export default function Vendors() {
         bill.returns.forEach(ret => {
           transactions.push({
             id: `ret-${ret.id}`,
-            date: ret.returnDate,
+            date: ret.createdAt || ret.returnDate, // Use createdAt for exact chronological order
+            displayDate: ret.returnDate,
             type: "Return",
             reference: `From Bill #${bill.billNumber || ""}`,
             amount: ret.totalReturnValue,
@@ -167,7 +170,7 @@ export default function Vendors() {
         
         return matchesSearch && matchesDate;
       })
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   };
 
   const getVendorStats = (vendorId: string, vendorName: string) => {
@@ -553,29 +556,39 @@ export default function Vendors() {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-3">
-                        {getVendorTransactions(viewingVendor.id, viewingVendor.name).length > 0 ? (
-                          getVendorTransactions(viewingVendor.id, viewingVendor.name).map(tx => (
-                            <div key={tx.id} className="flex justify-between items-center p-3 border rounded hover:bg-muted/50 transition-colors">
-                              <div className="flex items-center gap-3">
-                                <div className={`p-2 rounded-full ${tx.type === 'Purchase' ? 'bg-orange-100 text-orange-600' : tx.type === 'Payment' ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
-                                  {tx.type === 'Purchase' ? <Receipt className="h-4 w-4" /> : tx.type === 'Payment' ? <Plus className="h-4 w-4" /> : <History className="h-4 w-4" />}
+                        {(() => {
+                          const transactions = getVendorTransactions(viewingVendor.id, viewingVendor.name);
+                          if (transactions.length > 0) {
+                            return transactions.map(tx => (
+                              <div key={tx.id} className={`flex justify-between items-center p-3 border rounded hover:bg-muted/50 transition-colors ${
+                                tx.type === 'Purchase' ? 'bg-red-50/30 dark:bg-red-900/10' :
+                                tx.type === 'Payment' ? 'bg-green-50/30 dark:bg-green-900/10' :
+                                tx.type === 'Return' ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''
+                              }`}>
+                                <div className="flex items-center gap-3">
+                                  <div className={`p-2 rounded-full ${tx.type === 'Purchase' ? 'bg-red-100 text-red-600' : tx.type === 'Payment' ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
+                                    {tx.type === 'Purchase' ? <Receipt className="h-4 w-4" /> : tx.type === 'Payment' ? <Plus className="h-4 w-4" /> : <History className="h-4 w-4" />}
+                                  </div>
+                                  <div>
+                                    <p className="font-medium">{tx.type}</p>
+                                    <p className="text-xs text-muted-foreground">{tx.reference} • {formatDate(tx.displayDate || tx.date)}</p>
+                                  </div>
                                 </div>
-                                <div>
-                                  <p className="font-medium">{tx.type}</p>
-                                  <p className="text-xs text-muted-foreground">{tx.reference} • {formatDate(tx.date)}</p>
+                                <div className="text-right">
+                                  <p className={`font-semibold ${
+                                    tx.type === 'Purchase' ? 'text-red-600' : 
+                                    tx.type === 'Payment' ? 'text-green-600' : 
+                                    'text-blue-600'
+                                  }`}>
+                                    {tx.type === 'Purchase' ? '-' : '+'}{formatCurrency(tx.amount)}
+                                  </p>
+                                  {tx.method && <p className="text-[10px] text-muted-foreground uppercase">{tx.method}</p>}
                                 </div>
                               </div>
-                              <div className="text-right">
-                                <p className={`font-semibold ${tx.type === 'Purchase' ? 'text-destructive' : 'text-green-600'}`}>
-                                  {tx.type === 'Purchase' ? '-' : '+'}{formatCurrency(tx.amount)}
-                                </p>
-                                {tx.method && <p className="text-[10px] text-muted-foreground uppercase">{tx.method}</p>}
-                              </div>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="text-center py-8 text-muted-foreground">No transactions found for this vendor.</div>
-                        )}
+                            ));
+                          }
+                          return <div className="text-center py-8 text-muted-foreground">No transactions found for this vendor.</div>;
+                        })()}
                       </div>
                     </CardContent>
                   </Card>
