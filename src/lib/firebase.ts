@@ -29,7 +29,7 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firestore
 // Note: Firebase Auth is not initialized since we're using static login (admin/123)
 // This helps avoid CORS issues related to credential-based authentication
-export const db: Firestore = getFirestore(app);
+export const db: Firestore = getFirestore(app, "bill");
 
 // Initialize Storage
 export const storage: FirebaseStorage = getStorage(app);

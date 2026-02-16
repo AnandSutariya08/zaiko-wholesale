@@ -318,9 +318,9 @@ export default function Passbook() {
     };
 
     const totalIncome = entries.filter(e => e.amount > 0 && e.type === 'payment').reduce((sum, e) => sum + e.amount, 0);
-    const totalPurchases = Math.abs(entries.filter(e => e.type === 'purchase').reduce((sum, e) => sum + e.amount, 0));
-    const totalExpensesOnly = Math.abs(entries.filter(e => e.type === 'expense').reduce((sum, e) => sum + e.amount, 0));
-    const totalOutflow = Math.abs(entries.filter(e => (e.amount < 0 && e.type !== 'return') || (e.type === 'return' && e.amount < 0)).reduce((sum, e) => sum + e.amount, 0));
+    const totalPurchases = entries.filter(e => e.type === 'purchase').reduce((sum, e) => sum + Math.abs(e.amount), 0);
+    const totalExpensesOnly = entries.filter(e => e.type === 'expense').reduce((sum, e) => sum + Math.abs(e.amount), 0);
+    const totalOutflow = entries.filter(e => (e.amount < 0 && e.type !== 'return') || (e.type === 'return' && e.amount < 0)).reduce((sum, e) => sum + Math.abs(e.amount), 0);
     
     // Budget/Net Balance calculation: 
     // Usually Passbook is Cash Flow. So it should be (Payments Received) - (Purchases) - (Expenses) + (Returns)
