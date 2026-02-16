@@ -107,6 +107,7 @@ export default function Products() {
   const [stockValues, setStockValues] = useState<Record<string, number>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [avgPriceFilter, setAvgPriceFilter] = useState<string>("all");
+  const [stockSortOrder, setStockSortOrder] = useState<"none" | "low-to-high" | "high-to-low">("none");
   const [formData, setFormData] = useState({
     name: "",
     hsnCode: "",
@@ -474,15 +475,24 @@ export default function Products() {
   };
 
   // Filter products based on search query
-  const filteredProducts = products.filter((product) => {
-    if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase().trim();
-    return (
-      product.name.toLowerCase().includes(query) ||
-      product.hsnCode.toLowerCase().includes(query) ||
-      (product.unit && product.unit.toLowerCase().includes(query))
-    );
-  });
+  const filteredProducts = products
+    .filter((product) => {
+      if (!searchQuery.trim()) return true;
+      const query = searchQuery.toLowerCase().trim();
+      return (
+        product.name.toLowerCase().includes(query) ||
+        product.hsnCode.toLowerCase().includes(query) ||
+        (product.unit && product.unit.toLowerCase().includes(query))
+      );
+    })
+    .sort((a, b) => {
+      if (stockSortOrder === "low-to-high") {
+        return a.stock - b.stock;
+      } else if (stockSortOrder === "high-to-low") {
+        return b.stock - a.stock;
+      }
+      return 0;
+    });
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
   const currentPage = Math.min(page, totalPages);
