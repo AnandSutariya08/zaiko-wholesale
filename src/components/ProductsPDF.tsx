@@ -273,7 +273,7 @@ export const ProductsPDF = ({
       )}
 
       <Text style={styles.footer}>
-        {companyProfile?.name || 'Company'} | Page 1 of 3
+        {companyProfile?.name || 'Company'} | Page 1 | {new Date().toLocaleDateString('en-IN')}
       </Text>
     </Page>
 
@@ -310,7 +310,7 @@ export const ProductsPDF = ({
       </View>
 
       <Text style={styles.footer}>
-        {companyProfile?.name || 'Company'} | Page 2 of 3
+        {companyProfile?.name || 'Company'} | Page 2 | {new Date().toLocaleDateString('en-IN')}
       </Text>
     </Page>
 
@@ -354,40 +354,44 @@ export const ProductsPDF = ({
         </View>
       </View>
 
-      {/* Complete Product List - Multi-page */}
-      {Array.from({ length: Math.ceil(products.length / 25) }).map((_, pageIndex) => (
-        <Page key={`page-${pageIndex + 4}`} size="A4" style={styles.page}>
-          <View style={styles.header}>
-            <Text style={styles.companyName}>{companyProfile?.name || 'INVENTORY REPORT'}</Text>
-            <Text style={styles.reportTitle}>Complete Product List (Part {pageIndex + 1})</Text>
-          </View>
+      <Text style={styles.footer}>
+        {companyProfile?.name || 'Company'} | Page 3 | {new Date().toLocaleDateString('en-IN')}
+      </Text>
+    </Page>
 
-          <View style={styles.section}>
-            <View style={styles.table}>
-              <View style={styles.tableRowHeader}>
-                <Text style={[styles.tableCell, { flex: 2 }]}>Name</Text>
-                <Text style={styles.tableCellRight}>HSN</Text>
-                <Text style={styles.tableCellRight}>Stock</Text>
-                <Text style={styles.tableCellRight}>Value</Text>
-              </View>
-              {products.slice(pageIndex * 25, (pageIndex + 1) * 25).map((product) => (
-                <View key={product.id} style={styles.tableRow}>
-                  <Text style={[styles.tableCell, { flex: 2 }]}>{product.name}</Text>
-                  <Text style={styles.tableCellRight}>{product.hsnCode}</Text>
-                  <Text style={styles.tableCellRight}>{product.stock.toFixed(2)}</Text>
-                  <Text style={styles.tableCellRight}>
-                    {formatCurrency(stockValues[product.id] || 0)}
-                  </Text>
-                </View>
-              ))}
+    {/* Complete Product List - Multi-page */}
+    {Array.from({ length: Math.ceil(products.length / 25) }).map((_, pageIndex) => (
+      <Page key={`page-${pageIndex + 4}`} size="A4" style={styles.page}>
+        <View style={styles.header}>
+          <Text style={styles.companyName}>{companyProfile?.name || 'INVENTORY REPORT'}</Text>
+          <Text style={styles.reportTitle}>Complete Product List (Part {pageIndex + 1})</Text>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.table}>
+            <View style={styles.tableRowHeader}>
+              <Text style={[styles.tableCell, { flex: 2 }]}>Name</Text>
+              <Text style={styles.tableCellRight}>HSN</Text>
+              <Text style={styles.tableCellRight}>Stock</Text>
+              <Text style={styles.tableCellRight}>Value</Text>
             </View>
+            {products.slice(pageIndex * 25, (pageIndex + 1) * 25).map((product) => (
+              <View key={product.id} style={styles.tableRow}>
+                <Text style={[styles.tableCell, { flex: 2 }]}>{product.name}</Text>
+                <Text style={styles.tableCellRight}>{product.hsnCode}</Text>
+                <Text style={styles.tableCellRight}>{product.stock.toFixed(2)}</Text>
+                <Text style={styles.tableCellRight}>
+                  {formatCurrency(stockValues[product.id] || 0)}
+                </Text>
+              </View>
+            ))}
           </View>
+        </View>
 
-          <Text style={styles.footer}>
-            {companyProfile?.name || 'Company'} | Page {pageIndex + 4} | {new Date().toLocaleDateString('en-IN')}
-          </Text>
-        </Page>
-      ))}
-    </Document>
-  );
-};
+        <Text style={styles.footer}>
+          {companyProfile?.name || 'Company'} | Page {pageIndex + 4} | {new Date().toLocaleDateString('en-IN')}
+        </Text>
+      </Page>
+    ))}
+  </Document>
+);
