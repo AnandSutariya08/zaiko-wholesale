@@ -1531,7 +1531,12 @@ function PurchaseBills() {
                           <DropdownMenuContent align="end" className="w-48">
                             <DropdownMenuItem
                               onClick={() => openPaymentDialog(bill)}
-                              disabled={bill.paymentStatus === "paid"}
+                              disabled={(() => {
+                                const totalReturns = (bill.returns || []).reduce((sum, r) => sum + r.totalReturnValue, 0);
+                                const netTotal = bill.total - totalReturns;
+                                const isOverpaid = (bill.paidAmount || 0) > netTotal;
+                                return bill.paymentStatus === "paid" && !isOverpaid;
+                              })()}
                               className="gap-2"
                             >
                               <IndianRupee className="h-4 w-4" />
