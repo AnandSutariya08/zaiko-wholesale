@@ -31,7 +31,14 @@ interface PaymentDialogProps {
 export function PaymentDialog({ bill, open, onOpenChange, onPaymentCollected }: PaymentDialogProps) {
   const isPurchase = 'vendorName' in bill;
   const clientName = isPurchase ? (bill as PurchaseBill).vendorName : (bill as Bill).client?.name || 'Unknown';
-  const pendingAmount = bill.total - (bill.paidAmount || 0);
+  
+  // Calculate remaining amount considering returns for purchase bills
+  const totalReturns = isPurchase 
+    ? (bill as PurchaseBill).returns?.reduce((sum, r) => sum + r.totalReturnValue, 0) || 0
+    : 0;
+  
+  const pendingAmount = Math.max(0, bill.total - totalReturns - (bill.paidAmount || 0));
+  
   const [paymentAmount, setPaymentAmount] = useState(pendingAmount.toString());
   const [paymentType, setPaymentType] = useState<PaymentMethod>("Cash");
   const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split("T")[0]);
