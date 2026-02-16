@@ -37,9 +37,12 @@ export function PaymentDialog({ bill, open, onOpenChange, onPaymentCollected }: 
     ? (bill as PurchaseBill).returns?.reduce((sum, r) => sum + r.totalReturnValue, 0) || 0
     : 0;
   
-  const pendingAmount = Math.max(0, bill.total - totalReturns - (bill.paidAmount || 0));
+  const netTotal = bill.total - totalReturns;
+  const isOverpaid = (bill.paidAmount || 0) > netTotal;
+  const overpaidAmount = isOverpaid ? (bill.paidAmount || 0) - netTotal : 0;
+  const pendingAmount = Math.max(0, netTotal - (bill.paidAmount || 0));
   
-  const [paymentAmount, setPaymentAmount] = useState(pendingAmount.toString());
+  const [paymentAmount, setPaymentAmount] = useState(isOverpaid ? overpaidAmount.toString() : pendingAmount.toString());
   const [paymentType, setPaymentType] = useState<PaymentMethod>("Cash");
   const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split("T")[0]);
   const [paymentNote, setPaymentNote] = useState("");
@@ -48,9 +51,9 @@ export function PaymentDialog({ bill, open, onOpenChange, onPaymentCollected }: 
   // Sync payment amount when dialog opens or bill changes
   useEffect(() => {
     if (open) {
-      setPaymentAmount(pendingAmount.toString());
+      setPaymentAmount(isOverpaid ? overpaidAmount.toString() : pendingAmount.toString());
     }
-  }, [open, pendingAmount]);
+  }, [open, pendingAmount, isOverpaid, overpaidAmount]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,7 +62,12 @@ export function PaymentDialog({ bill, open, onOpenChange, onPaymentCollected }: 
     // Simulate processing delay
     await new Promise(resolve => setTimeout(resolve, 800));
 
-    const amount = parseFloat(paymentAmount);
+    let amount = parseFloat(paymentAmount);
+    // If overpaid and recording collection, amount should be negative
+    if (isOverpaid && isPurchase) {
+      amount = -Math.abs(amount);
+    }
+    
     onPaymentCollected(amount, paymentType, paymentNote, paymentDate);
     setLoading(false);
     onOpenChange(false);
@@ -71,38 +79,65 @@ export function PaymentDialog({ bill, open, onOpenChange, onPaymentCollected }: 
       <DialogContent className="max-w-[95vw] sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-base sm:text-lg">
-            {isPurchase ? 'Pay Vendor' : 'Collect Payment'}
+            {isOverpaid && isPurchase ? 'Collect Overpayment' : isPurchase ? 'Pay Vendor' : 'Collect Payment'}
           </DialogTitle>
           <DialogDescription className="text-xs sm:text-sm break-words">
             Bill: {bill.billNumber || 'N/A'} • {isPurchase ? 'Vendor' : 'Client'}: {clientName}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+          {isOverpaid && isPurchase && (
+            <div className="bg-orange-50 p-3 rounded-md border border-orange-200 mb-2">
+              <p className="text-sm text-orange-800 font-medium">
+                Overpaid amount: {formatCurrency(overpaidAmount)}
+              </p>
+              <p className="text-xs text-orange-600 mt-1">
+                This will record the amount collected back from the vendor.
+              </p>
+            </div>
+          )}
           <div className="space-y-2">
             <div className="flex justify-between text-xs sm:text-sm">
-              <span className="text-muted-foreground">Total Amount:</span>
+              <span className="text-muted-foreground">Bill Total:</span>
               <span className="font-semibold break-words">{formatCurrency(bill.total)}</span>
+            </div>
+            {totalReturns > 0 && (
+              <div className="flex justify-between text-xs sm:text-sm">
+                <span className="text-muted-foreground">Returns:</span>
+                <span className="font-semibold text-blue-600">-{formatCurrency(totalReturns)}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-xs sm:text-sm">
+              <span className="text-muted-foreground">Net Total:</span>
+              <span className="font-semibold">{formatCurrency(netTotal)}</span>
             </div>
             <div className="flex justify-between text-xs sm:text-sm">
               <span className="text-muted-foreground">Paid Amount:</span>
               <span className="font-semibold break-words">{formatCurrency(bill.paidAmount || 0)}</span>
             </div>
-            <div className="flex justify-between text-sm sm:text-base pt-2 border-t">
-              <span className="font-semibold">{isPurchase ? 'Remaining to Pay:' : 'Pending Amount:'}</span>
-              <span className="font-bold text-warning break-words">{formatCurrency(pendingAmount)}</span>
-            </div>
+            {!isOverpaid ? (
+              <div className="flex justify-between text-sm sm:text-base pt-2 border-t">
+                <span className="font-semibold">{isPurchase ? 'Remaining to Pay:' : 'Pending Amount:'}</span>
+                <span className="font-bold text-warning break-words">{formatCurrency(pendingAmount)}</span>
+              </div>
+            ) : (
+              <div className="flex justify-between text-sm sm:text-base pt-2 border-t">
+                <span className="font-semibold text-orange-600">Overpaid:</span>
+                <span className="font-bold text-orange-600 break-words">{formatCurrency(overpaidAmount)}</span>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="payment-amount" className="text-sm">
-              {isPurchase ? 'Payment Amount' : 'Collection Amount'}
+              {isOverpaid && isPurchase ? 'Collection Amount' : isPurchase ? 'Payment Amount' : 'Collection Amount'}
             </Label>
             <Input
               id="payment-amount"
               type="number"
               step="0.01"
               min="0.01"
-              max={pendingAmount}
+              max={isOverpaid ? overpaidAmount : pendingAmount}
               value={paymentAmount}
               onChange={(e) => setPaymentAmount(e.target.value)}
               required
@@ -110,21 +145,40 @@ export function PaymentDialog({ bill, open, onOpenChange, onPaymentCollected }: 
               autoFocus
               className="text-sm sm:text-base"
             />
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-              <p className="text-xs text-muted-foreground">
-                Maximum: {formatCurrency(pendingAmount)}
-              </p>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => setPaymentAmount(pendingAmount.toString())}
-                disabled={loading}
-                className="w-full sm:w-auto text-xs sm:text-sm"
-              >
-                Full Payment
-              </Button>
-            </div>
+            {!isOverpaid && (
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                <p className="text-xs text-muted-foreground">
+                  Maximum: {formatCurrency(pendingAmount)}
+                </p>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setPaymentAmount(pendingAmount.toString())}
+                  disabled={loading}
+                  className="w-full sm:w-auto text-xs sm:text-sm"
+                >
+                  Full Payment
+                </Button>
+              </div>
+            )}
+            {isOverpaid && isPurchase && (
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                <p className="text-xs text-muted-foreground">
+                  Max Collection: {formatCurrency(overpaidAmount)}
+                </p>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setPaymentAmount(overpaidAmount.toString())}
+                  disabled={loading}
+                  className="w-full sm:w-auto text-xs sm:text-sm"
+                >
+                  Collect All
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -183,7 +237,7 @@ export function PaymentDialog({ bill, open, onOpenChange, onPaymentCollected }: 
               Cancel
             </Button>
             <Button type="submit" loading={loading} className="w-full sm:w-auto text-sm">
-              {isPurchase ? 'Record Payment' : 'Collect Payment'}
+              {isOverpaid && isPurchase ? 'Record Collection' : isPurchase ? 'Record Payment' : 'Collect Payment'}
             </Button>
           </DialogFooter>
         </form>
