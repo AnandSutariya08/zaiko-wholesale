@@ -714,6 +714,27 @@ export default function Products() {
           <p className="page-subtitle">Manage your product inventory</p>
         </div>
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <div className="relative flex-1 sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search products..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={stockSortOrder} onValueChange={(value: any) => setStockSortOrder(value)}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Sort by Stock" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Default Sort</SelectItem>
+                <SelectItem value="low-to-high">Stock: Low to High</SelectItem>
+                <SelectItem value="high-to-low">Stock: High to Low</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <Button size="lg" onClick={() => setIsOpen(true)}>
             <Plus className="h-5 w-5 mr-2" />
             Create Product
