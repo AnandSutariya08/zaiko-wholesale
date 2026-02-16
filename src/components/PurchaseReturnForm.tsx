@@ -16,10 +16,11 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
 interface ReturnItemState {
+  productId: string; // Ensure productId is here
   selected: boolean;
   returnQuantity: number;
   maxQuantity: number;
-  currentStock: number; // Added to track current inventory
+  currentStock: number;
   description: string;
   rate: number;
   gstRate: number;
@@ -52,6 +53,7 @@ export function PurchaseReturnForm({ open, onOpenChange, bill, onSuccess, editRe
             (item.hsnCode && p.hsnCode === item.hsnCode)
           );
           return {
+            productId: product?.id || '',
             selected: !!editedItem,
             returnQuantity: editedItem?.quantity || 0,
             maxQuantity: item.quantity,
@@ -119,12 +121,15 @@ export function PurchaseReturnForm({ open, onOpenChange, bill, onSuccess, editRe
         const amount = item.returnQuantity * item.rate;
         const gstAmount = (amount * item.gstRate) / 100;
         return {
-          description: item.description,
+          productId: item.productId || '',
+          productName: item.description,
+          description: item.description, // Added description property
           quantity: item.returnQuantity,
           rate: item.rate,
           amount,
           gstRate: item.gstRate,
           gstAmount,
+          condition: 'good',
         };
       });
 

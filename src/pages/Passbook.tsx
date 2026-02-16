@@ -114,6 +114,10 @@ export default function Passbook() {
 
             // Add purchases (negative amounts for money spent)
             purchaseBills.forEach(purchase => {
+                // Calculate the net purchase amount (total - returns)
+                const totalReturns = (purchase.returns || []).reduce((sum, r) => sum + r.totalReturnValue, 0);
+                const netPaidAmount = Math.max(0, (purchase.paidAmount || 0) - (purchase.paymentStatus !== 'paid' ? totalReturns : 0));
+
                 // Main purchase payment (if any)
                 if (purchase.payments && purchase.payments.length > 0) {
                     purchase.payments.forEach(payment => {
@@ -127,13 +131,13 @@ export default function Passbook() {
                             details: { ...purchase, currentPayment: payment },
                         });
                     });
-                } else if (purchase.paidAmount && purchase.paidAmount > 0) {
+                } else if (netPaidAmount > 0) {
                     allEntries.push({
                         id: `purchase-${purchase.id}`,
                         date: purchase.billDate || purchase.createdAt || purchase.id,
                         type: 'purchase',
                         description: `Purchase - ${purchase.vendorName || 'Vendor'} - Bill #${purchase.billNumber || 'N/A'}`,
-                        amount: -purchase.paidAmount,
+                        amount: -netPaidAmount,
                         balance: 0,
                         details: purchase,
                     });
@@ -171,15 +175,18 @@ export default function Passbook() {
             purchaseBills.forEach(purchase => {
                 if (purchase.returns && purchase.returns.length > 0) {
                     purchase.returns.forEach(ret => {
-                        allEntries.push({
-                            id: `purchase-return-${ret.id}`,
-                            date: ret.returnDate,
-                            type: 'return',
-                            description: `Purchase Return - ${purchase.vendorName} - Bill #${purchase.billNumber}`,
-                            amount: ret.totalReturnValue, // Positive as it's money back or credit
-                            balance: 0,
-                            details: ret,
-                        });
+                        // Only add as a separate transaction if the bill was paid
+                        if (purchase.paymentStatus === 'paid') {
+                            allEntries.push({
+                                id: `purchase-return-${ret.id}`,
+                                date: ret.returnDate,
+                                type: 'return',
+                                description: `Purchase Return - ${purchase.vendorName} - Bill #${purchase.billNumber}`,
+                                amount: ret.totalReturnValue, // Positive as it's money back
+                                balance: 0,
+                                details: ret,
+                            });
+                        }
                     });
                 }
             });
@@ -310,10 +317,9 @@ export default function Passbook() {
         }
     };
 
-    const totalIncome = entries.filter(e => e.amount > 0 && (e.type === 'payment' || (e.type === 'return' && e.amount > 0))).reduce((sum, e) => sum + e.amount, 0);
+    const totalIncome = entries.filter(e => e.amount > 0 && e.type === 'payment').reduce((sum, e) => sum + e.amount, 0);
     const totalPurchases = Math.abs(entries.filter(e => e.type === 'purchase').reduce((sum, e) => sum + e.amount, 0));
     const totalExpensesOnly = Math.abs(entries.filter(e => e.type === 'expense').reduce((sum, e) => sum + e.amount, 0));
-    const totalReturnsValue = entries.filter(e => e.type === 'return').reduce((sum, e) => sum + e.amount, 0);
     const totalOutflow = Math.abs(entries.filter(e => (e.amount < 0 && e.type !== 'return') || (e.type === 'return' && e.amount < 0)).reduce((sum, e) => sum + e.amount, 0));
     
     // Budget/Net Balance calculation: 
@@ -399,23 +405,6 @@ export default function Passbook() {
                         <div className="text-2xl md:text-3xl font-bold text-rose-600 dark:text-rose-400 mb-1">{formatCurrency(totalOutflow)}</div>
                         <p className="text-xs text-muted-foreground">
                             Purchases: {formatCurrency(totalPurchases)} | Expenses: {formatCurrency(totalExpensesOnly)}
-                        </p>
-                    </CardContent>
-                </Card>
-
-                <Card className="border shadow-md hover:shadow-lg transition-shadow">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                        <CardTitle className="text-sm font-semibold text-blue-600 dark:text-blue-400">Returns</CardTitle>
-                        <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                            <ArrowUpDown className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className={`text-2xl md:text-3xl font-bold mb-1 ${totalReturnsValue >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                            {formatCurrency(totalReturnsValue)}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                            Net value of all returns
                         </p>
                     </CardContent>
                 </Card>
