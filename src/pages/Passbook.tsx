@@ -181,9 +181,13 @@ export default function Passbook() {
             purchaseBills.forEach(purchase => {
                 if (purchase.returns && purchase.returns.length > 0) {
                     purchase.returns.forEach(ret => {
-                        // Only add as a separate transaction if the bill was paid
-                        // And if it wasn't partially paid with returns deducted already
-                        if (purchase.paymentStatus === 'paid' && (!purchase.payments || purchase.payments.length > 0)) {
+                        // Show return transaction if the bill was fully paid
+                        // Or if it was overpaid
+                        const totalReturns = (purchase.returns || []).reduce((sum, r) => sum + r.totalReturnValue, 0);
+                        const netTotal = purchase.total - totalReturns;
+                        const isOverpaid = (purchase.paidAmount || 0) > netTotal;
+
+                        if (purchase.paymentStatus === 'paid' || isOverpaid) {
                             allEntries.push({
                                 id: `purchase-return-${ret.id}`,
                                 date: ret.returnDate,
@@ -199,7 +203,7 @@ export default function Passbook() {
             });
 
             // Sort by date (Oldest to Newest) and calculate running balance
-            // When dates are the same, we need a secondary sort (e.g., ID or type) to ensure consistency
+            // Strictly chronological order
             const sortedEntries = allEntries.sort((a, b) => {
                 const dateA = new Date(a.date).getTime();
                 const dateB = new Date(b.date).getTime();
@@ -217,8 +221,9 @@ export default function Passbook() {
                 };
             });
 
-            // For display purposes, we show Newest to Oldest, but balance was calculated Oldest to Newest
-            const displayEntries = [...entriesWithBalance].reverse();
+            // For display purposes, we show Newest to Oldest or Oldest to Newest based on sortOrder
+            // But we ensure the chronological calculation is preserved
+            const displayEntries = sortOrder === 'asc' ? [...entriesWithBalance] : [...entriesWithBalance].reverse();
             setEntries(displayEntries);
         } catch (error) {
             console.error('Error loading passbook data:', error);
@@ -329,6 +334,9 @@ export default function Passbook() {
     const totalExpensesOnly = entries.filter(e => e.type === 'expense').reduce((sum, e) => sum + Math.abs(e.amount), 0);
     const totalOutflow = entries.filter(e => (e.amount < 0 && e.type !== 'return') || (e.type === 'return' && e.amount < 0)).reduce((sum, e) => sum + Math.abs(e.amount), 0);
     
+    // Purchase Returns Summary
+    const totalPurchaseReturns = entries.filter(e => e.type === 'return' && e.amount > 0).reduce((sum, e) => sum + e.amount, 0);
+    
     // Budget/Net Balance calculation: 
     // Usually Passbook is Cash Flow. So it should be (Payments Received) - (Purchases) - (Expenses) + (Returns)
     const cashIn = entries.filter(e => e.type === 'payment' || (e.type === 'return' && e.amount > 0)).reduce((sum, e) => sum + e.amount, 0);
@@ -427,6 +435,21 @@ export default function Passbook() {
                         <div className="text-2xl md:text-3xl font-bold text-amber-600 dark:text-amber-400 mb-1">{formatCurrency(inventoryValue)}</div>
                         <p className="text-xs text-muted-foreground">
                             Total value of stock in hand
+                        </p>
+                    </CardContent>
+                </Card>
+
+                <Card className="border shadow-md hover:shadow-lg transition-shadow">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                        <CardTitle className="text-sm font-semibold text-blue-600 dark:text-blue-400">Purchase Returns</CardTitle>
+                        <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                            <ArrowUpDown className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl md:text-3xl font-bold text-blue-600 dark:text-blue-400 mb-1">{formatCurrency(totalPurchaseReturns)}</div>
+                        <p className="text-xs text-muted-foreground">
+                            Collected/Remaining returns
                         </p>
                     </CardContent>
                 </Card>

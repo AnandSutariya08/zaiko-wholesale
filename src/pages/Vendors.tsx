@@ -298,10 +298,12 @@ export default function Vendors() {
     });
   };
 
-  const filteredVendors = vendors.filter((v) =>
-    v.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    v.gstin.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredVendors = vendors
+    .filter((v) =>
+      v.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      v.gstin.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 
   if (loading) return <LoadingSpinner size="xl" text="Loading vendors..." fullScreen contentAreaOnly />;
 

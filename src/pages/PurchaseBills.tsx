@@ -660,17 +660,20 @@ function PurchaseBills() {
     if (selectedBillForPayment) {
       setLoadingPayment(selectedBillForPayment.id);
       try {
+        // Handle negative amount for overpayment collection
+        const actualAmount = amount;
+        
         await updatePurchaseBillPayment(
           selectedBillForPayment.id,
-          amount,
+          actualAmount,
           type,
           note,
           date,
         );
         await loadBills();
         toast({
-          title: "Payment Collected",
-          description: `Payment of ${formatCurrency(amount)} via ${type} recorded.`,
+          title: actualAmount < 0 ? "Overpayment Collected" : "Payment Recorded",
+          description: `${actualAmount < 0 ? "Collected" : "Recorded"} ${formatCurrency(Math.abs(actualAmount))} via ${type}.`,
         });
       } catch (error) {
         console.error("Error collecting payment:", error);
