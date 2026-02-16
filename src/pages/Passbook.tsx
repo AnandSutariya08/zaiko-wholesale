@@ -116,11 +116,14 @@ export default function Passbook() {
             purchaseBills.forEach(purchase => {
                 // Calculate the net purchase amount (total - returns)
                 const totalReturns = (purchase.returns || []).reduce((sum, r) => sum + r.totalReturnValue, 0);
-                const netPaidAmount = Math.max(0, (purchase.paidAmount || 0) - (purchase.paymentStatus !== 'paid' ? totalReturns : 0));
-
+                
                 // Main purchase payment (if any)
                 if (purchase.payments && purchase.payments.length > 0) {
                     purchase.payments.forEach(payment => {
+                        // Check if this payment happened before or after returns
+                        // For simplicity, we adjust the payment amount if it's a "paid" bill and we're showing returns separately
+                        // But the user wants to see the NET amount if it's not paid yet.
+                        
                         allEntries.push({
                             id: `purchase-payment-${payment.id}`,
                             date: payment.date,
@@ -131,16 +134,19 @@ export default function Passbook() {
                             details: { ...purchase, currentPayment: payment },
                         });
                     });
-                } else if (netPaidAmount > 0) {
-                    allEntries.push({
-                        id: `purchase-${purchase.id}`,
-                        date: purchase.billDate || purchase.createdAt || purchase.id,
-                        type: 'purchase',
-                        description: `Purchase - ${purchase.vendorName || 'Vendor'} - Bill #${purchase.billNumber || 'N/A'}`,
-                        amount: -netPaidAmount,
-                        balance: 0,
-                        details: purchase,
-                    });
+                } else {
+                    const netPaidAmount = Math.max(0, (purchase.paidAmount || 0) - (purchase.paymentStatus !== 'paid' ? totalReturns : 0));
+                    if (netPaidAmount > 0) {
+                        allEntries.push({
+                            id: `purchase-${purchase.id}`,
+                            date: purchase.billDate || purchase.createdAt || purchase.id,
+                            type: 'purchase',
+                            description: `Purchase - ${purchase.vendorName || 'Vendor'} - Bill #${purchase.billNumber || 'N/A'}`,
+                            amount: -netPaidAmount,
+                            balance: 0,
+                            details: purchase,
+                        });
+                    }
                 }
             });
 
@@ -176,7 +182,8 @@ export default function Passbook() {
                 if (purchase.returns && purchase.returns.length > 0) {
                     purchase.returns.forEach(ret => {
                         // Only add as a separate transaction if the bill was paid
-                        if (purchase.paymentStatus === 'paid') {
+                        // And if it wasn't partially paid with returns deducted already
+                        if (purchase.paymentStatus === 'paid' && (!purchase.payments || purchase.payments.length > 0)) {
                             allEntries.push({
                                 id: `purchase-return-${ret.id}`,
                                 date: ret.returnDate,
