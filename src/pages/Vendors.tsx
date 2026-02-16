@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { getVendors, saveVendor, deleteVendor, getPurchaseBills } from "@/lib/storage";
 import { Vendor, PurchaseBill } from "@/types";
-import { Plus, Edit, Trash2, Store, Eye, Loader2, Search, Receipt, History, Download, FileSpreadsheet, FileText } from "lucide-react";
+import { Plus, Edit, Trash2, Store, Eye, Loader2, Search, Receipt, History, Download, FileSpreadsheet, FileText, ArrowLeftRight } from "lucide-react";
 import { toast } from "sonner";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -72,6 +72,13 @@ export default function Vendors() {
     loadPurchaseBills();
   }, []);
 
+  // Reload purchase bills whenever the dialog is opened to ensure fresh data
+  useEffect(() => {
+    if (isViewOpen && viewingVendor) {
+      loadPurchaseBills();
+    }
+  }, [isViewOpen, viewingVendor]);
+
   const loadVendors = async () => {
     try {
       setLoading(true);
@@ -104,29 +111,36 @@ export default function Vendors() {
 
     vendorBills.forEach(bill => {
       // Add the bill itself as a "Purchase" transaction
+      // Use createdAt for sorting (has time), displayDate for showing
       transactions.push({
         id: `bill-${bill.id}`,
-        date: bill.createdAt, // Use createdAt for exact chronological order
+        date: bill.createdAt, // Full timestamp for accurate sorting
         displayDate: bill.billDate || bill.createdAt,
         type: "Purchase",
-        reference: bill.billNumber || "N/A",
+        reference: `Bill #${bill.billNumber || "N/A"}`,
         amount: bill.total,
         status: bill.paymentStatus,
-        billId: bill.id // Store billId for easier reference
+        billId: bill.id
       });
 
-      // Add payments
+      // Add payments - differentiate between regular payments and overpayment refunds
       if (bill.payments) {
         bill.payments.forEach(payment => {
+          // Check if this is an overpayment collection (negative amount)
+          const isOverpaymentRefund = payment.amount < 0;
+          
           transactions.push({
             id: `pay-${payment.id}`,
-            date: payment.date, // Assuming payment.date is ISO or has time info
+            date: payment.date, // Should have full timestamp
             displayDate: payment.date,
-            type: "Payment",
-            reference: `For Bill #${bill.billNumber || ""}`,
-            amount: payment.amount,
+            type: isOverpaymentRefund ? "Refund" : "Payment",
+            reference: isOverpaymentRefund 
+              ? `Overpayment Return - Bill #${bill.billNumber || ""}` 
+              : `Payment for Bill #${bill.billNumber || ""}`,
+            amount: Math.abs(payment.amount),
             method: payment.method,
-            billId: bill.id
+            billId: bill.id,
+            isRefund: isOverpaymentRefund
           });
         });
       }
@@ -136,10 +150,10 @@ export default function Vendors() {
         bill.returns.forEach(ret => {
           transactions.push({
             id: `ret-${ret.id}`,
-            date: ret.createdAt || ret.returnDate, // Use createdAt for exact chronological order
+            date: ret.createdAt || ret.returnDate, // Use createdAt for time precision
             displayDate: ret.returnDate,
             type: "Return",
-            reference: `From Bill #${bill.billNumber || ""}`,
+            reference: `Purchase Return - Bill #${bill.billNumber || ""}`,
             amount: ret.totalReturnValue,
             notes: ret.notes,
             billId: bill.id
@@ -170,7 +184,11 @@ export default function Vendors() {
         
         return matchesSearch && matchesDate;
       })
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      .sort((a, b) => {
+        // Sort by full timestamp DESCENDING (newest first - most recent at top)
+        // This includes hours, minutes, seconds for precise ordering
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+      });
   };
 
   const getVendorStats = (vendorId: string, vendorName: string) => {
@@ -463,47 +481,76 @@ export default function Vendors() {
                       <div className="space-y-3">
                         {(() => {
                           const term = viewingVendor.name.toLowerCase().trim();
-          const filteredBills = purchaseBills.filter(b => 
-            (b.vendorId && b.vendorId === viewingVendor.id) || 
-            (b.vendorName && b.vendorName.toLowerCase().trim() === term)
-          );
-          
-          if (filteredBills.length > 0) {
-            return (
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Bill #</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Total</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Action</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredBills.map(bill => (
-                      <TableRow key={bill.id}>
-                        <TableCell className="font-medium">{bill.billNumber || "N/A"}</TableCell>
-                        <TableCell>{formatDate(bill.billDate || bill.createdAt)}</TableCell>
-                        <TableCell>{formatCurrency(bill.total)}</TableCell>
-                        <TableCell>
-                          <Badge variant={bill.paymentStatus === 'paid' ? 'default' : bill.paymentStatus === 'overdue' ? 'destructive' : 'outline'}>
-                            {bill.paymentStatus.toUpperCase()}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="sm" onClick={() => navigate(`/purchase-bills?id=${bill.id}`)}>View</Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            );
-          }
-          return <div className="text-center py-8 text-muted-foreground">No purchase bills found for this vendor.</div>;
-        })()}
+                          const filteredBills = purchaseBills.filter(b => 
+                            (b.vendorId && b.vendorId === viewingVendor.id) || 
+                            (b.vendorName && b.vendorName.toLowerCase().trim() === term)
+                          );
+                          
+                          if (filteredBills.length > 0) {
+                            return (
+                              <div className="rounded-md border">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>Bill #</TableHead>
+                                      <TableHead>Date</TableHead>
+                                      <TableHead>Total</TableHead>
+                                      <TableHead>Paid</TableHead>
+                                      <TableHead>Status</TableHead>
+                                      <TableHead className="text-right">Action</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {filteredBills.map(bill => {
+                                      // Calculate real-time values
+                                      const totalReturns = (bill.returns || []).reduce((sum, r) => sum + r.totalReturnValue, 0);
+                                      const netTotal = bill.total - totalReturns;
+                                      const paidAmount = bill.paidAmount || 0;
+                                      const remainingAmount = netTotal - paidAmount;
+                                      
+                                      // Determine current status
+                                      let currentStatus: string = bill.paymentStatus;
+                                      if (remainingAmount < 0) {
+                                        currentStatus = 'overpaid';
+                                      } else if (remainingAmount === 0) {
+                                        currentStatus = 'paid';
+                                      } else if (paidAmount > 0) {
+                                        currentStatus = 'partial';
+                                      } else if (bill.dueDate && new Date(bill.dueDate) < new Date()) {
+                                        currentStatus = 'overdue';
+                                      } else {
+                                        currentStatus = 'pending';
+                                      }
+                                      
+                                      return (
+                                        <TableRow key={bill.id}>
+                                          <TableCell className="font-medium">{bill.billNumber || "N/A"}</TableCell>
+                                          <TableCell>{formatDate(bill.billDate || bill.createdAt)}</TableCell>
+                                          <TableCell>{formatCurrency(netTotal)}</TableCell>
+                                          <TableCell>{formatCurrency(paidAmount)}</TableCell>
+                                          <TableCell>
+                                            <Badge variant={
+                                              currentStatus === 'paid' ? 'default' : 
+                                              currentStatus === 'overdue' || currentStatus === 'overpaid' ? 'destructive' : 
+                                              currentStatus === 'partial' ? 'secondary' : 
+                                              'outline'
+                                            }>
+                                              {currentStatus.toUpperCase()}
+                                            </Badge>
+                                          </TableCell>
+                                          <TableCell className="text-right">
+                                            <Button variant="ghost" size="sm" onClick={() => navigate(`/purchase-bills?id=${bill.id}`)}>View</Button>
+                                          </TableCell>
+                                        </TableRow>
+                                      );
+                                    })}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            );
+                          }
+                          return <div className="text-center py-8 text-muted-foreground">No purchase bills found for this vendor.</div>;
+                        })()}
                       </div>
                     </CardContent>
                   </Card>
@@ -561,13 +608,22 @@ export default function Vendors() {
                           if (transactions.length > 0) {
                             return transactions.map(tx => (
                               <div key={tx.id} className={`flex justify-between items-center p-3 border rounded hover:bg-muted/50 transition-colors ${
-                                tx.type === 'Purchase' ? 'bg-red-50/30 dark:bg-red-900/10' :
-                                tx.type === 'Payment' ? 'bg-green-50/30 dark:bg-green-900/10' :
-                                tx.type === 'Return' ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''
+                                tx.type === 'Purchase' ? 'bg-red-50/30 dark:bg-red-900/10 border-red-100' :
+                                tx.type === 'Payment' ? 'bg-green-50/30 dark:bg-green-900/10 border-green-100' :
+                                tx.type === 'Return' ? 'bg-blue-50/30 dark:bg-blue-900/10 border-blue-100' :
+                                tx.type === 'Refund' ? 'bg-purple-50/30 dark:bg-purple-900/10 border-purple-100' : ''
                               }`}>
                                 <div className="flex items-center gap-3">
-                                  <div className={`p-2 rounded-full ${tx.type === 'Purchase' ? 'bg-red-100 text-red-600' : tx.type === 'Payment' ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
-                                    {tx.type === 'Purchase' ? <Receipt className="h-4 w-4" /> : tx.type === 'Payment' ? <Plus className="h-4 w-4" /> : <History className="h-4 w-4" />}
+                                  <div className={`p-2 rounded-full ${
+                                    tx.type === 'Purchase' ? 'bg-red-100 text-red-600' : 
+                                    tx.type === 'Payment' ? 'bg-green-100 text-green-600' : 
+                                    tx.type === 'Return' ? 'bg-blue-100 text-blue-600' :
+                                    tx.type === 'Refund' ? 'bg-purple-100 text-purple-600' : ''
+                                  }`}>
+                                    {tx.type === 'Purchase' ? <Receipt className="h-4 w-4" /> : 
+                                     tx.type === 'Payment' ? <Plus className="h-4 w-4" /> : 
+                                     tx.type === 'Return' ? <History className="h-4 w-4" /> :
+                                     tx.type === 'Refund' ? <ArrowLeftRight className="h-4 w-4" /> : null}
                                   </div>
                                   <div>
                                     <p className="font-medium">{tx.type}</p>
@@ -578,7 +634,8 @@ export default function Vendors() {
                                   <p className={`font-semibold ${
                                     tx.type === 'Purchase' ? 'text-red-600' : 
                                     tx.type === 'Payment' ? 'text-green-600' : 
-                                    'text-blue-600'
+                                    tx.type === 'Return' ? 'text-blue-600' :
+                                    tx.type === 'Refund' ? 'text-purple-600' : ''
                                   }`}>
                                     {tx.type === 'Purchase' ? '-' : '+'}{formatCurrency(tx.amount)}
                                   </p>
@@ -601,4 +658,3 @@ export default function Vendors() {
     </div>
   );
 }
-
