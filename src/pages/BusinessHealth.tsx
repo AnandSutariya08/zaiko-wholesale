@@ -224,8 +224,26 @@ export default function BusinessHealth() {
     const turnover = totalSales / (products.reduce((s: number, p: any) => s + (p.stock * (p.purchasePrice || 0)), 0) || 1);
     const creditRisk = (filteredBills.filter((b: any) => b.paymentStatus === 'overdue').length / (filteredBills.length || 1)) * 100;
 
+    // Advanced Metrics
+    const activeClientsCount = clients.filter((c: any) => c.lastBillDate && new Date(c.lastBillDate) >= subDays(new Date(), 30)).length;
+    const ltv = activeClientsCount > 0 ? totalRevenue / activeClientsCount : 0;
+    
+    // Profitability by Category (Assuming category exists on products)
+    const categoryProfit: Record<string, number> = {};
+    filteredBills.forEach((b: any) => {
+      b.items.forEach((item: any) => {
+        const prod = products.find((p: any) => p.id === item.productId);
+        const cat = prod?.category || "Uncategorized";
+        const cost = (prod as any)?.purchasePrice || (prod as any)?.price || 0;
+        const profit = item.amount - (item.quantity * cost);
+        categoryProfit[cat] = (categoryProfit[cat] || 0) + profit;
+      });
+    });
+
+    const categoryData = Object.entries(categoryProfit).map(([name, value]) => ({ name, value }));
+
     return {
-      summary: { totalSales, totalProfit, totalExpenses, avgMargin },
+      summary: { totalSales, totalProfit, totalExpenses, avgMargin, ltv },
       scores: {
         cashFlow: Math.max(0, 100 - (filteredBills.filter((b: any) => b.paymentStatus !== 'paid').length / (filteredBills.length || 1)) * 50),
         inventoryTurnover: Math.min(100, turnover * 15),
@@ -233,13 +251,14 @@ export default function BusinessHealth() {
         profitHealth: Math.max(0, 100 - (totalExpenses / (totalSales || 1)) * 100)
       },
       trendData,
+      categoryData,
       deadInventory: products.filter((p: any) => p.stock > 0 && !new Set(filteredBills.flatMap((b: any) => b.items.map((i: any) => i.productId))).has(p.id)).length,
       lowMarginProds: products.filter((p: any) => p.price < (p.purchasePrice || 0) * 1.1).length,
       topCustomer: clients.sort((a: any, b: any) => (b.totalRevenue || 0) - (a.totalRevenue || 0))[0],
       stockTooHigh: products.filter((p: any) => p.stock > 100).length,
       tooManyRefunds: (filteredReturns.length / (filteredBills.length || 1)) > 0.1,
       customerSegments: [
-        { name: 'Active', value: clients.filter((c: any) => c.lastBillDate && new Date(c.lastBillDate) >= subDays(new Date(), 30)).length },
+        { name: 'Active', value: activeClientsCount },
         { name: 'At Risk', value: clients.filter((c: any) => c.lastBillDate && new Date(c.lastBillDate) < subDays(new Date(), 30) && new Date(c.lastBillDate) >= subDays(new Date(), 90)).length },
         { name: 'Churned', value: clients.filter((c: any) => !c.lastBillDate || new Date(c.lastBillDate) < subDays(new Date(), 90)).length },
       ]
@@ -319,7 +338,7 @@ export default function BusinessHealth() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard title="Range Revenue" value={formatCurrency(healthData.summary.totalSales)} icon={DollarSign} trend="+12.5%" />
         <SummaryCard title="Net Profit" value={formatCurrency(healthData.summary.totalProfit)} icon={TrendingUp} trend="+8.2%" color="text-green-600" />
-        <SummaryCard title="Total Burn" value={formatCurrency(healthData.summary.totalExpenses)} icon={TrendingDown} trend="-3.1%" color="text-red-600" />
+        <SummaryCard title="Customer LTV" value={formatCurrency(healthData.summary.ltv)} icon={Users} trend="Avg Revenue/Client" />
         <SummaryCard title="Avg Margin" value={`${healthData.summary.avgMargin}%`} icon={Percent} trend="Stable" />
       </div>
 
@@ -359,17 +378,22 @@ export default function BusinessHealth() {
           </CardContent>
         </Card>
 
-        {/* Health Scores */}
+        {/* Profitability by Category */}
         <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg">Stability Audit</CardTitle>
-            <CardDescription>Automated risk assessment</CardDescription>
+            <CardTitle className="text-lg">Profit by Category</CardTitle>
+            <CardDescription>Highest contributing segments</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-8 pt-4">
-            <AuditItem label="Cash Flow Stability" value={healthData.scores.cashFlow} info="Ratio of paid vs pending invoices" />
-            <AuditItem label="Inventory Velocity" value={healthData.scores.inventoryTurnover} info="Rate of stock movement vs investment" />
-            <AuditItem label="Profit Integrity" value={healthData.scores.profitHealth} info="Sustainability of operating margins" />
-            <AuditItem label="Credit Exposure" value={healthData.scores.creditRisk} inverse info="Impact of overdue receivables" />
+          <CardContent className="h-[350px] pt-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={healthData.categoryData} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} strokeOpacity={0.4} />
+                <XAxis type="number" hide />
+                <YAxis dataKey="name" type="category" fontSize={11} width={80} stroke="#94a3b8" />
+                <RechartsTooltip formatter={(v: any) => formatCurrency(v)} />
+                <Bar dataKey="value" fill="#10b981" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
@@ -431,18 +455,36 @@ export default function BusinessHealth() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-sm">
+          <Card className="shadow-sm border-l-4 border-l-green-500">
             <CardHeader className="pb-2">
               <div className="flex items-center gap-2">
                 <Zap className="h-4 w-4 text-yellow-500" />
-                <span className="text-xs font-bold uppercase text-muted-foreground">Growth Opportunity</span>
+                <span className="text-xs font-bold uppercase text-muted-foreground">Actionable Recommendations</span>
               </div>
             </CardHeader>
-            <CardContent>
-              <p className="text-sm text-foreground/80 leading-relaxed">
-                Your <span className="font-bold text-primary">{(healthData.summary.avgMargin)}% margin</span> is {healthData.summary.avgMargin > 20 ? 'strong' : 'below industry average'}. 
-                Reducing <span className="font-bold text-red-500">{healthData.deadInventory} dead items</span> could free up substantial working capital.
-              </p>
+            <CardContent className="space-y-3">
+              {healthData.deadInventory > 0 && (
+                <div className="flex items-start gap-2 text-sm">
+                  <div className="mt-1 h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
+                  <p>Clear <span className="font-bold">{healthData.deadInventory} dead items</span> with a discount to free up capital.</p>
+                </div>
+              )}
+              {healthData.summary.avgMargin < 15 && (
+                <div className="flex items-start gap-2 text-sm">
+                  <div className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+                  <p>Current margin ({healthData.summary.avgMargin}%) is low. Review pricing for high-volume items.</p>
+                </div>
+              )}
+              {healthData.scores.cashFlow < 70 && (
+                <div className="flex items-start gap-2 text-sm">
+                  <div className="mt-1 h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
+                  <p>Follow up on <span className="font-bold">{healthData.scores.creditRisk}% overdue</span> bills to improve cash flow.</p>
+                </div>
+              )}
+              <div className="flex items-start gap-2 text-sm">
+                <div className="mt-1 h-1.5 w-1.5 rounded-full bg-green-500 shrink-0" />
+                <p>Focus marketing on <span className="font-bold">{(healthData.topCustomer as any)?.name || "top clients"}</span> who drive your LTV.</p>
+              </div>
             </CardContent>
           </Card>
         </div>
