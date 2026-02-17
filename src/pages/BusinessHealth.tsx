@@ -43,12 +43,18 @@ import { formatCurrency, roundToTwoDecimals } from "@/lib/billUtils";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { cn } from "@/lib/utils";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   ResponsiveContainer,
   AreaChart,
   Area,
   XAxis,
   YAxis,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   CartesianGrid,
   BarChart,
   Bar,
@@ -342,7 +348,7 @@ export default function BusinessHealth() {
                 <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.4} />
                 <XAxis dataKey="date" tickFormatter={(d) => format(new Date(d), 'dd MMM')} fontSize={11} stroke="#94a3b8" />
                 <YAxis fontSize={11} stroke="#94a3b8" tickFormatter={(v) => `₹${v}`} />
-                <Tooltip 
+                <RechartsTooltip 
                   contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                   formatter={(value: any) => [formatCurrency(value), '']}
                 />
@@ -389,7 +395,7 @@ export default function BusinessHealth() {
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <RechartsTooltip />
                 <Legend verticalAlign="bottom" height={36}/>
               </PieChart>
             </ResponsiveContainer>
