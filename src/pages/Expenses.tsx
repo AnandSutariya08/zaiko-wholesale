@@ -64,7 +64,7 @@ export default function Expenses() {
 
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split("T")[0],
+    date: new Date().toISOString(),
     time: new Date().toTimeString().slice(0, 5),
     amount: 0,
     description: "",
@@ -169,7 +169,7 @@ export default function Expenses() {
 
   const resetForm = () => {
     setFormData({
-      date: new Date().toISOString().split("T")[0],
+      date: new Date().toISOString(),
       time: new Date().toTimeString().slice(0, 5),
       amount: 0,
       description: "",

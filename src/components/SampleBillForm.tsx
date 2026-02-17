@@ -90,7 +90,7 @@ export function SampleBillForm({ bill, isEdit = false }: SampleBillFormProps) {
   );
 
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split("T")[0],
+    date: new Date().toISOString(),
     paymentTerms: 30,
     deliveryNote: "",
     modeOfPayment: "",

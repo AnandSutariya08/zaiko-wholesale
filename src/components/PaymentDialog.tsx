@@ -44,7 +44,7 @@ export function PaymentDialog({ bill, open, onOpenChange, onPaymentCollected }: 
   
   const [paymentAmount, setPaymentAmount] = useState(isOverpaid ? overpaidAmount.toString() : pendingAmount.toString());
   const [paymentType, setPaymentType] = useState<PaymentMethod>("Cash");
-  const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString());
   const [paymentNote, setPaymentNote] = useState("");
   const [loading, setLoading] = useState(false);
 
