@@ -101,7 +101,7 @@ export default function BusinessHealth() {
           bestProduct,
           deadInventory,
           lowMarginProds,
-          topCustomer: clients.sort((a, b) => (b.totalRevenue || 0) - (a.totalRevenue || 0))[0],
+          topCustomer: clients.sort((a, b) => ((b as any).totalRevenue || 0) - ((a as any).totalRevenue || 0))[0],
           notSelling: products.filter(p => p.stock > 0 && !soldInMonth.has(p.id)).slice(0, 3),
           stockTooHigh: products.filter(p => p.stock > 100).length,
           scores: {
@@ -242,8 +242,8 @@ export default function BusinessHealth() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="font-bold">{healthData.topCustomer?.name || "N/A"}</div>
-              <div className="text-sm text-muted-foreground">{formatCurrency(healthData.topCustomer?.totalRevenue || 0)} Revenue</div>
+              <div className="font-bold">{(healthData.topCustomer as any)?.name || "N/A"}</div>
+              <div className="text-sm text-muted-foreground">{formatCurrency((healthData.topCustomer as any)?.totalRevenue || 0)} Revenue</div>
             </CardContent>
           </Card>
 
