@@ -35,17 +35,15 @@ interface Message {
 }
 
 export default function AIAgent() {
-  // displayMessages: only what's shown in the UI (no system messages)
   const [displayMessages, setDisplayMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isAnalyzed, setIsAnalyzed] = useState(false);
   const [rawBusinessData, setRawBusinessData] = useState<any>(null);
   const [chatSummary, setChatSummary] = useState<string>("");
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [pdfReady, setPdfReady] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-
-  // fullHistory: the complete message history sent to the API every time
-  // (includes system prompt + initial user bootstrap + all subsequent turns)
   const fullHistoryRef = useRef<Message[]>([]);
 
   const scrollToBottom = () => {
@@ -184,22 +182,18 @@ export default function AIAgent() {
           dateRange: { start: "", end: "" },
         });
 
-        // Build the initial payload: system → user (bootstrap)
         const systemMessage: Message = {
           role: "system",
           content: `You are a simple Business Growth AI for billing software users.
-
             UNIFIED MISSION:
-            1. Help the user grow their business using simple, clear language that anyone can understand.
+            1. Help the user grow their business using simple, clear language.
             2. Tell them who owes money and which products are selling best.
             3. Give simple 1-2 step advice for more profit.
-
             LANGUAGE STYLE:
             - Use very simple words. No business jargon.
             - Instead of "Revenue", say "Money In".
             - Instead of "Liability", say "What you owe".
-            - Use big emojis and short sentences.
-            - Focus on: "Make more money", "Save money", and "Good customers".`,
+            - Use big emojis and short sentences.`,
         };
 
         const initialUserMessage: Message = {
@@ -207,7 +201,6 @@ export default function AIAgent() {
           content: `Tell me how my business is doing and how to grow. Data: ${JSON.stringify(processedData)}`,
         };
 
-        // Store bootstrap messages in the full history ref
         fullHistoryRef.current = [systemMessage, initialUserMessage];
 
         const response = await fetch(
@@ -222,7 +215,7 @@ export default function AIAgent() {
             },
             body: JSON.stringify({
               model: "sarvam-m",
-              messages: fullHistoryRef.current, // [system, user]
+              messages: fullHistoryRef.current,
               temperature: 0.7,
               max_tokens: 2000,
             }),
@@ -234,8 +227,6 @@ export default function AIAgent() {
         const data = await response.json();
         if (data?.choices?.[0]) {
           const assistantReply = data.choices[0].message.content;
-
-          // Append assistant reply to the full history
           const assistantMessage: Message = {
             role: "assistant",
             content: assistantReply,
@@ -244,11 +235,8 @@ export default function AIAgent() {
             ...fullHistoryRef.current,
             assistantMessage,
           ];
-
-          // Only show assistant message in UI (hide the system + bootstrap user msg)
           setDisplayMessages([assistantMessage]);
           setIsAnalyzed(true);
-          setChatSummary(assistantReply);
         }
       } catch (error) {
         console.error("Error:", error);
@@ -260,60 +248,6 @@ export default function AIAgent() {
 
     autoAnalyse();
   }, []);
-
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
-
-    const userMsg: Message = { role: "user", content: input };
-
-    // Add to display and to full history
-    setDisplayMessages((prev) => [...prev, userMsg]);
-    fullHistoryRef.current = [...fullHistoryRef.current, userMsg];
-    setInput("");
-    setIsLoading(true);
-
-    try {
-      const response = await fetch(
-        "https://api.sarvam.ai/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            "api-subscription-key":
-              import.meta.env.VITE_SARVAM_API_KEY ||
-              "sk_cgklaer7_PyVfuZMemeppS9aL53Cvbldg",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "sarvam-m",
-            // Always send the FULL history: system + bootstrap + all turns
-            messages: fullHistoryRef.current,
-            temperature: 0.7,
-            max_tokens: 1000,
-          }),
-        },
-      );
-
-      const data = await response.json();
-      if (data?.choices?.[0]) {
-        const assistantReply = data.choices[0].message.content;
-
-        const assistantMessage: Message = {
-          role: "assistant",
-          content: assistantReply,
-        };
-
-        // Append assistant reply to full history
-        fullHistoryRef.current = [
-          ...fullHistoryRef.current,
-          assistantMessage,
-        ];
-
-        // Add to display messages
-        setDisplayMessages((prev) => [...prev, assistantMessage]);
-
-  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
-  const [pdfReady, setPdfReady] = useState(false);
 
   const generateGrowthReport = async () => {
     if (isLoading || isGeneratingPDF) return;
@@ -342,12 +276,12 @@ export default function AIAgent() {
                 Use "Rs." instead of "₹". 
                 Format:
                 {
-                  "executiveSummary": "A very long (min 300 words), attractive, and deep analysis of the business state.",
+                  "executiveSummary": "A very long (min 500 words), attractive, and deep analysis of the business state.",
                   "keyInsights": ["Detailed insight 1", "Detailed insight 2", "Detailed insight 3", "Detailed insight 4", "Detailed insight 5"],
                   "recommendations": ["Comprehensive strategy 1", "Comprehensive strategy 2", "Comprehensive strategy 3", "Comprehensive strategy 4", "Comprehensive strategy 5"],
                   "financialAdvice": "A long, detailed section about financial optimization and profit maximization."
                 }
-                Make it look like a premium enterprise report.`,
+                Make it look like a premium enterprise report. Include full business details and growth tips.`,
               },
               ...fullHistoryRef.current,
             ],
@@ -370,6 +304,49 @@ export default function AIAgent() {
       setIsGeneratingPDF(false);
     }
   };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
+
+    const userMsg: Message = { role: "user", content: input };
+    setDisplayMessages((prev) => [...prev, userMsg]);
+    fullHistoryRef.current = [...fullHistoryRef.current, userMsg];
+    setInput("");
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(
+        "https://api.sarvam.ai/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "api-subscription-key":
+              import.meta.env.VITE_SARVAM_API_KEY ||
+              "sk_cgklaer7_PyVfuZMemeppS9aL53Cvbldg",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "sarvam-m",
+            messages: fullHistoryRef.current,
+            temperature: 0.7,
+            max_tokens: 1000,
+          }),
+        },
+      );
+
+      const data = await response.json();
+      if (data?.choices?.[0]) {
+        const assistantReply = data.choices[0].message.content;
+        const assistantMessage: Message = {
+          role: "assistant",
+          content: assistantReply,
+        };
+        fullHistoryRef.current = [
+          ...fullHistoryRef.current,
+          assistantMessage,
+        ];
+        setDisplayMessages((prev) => [...prev, assistantMessage]);
       }
     } catch (error) {
       toast.error("Message delivery failed.");
@@ -380,7 +357,6 @@ export default function AIAgent() {
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-50 dark:bg-zinc-950 font-sans">
-      {/* Premium Header */}
       <div className="sticky top-0 z-30 border-b bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl px-4 md:px-8 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
           <Button
@@ -495,10 +471,8 @@ export default function AIAgent() {
               .filter((m) => m.role !== "system")
               .map((msg, i) =>
                 msg.role === "assistant" ? (
-                  // Rich structured renderer for AI messages
                   <AIMessageRenderer key={i} content={msg.content} />
                 ) : (
-                  // Clean bubble for user messages
                   <div
                     key={i}
                     className="flex justify-end animate-in slide-in-from-bottom-4 duration-500"
@@ -534,7 +508,6 @@ export default function AIAgent() {
           </div>
         </ScrollArea>
 
-        {/* Simplified Floating Input Bar */}
         {isAnalyzed && (
           <div className="absolute bottom-6 left-0 right-0 z-40 px-4">
             <div className="max-w-2xl mx-auto">
