@@ -110,53 +110,23 @@ export default function Vendors() {
     const transactions: any[] = [];
 
     vendorBills.forEach(bill => {
-      // Add the bill itself as a "Purchase" transaction
-      // Use createdAt for sorting (has time), displayDate for showing
-      transactions.push({
-        id: `bill-${bill.id}`,
-        date: bill.createdAt, // Full timestamp for accurate sorting
-        displayDate: bill.billDate || bill.createdAt,
-        type: "Purchase",
-        reference: `Bill #${bill.billNumber || "N/A"}`,
-        amount: bill.total,
-        status: bill.paymentStatus,
-        billId: bill.id
-      });
-
-      // Add payments - differentiate between regular payments and overpayment refunds
+      // Add payments only - Purchase and Return payments
       if (bill.payments) {
         bill.payments.forEach(payment => {
-          // Check if this is an overpayment collection (negative amount)
-          const isOverpaymentRefund = payment.amount < 0;
+          const isReturnPayment = payment.amount < 0;
           
           transactions.push({
             id: `pay-${payment.id}`,
-            date: payment.date, // Should have full timestamp
+            date: payment.date,
             displayDate: payment.date,
-            type: isOverpaymentRefund ? "Refund" : "Payment",
-            reference: isOverpaymentRefund 
-              ? `Overpayment Return - Bill #${bill.billNumber || ""}` 
-              : `Payment for Bill #${bill.billNumber || ""}`,
+            type: isReturnPayment ? "Return Payment" : "Purchase Payment",
+            reference: isReturnPayment 
+              ? `Return Payment from Vendor - Bill #${bill.billNumber || ""}` 
+              : `Purchase Payment to Vendor - Bill #${bill.billNumber || ""}`,
             amount: Math.abs(payment.amount),
             method: payment.method,
             billId: bill.id,
-            isRefund: isOverpaymentRefund
-          });
-        });
-      }
-
-      // Add returns
-      if (bill.returns) {
-        bill.returns.forEach(ret => {
-          transactions.push({
-            id: `ret-${ret.id}`,
-            date: ret.createdAt || ret.returnDate, // Use createdAt for time precision
-            displayDate: ret.returnDate,
-            type: "Return",
-            reference: `Purchase Return - Bill #${bill.billNumber || ""}`,
-            amount: ret.totalReturnValue,
-            notes: ret.notes,
-            billId: bill.id
+            isRefund: isReturnPayment
           });
         });
       }
@@ -608,22 +578,16 @@ export default function Vendors() {
                           if (transactions.length > 0) {
                             return transactions.map(tx => (
                               <div key={tx.id} className={`flex justify-between items-center p-3 border rounded hover:bg-muted/50 transition-colors ${
-                                tx.type === 'Purchase' ? 'bg-red-50/30 dark:bg-red-900/10 border-red-100' :
-                                tx.type === 'Payment' ? 'bg-green-50/30 dark:bg-green-900/10 border-green-100' :
-                                tx.type === 'Return' ? 'bg-blue-50/30 dark:bg-blue-900/10 border-blue-100' :
-                                tx.type === 'Refund' ? 'bg-purple-50/30 dark:bg-purple-900/10 border-purple-100' : ''
+                                tx.type === 'Purchase Payment' ? 'bg-red-50/30 dark:bg-red-900/10 border-red-100' :
+                                tx.type === 'Return Payment' ? 'bg-green-50/30 dark:bg-green-900/10 border-green-100' : ''
                               }`}>
                                 <div className="flex items-center gap-3">
                                   <div className={`p-2 rounded-full ${
-                                    tx.type === 'Purchase' ? 'bg-red-100 text-red-600' : 
-                                    tx.type === 'Payment' ? 'bg-green-100 text-green-600' : 
-                                    tx.type === 'Return' ? 'bg-blue-100 text-blue-600' :
-                                    tx.type === 'Refund' ? 'bg-purple-100 text-purple-600' : ''
+                                    tx.type === 'Purchase Payment' ? 'bg-red-100 text-red-600' : 
+                                    tx.type === 'Return Payment' ? 'bg-green-100 text-green-600' : ''
                                   }`}>
-                                    {tx.type === 'Purchase' ? <Receipt className="h-4 w-4" /> : 
-                                     tx.type === 'Payment' ? <Plus className="h-4 w-4" /> : 
-                                     tx.type === 'Return' ? <History className="h-4 w-4" /> :
-                                     tx.type === 'Refund' ? <ArrowLeftRight className="h-4 w-4" /> : null}
+                                    {tx.type === 'Purchase Payment' ? <Receipt className="h-4 w-4" /> : 
+                                     tx.type === 'Return Payment' ? <Plus className="h-4 w-4" /> : null}
                                   </div>
                                   <div>
                                     <p className="font-medium">{tx.type}</p>
@@ -632,12 +596,10 @@ export default function Vendors() {
                                 </div>
                                 <div className="text-right">
                                   <p className={`font-semibold ${
-                                    tx.type === 'Purchase' ? 'text-red-600' : 
-                                    tx.type === 'Payment' ? 'text-green-600' : 
-                                    tx.type === 'Return' ? 'text-blue-600' :
-                                    tx.type === 'Refund' ? 'text-purple-600' : ''
+                                    tx.type === 'Purchase Payment' ? 'text-red-600' : 
+                                    tx.type === 'Return Payment' ? 'text-green-600' : ''
                                   }`}>
-                                    {tx.type === 'Purchase' ? '-' : '+'}{formatCurrency(tx.amount)}
+                                    {tx.type === 'Purchase Payment' ? '-' : '+'}{formatCurrency(tx.amount)}
                                   </p>
                                   {tx.method && <p className="text-[10px] text-muted-foreground uppercase">{tx.method}</p>}
                                 </div>

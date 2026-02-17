@@ -114,39 +114,22 @@ export default function Passbook() {
 
             // Add purchases (negative amounts for money spent)
             purchaseBills.forEach(purchase => {
-                // Calculate the net purchase amount (total - returns)
-                const totalReturns = (purchase.returns || []).reduce((sum, r) => sum + r.totalReturnValue, 0);
-                
-                // Main purchase payment (if any)
+                // We only show payments here, not the purchase itself, to reflect actual cash flow
                 if (purchase.payments && purchase.payments.length > 0) {
                     purchase.payments.forEach(payment => {
-                        // Check if this payment happened before or after returns
-                        // For simplicity, we adjust the payment amount if it's a "paid" bill and we're showing returns separately
-                        // But the user wants to see the NET amount if it's not paid yet.
-                        
+                        const isReturnPayment = payment.amount < 0;
                         allEntries.push({
                             id: `purchase-payment-${payment.id}`,
                             date: payment.date,
-                            type: 'purchase',
-                            description: `Purchase Payment - ${purchase.vendorName || 'Vendor'} - Bill #${purchase.billNumber || 'N/A'} (${payment.method})`,
-                            amount: -payment.amount,
+                            type: isReturnPayment ? 'return' : 'purchase',
+                            description: isReturnPayment 
+                                ? `Return Payment from Vendor - ${purchase.vendorName || 'Vendor'} - Bill #${purchase.billNumber || 'N/A'} (${payment.method})`
+                                : `Purchase Payment to Vendor - ${purchase.vendorName || 'Vendor'} - Bill #${purchase.billNumber || 'N/A'} (${payment.method})`,
+                            amount: payment.amount < 0 ? Math.abs(payment.amount) : -payment.amount,
                             balance: 0,
                             details: { ...purchase, currentPayment: payment },
                         });
                     });
-                } else {
-                    const netPaidAmount = Math.max(0, (purchase.paidAmount || 0) - (purchase.paymentStatus !== 'paid' ? totalReturns : 0));
-                    if (netPaidAmount > 0) {
-                        allEntries.push({
-                            id: `purchase-${purchase.id}`,
-                            date: purchase.billDate || purchase.createdAt || purchase.id,
-                            type: 'purchase',
-                            description: `Purchase - ${purchase.vendorName || 'Vendor'} - Bill #${purchase.billNumber || 'N/A'}`,
-                            amount: -netPaidAmount,
-                            balance: 0,
-                            details: purchase,
-                        });
-                    }
                 }
             });
 
@@ -178,29 +161,8 @@ export default function Passbook() {
             });
 
             // Add purchase returns
-            purchaseBills.forEach(purchase => {
-                if (purchase.returns && purchase.returns.length > 0) {
-                    purchase.returns.forEach(ret => {
-                        // Show return transaction if the bill was fully paid
-                        // Or if it was overpaid
-                        const totalReturns = (purchase.returns || []).reduce((sum, r) => sum + r.totalReturnValue, 0);
-                        const netTotal = purchase.total - totalReturns;
-                        const isOverpaid = (purchase.paidAmount || 0) > netTotal;
-
-                        if (purchase.paymentStatus === 'paid' || isOverpaid) {
-                            allEntries.push({
-                                id: `purchase-return-${ret.id}`,
-                                date: ret.returnDate,
-                                type: 'return',
-                                description: `Purchase Return - ${purchase.vendorName} - Bill #${purchase.billNumber}`,
-                                amount: ret.totalReturnValue, // Positive as it's money back
-                                balance: 0,
-                                details: ret,
-                            });
-                        }
-                    });
-                }
-            });
+            // REMOVED: Purchase returns are now handled via return payments from vendors in the purchase payment logic above
+            // This prevents duplicate entries for the same return if it was already adjusted or refunded.
 
             // Sort by date (Oldest to Newest) and calculate running balance
             // Strictly chronological order

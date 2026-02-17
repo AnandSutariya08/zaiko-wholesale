@@ -137,47 +137,19 @@ function PurchaseBills() {
   const getPurchaseHistory = (bill: PurchaseBill) => {
     const history: any[] = [];
 
-    // Add the original purchase
-    history.push({
-      id: `purchase-${bill.id}`,
-      date: bill.billDate || bill.createdAt,
-      type: "purchase",
-      description: `Purchase - Bill #${bill.billNumber || "N/A"}`,
-      amount: -bill.total,
-      quantity: bill.items.reduce((sum, item) => sum + item.quantity, 0),
-    });
-
     // Add payments
     if (bill.payments && bill.payments.length > 0) {
       bill.payments.forEach((payment) => {
+        const isReturnPayment = payment.amount < 0;
         history.push({
           id: `payment-${payment.id}`,
           date: payment.date,
-          type: "payment",
-          description: `Payment Made (${payment.method})${payment.note ? ` - ${payment.note}` : ""}`,
-          amount: payment.amount,
+          type: isReturnPayment ? "return_payment" : "purchase_payment",
+          description: isReturnPayment 
+            ? `Return Payment from Vendor (${payment.method})${payment.note ? ` - ${payment.note}` : ""}`
+            : `Purchase Payment to Vendor (${payment.method})${payment.note ? ` - ${payment.note}` : ""}`,
+          amount: Math.abs(payment.amount),
           quantity: 0,
-        });
-      });
-    }
-
-    // Add returns
-    if (bill.returns && bill.returns.length > 0) {
-      bill.returns.forEach((ret) => {
-        const productNames = ret.items
-          .map((item) => item.description)
-          .join(", ");
-        const returnQty = ret.items.reduce(
-          (sum, item) => sum + item.quantity,
-          0,
-        );
-        history.push({
-          id: `return-${ret.id}`,
-          date: ret.returnDate,
-          type: "return",
-          description: `Purchase Return (${productNames})${ret.notes ? ` - ${ret.notes}` : ""}`,
-          amount: ret.totalReturnValue,
-          quantity: returnQty,
         });
       });
     }
@@ -1426,86 +1398,90 @@ function PurchaseBills() {
                       )}
                     </div>
 
-                    <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t pt-3">
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-wider font-bold">
-                            Total:
-                          </span>
-                          <p className="text-[10px] sm:text-base font-black text-foreground">
-                            {formatCurrency(
-                              bill.total -
-                                (bill.returns?.reduce(
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t pt-3">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-wider font-bold">
+                              Total:
+                            </span>
+                            <p className="text-[10px] sm:text-base font-black text-foreground">
+                              {formatCurrency(
+                                bill.total -
+                                  (bill.returns?.reduce(
+                                    (sum, r) => sum + r.totalReturnValue,
+                                    0,
+                                  ) || 0),
+                              )}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-wider font-bold">
+                              Remaining:
+                            </span>
+                            <p
+                              className={`text-sm sm:text-base font-black text-foreground ${
+                                bill.total -
+                                  (bill.returns?.reduce(
+                                    (sum, r) => sum + r.totalReturnValue,
+                                    0,
+                                  ) || 0) -
+                                  (bill.paidAmount || 0) <
+                                0
+                                  ? "text-red-600"
+                                  : "text-black-600"
+                              }`}
+                            >
+                              {formatCurrency(
+                                bill.total -
+                                  (bill.returns?.reduce(
+                                    (sum, r) => sum + r.totalReturnValue,
+                                    0,
+                                  ) || 0) -
+                                  (bill.paidAmount || 0),
+                              )}
+                            </p>
+                          </div>
+                          {bill.returns && bill.returns.length > 0 && (
+                            <p className="text-[11px] sm:text-xs text-orange-600 font-bold">
+                              Ret:{" "}
+                              {formatCurrency(
+                                bill.returns.reduce(
                                   (sum, r) => sum + r.totalReturnValue,
                                   0,
-                                ) || 0),
-                            )}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-wider font-bold">
-                            Remaining:
-                          </span>
-                          <p
-                            className={`text-sm sm:text-base font-black text-foreground ${
-                              bill.total -
-                                (bill.returns?.reduce(
-                                  (sum, r) => sum + r.totalReturnValue,
-                                  0,
-                                ) || 0) -
-                                (bill.paidAmount || 0) <
-                              0
-                                ? "text-red-600"
-                                : "text-black-600"
-                            }`}
-                          >
-                            {formatCurrency(
-                              bill.total -
-                                (bill.returns?.reduce(
-                                  (sum, r) => sum + r.totalReturnValue,
-                                  0,
-                                ) || 0) -
-                                (bill.paidAmount || 0),
-                            )}
-                          </p>
-                        </div>
-                        {bill.returns && bill.returns.length > 0 && (
-                          <p className="text-[11px] sm:text-xs text-orange-600 font-bold">
-                            Ret:{" "}
-                            {formatCurrency(
-                              bill.returns.reduce(
-                                (sum, r) => sum + r.totalReturnValue,
-                                0,
-                              ),
-                            )}
-                          </p>
-                        )}
-                        {bill.paidAmount > 0 &&
-                          bill.payments &&
-                          bill.payments.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5">
-                              {Object.entries(
-                                bill.payments.reduce(
-                                  (acc, p) => {
-                                    acc[p.method] =
-                                      (acc[p.method] || 0) + p.amount;
-                                    return acc;
-                                  },
-                                  {} as Record<string, number>,
                                 ),
-                              ).map(([method, amount]) => (
-                                <Badge
-                                  key={method}
-                                  variant="outline"
-                                  className="text-[10px] sm:text-[11px] px-2 py-0 h-5 flex items-center gap-1 bg-primary/5 border-primary/20 text-primary font-bold"
-                                >
-                                  <span>{method}:</span>
-                                  <span>{formatCurrency(amount)}</span>
-                                </Badge>
-                              ))}
-                            </div>
+                              )}
+                            </p>
                           )}
-                      </div>
+                          {bill.paidAmount > 0 &&
+                            bill.payments &&
+                            bill.payments.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5">
+                                {Object.entries(
+                                  bill.payments.reduce(
+                                    (acc, p) => {
+                                      acc[p.method] =
+                                        (acc[p.method] || 0) + p.amount;
+                                      return acc;
+                                    },
+                                    {} as Record<string, number>,
+                                  ),
+                                ).map(([method, amount]) => (
+                                  <Badge
+                                    key={method}
+                                    variant="outline"
+                                    className={`text-[10px] sm:text-[11px] px-2 py-0 h-5 flex items-center gap-1 font-bold ${
+                                      amount < 0 
+                                        ? "bg-green-50 border-green-200 text-green-700" 
+                                        : "bg-red-50 border-red-200 text-red-700"
+                                    }`}
+                                  >
+                                    <span>{method}:</span>
+                                    <span>{formatCurrency(Math.abs(amount))}</span>
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                        </div>
 
                       <div className="flex items-center justify-end gap-2">
                         <Button
