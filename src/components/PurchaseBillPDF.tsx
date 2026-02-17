@@ -313,7 +313,7 @@ export const PurchaseBillPDF: React.FC<PurchaseBillPDFProps> = ({ bill }) => {
         <View style={styles.headerContainer}>
           <View style={styles.companyHeader}>
             <View style={styles.companyInfo}>
-              <Text style={styles.companyName}>Shree Rudra Jewels</Text>
+              <Text style={styles.companyName}>Invoice Mitra</Text>
               <Text style={styles.companyTagline}>
                 Invoice Mitra Invoice Management System
               </Text>
@@ -635,7 +635,7 @@ export const PurchaseBillPDF: React.FC<PurchaseBillPDFProps> = ({ bill }) => {
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerBold}>Shree Rudra Jewels</Text>
+          <Text style={styles.footerBold}>Invoice Mitra</Text>
           <Text style={styles.footerText}>
             Invoice Mitra Invoice Management System
           </Text>

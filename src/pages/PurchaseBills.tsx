@@ -382,25 +382,49 @@ function PurchaseBills() {
   };
 
   const stats = (() => {
-    const totalPurchase = bills.reduce((sum, b) => sum + b.total, 0);
+    const totalPurchase = bills.reduce((sum, b) => {
+      const totalReturns =
+        b.returns?.reduce((s, r) => s + r.totalReturnValue, 0) || 0;
+
+      return sum + (b.total - totalReturns); // ✅ Net Purchase
+    }, 0);
+
     const totalPaid = bills.reduce((sum, b) => sum + (b.paidAmount || 0), 0);
-    const totalReturns = bills.reduce((sum, b) => 
-      sum + (b.returns?.reduce((s, r) => s + r.totalReturnValue, 0) || 0), 0);
-    
-    // Total return collected is the sum of negative payments (refunds)
-    const totalReturnCollected = bills.reduce((sum, b) => 
-      sum + (b.payments?.filter(p => p.amount < 0).reduce((s, p) => s + Math.abs(p.amount), 0) || 0), 0);
-    
-    const amountRemaining = totalPurchase - totalPaid - (totalReturns - totalReturnCollected);
+
+    const totalReturns = bills.reduce(
+      (sum, b) =>
+        sum +
+        (b.returns?.reduce((s, r) => s + r.totalReturnValue, 0) || 0),
+      0,
+    );
+
+    const totalReturnCollected = bills.reduce(
+      (sum, b) =>
+        sum +
+        (b.payments
+          ?.filter((p) => p.amount < 0)
+          .reduce((s, p) => s + Math.abs(p.amount), 0) || 0),
+      0,
+    );
+
+    const amountRemaining = bills.reduce((sum, b) => {
+      const totalReturns =
+        b.returns?.reduce((s, r) => s + r.totalReturnValue, 0) || 0;
+
+      const netTotal = b.total - totalReturns;
+
+      return sum + (netTotal - (b.paidAmount || 0));
+    }, 0);
 
     return {
       totalPurchase,
       totalPaid,
       amountRemaining,
       totalReturns,
-      totalReturnCollected
+      totalReturnCollected,
     };
   })();
+
 
   const filterAndSortBills = () => {
     let filtered = [...bills];

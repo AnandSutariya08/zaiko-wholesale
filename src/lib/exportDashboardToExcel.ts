@@ -19,7 +19,7 @@ export const exportDashboardToExcel = (
     // ========== SHEET 1: EXECUTIVE SUMMARY ==========
     const summaryData = [
         ['DASHBOARD EXECUTIVE SUMMARY'],
-        ['Company:', company?.name || 'Shree Rudra Jewels'],
+        ['Company:', company?.name || 'Invoice Mitra'],
         ['Report Generated:', format(new Date(), 'dd-MM-yyyy HH:mm:ss')],
         ['Period:', `${dateRange.start || 'All Time'} to ${dateRange.end || 'Present'}`],
         [],
