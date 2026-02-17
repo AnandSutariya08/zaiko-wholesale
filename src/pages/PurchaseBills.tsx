@@ -381,6 +381,27 @@ function PurchaseBills() {
     setLoading(false);
   };
 
+  const stats = (() => {
+    const totalPurchase = bills.reduce((sum, b) => sum + b.total, 0);
+    const totalPaid = bills.reduce((sum, b) => sum + (b.paidAmount || 0), 0);
+    const totalReturns = bills.reduce((sum, b) => 
+      sum + (b.returns?.reduce((s, r) => s + r.totalReturnValue, 0) || 0), 0);
+    
+    // Total return collected is the sum of negative payments (refunds)
+    const totalReturnCollected = bills.reduce((sum, b) => 
+      sum + (b.payments?.filter(p => p.amount < 0).reduce((s, p) => s + Math.abs(p.amount), 0) || 0), 0);
+    
+    const amountRemaining = totalPurchase - totalPaid - (totalReturns - totalReturnCollected);
+
+    return {
+      totalPurchase,
+      totalPaid,
+      amountRemaining,
+      totalReturns,
+      totalReturnCollected
+    };
+  })();
+
   const filterAndSortBills = () => {
     let filtered = [...bills];
 
@@ -1209,6 +1230,60 @@ function PurchaseBills() {
         </div>
       </div>
 
+      {/* Summary Tiles */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card className="bg-primary/5 border-primary/20 shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-4">
+            <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1 flex items-center gap-1">
+              <BookOpen className="h-3 w-3 text-primary" /> Total Purchase
+            </p>
+            <p className="text-xl font-bold truncate">
+              {formatCurrency(stats.totalPurchase)}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="bg-emerald-50 border-emerald-200 shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-4">
+            <p className="text-[10px] text-emerald-600 uppercase font-bold mb-1 flex items-center gap-1">
+              <CheckCircle className="h-3 w-3" /> Amount Paid
+            </p>
+            <p className="text-xl font-bold text-emerald-700 truncate">
+              {formatCurrency(stats.totalPaid)}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="bg-orange-50 border-orange-200 shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-4">
+            <p className="text-[10px] text-orange-600 uppercase font-bold mb-1 flex items-center gap-1">
+              <Clock className="h-3 w-3" /> Remaining to Pay
+            </p>
+            <p className="text-xl font-bold text-orange-700 truncate">
+              {formatCurrency(stats.amountRemaining)}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="bg-rose-50 border-rose-200 shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-4">
+            <p className="text-[10px] text-rose-600 uppercase font-bold mb-1 flex items-center gap-1">
+              <RotateCcw className="h-3 w-3" /> Total Return
+            </p>
+            <p className="text-xl font-bold text-rose-700 truncate">
+              {formatCurrency(stats.totalReturns)}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="bg-blue-50 border-blue-200 shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-4">
+            <p className="text-[10px] text-blue-600 uppercase font-bold mb-1 flex items-center gap-1">
+              <IndianRupee className="h-3 w-3" /> Return Collected
+            </p>
+            <p className="text-xl font-bold text-blue-700 truncate">
+              {formatCurrency(stats.totalReturnCollected)}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
@@ -1398,7 +1473,7 @@ function PurchaseBills() {
                       )}
                     </div>
 
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t pt-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t mt-4 pt-4">
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                           <div className="flex items-center gap-2">
                             <span className="text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-wider font-bold">
