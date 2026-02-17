@@ -980,82 +980,220 @@ export default function BusinessHealth() {
         </TabsContent>
 
         <TabsContent value="stakeholders" className="space-y-6 focus-visible:outline-none focus-visible:ring-0">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             {/* User Performance */}
-            <Card className="shadow-sm border-slate-200">
-              <CardHeader className="px-6 py-4 border-b bg-slate-50/50">
-                <div className="flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-amber-500" />
-                  <CardTitle className="text-base font-bold text-slate-800">Sales Force</CardTitle>
+            <Card className="shadow-lg border-slate-200 overflow-hidden bg-white/50 backdrop-blur-sm">
+              <CardHeader className="px-6 py-5 border-b bg-slate-50/80">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-amber-500/10 rounded-lg">
+                      <Zap className="h-5 w-5 text-amber-500" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg font-bold text-slate-800">Sales Force</CardTitle>
+                      <CardDescription>Individual contribution analysis</CardDescription>
+                    </div>
+                  </div>
+                  <Badge variant="secondary" className="bg-amber-100 text-amber-700 font-bold">
+                    {healthData.userAnalysis.length} Active
+                  </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="p-4 space-y-2">
-                {healthData.userAnalysis.map((user: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs uppercase border">
-                        {user.name.charAt(0)}
+              <CardContent className="p-0">
+                <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto scrollbar-thin">
+                  {healthData.userAnalysis.map((user: any, i: number) => {
+                    const share = (user.sales / (healthData.summary.totalSales || 1)) * 100;
+                    return (
+                      <div key={i} className="group p-6 hover:bg-slate-50 transition-all">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-4">
+                            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-slate-600 font-black text-lg border-2 border-white shadow-sm group-hover:scale-110 transition-transform">
+                              {user.name.charAt(0)}
+                            </div>
+                            <div>
+                              <p className="text-base font-black text-slate-800">{user.name}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <Badge variant="outline" className="text-[10px] font-bold uppercase py-0">{user.count} Deals</Badge>
+                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{roundToTwoDecimals(share)}% Share</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-black text-emerald-600 leading-none">{formatCurrency(user.sales)}</p>
+                            <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter">Net Volume</p>
+                          </div>
+                        </div>
+                        <Progress value={share} className="h-1.5 bg-slate-100" indicatorClassName="bg-emerald-500" />
                       </div>
-                      <div>
-                        <p className="text-sm font-bold text-slate-700">{user.name}</p>
-                        <p className="text-[10px] text-slate-400 font-bold">{user.count} deals</p>
-                      </div>
-                    </div>
-                    <p className="text-sm font-black text-emerald-600">{formatCurrency(user.sales)}</p>
-                  </div>
-                ))}
+                    );
+                  })}
+                </div>
               </CardContent>
             </Card>
 
             {/* Top Clients */}
-            <Card className="shadow-sm border-slate-200">
-              <CardHeader className="px-6 py-4 border-b bg-slate-50/50">
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-blue-500" />
-                  <CardTitle className="text-base font-bold text-slate-800">Key Accounts</CardTitle>
+            <Card className="shadow-lg border-slate-200 overflow-hidden bg-white/50 backdrop-blur-sm">
+              <CardHeader className="px-6 py-5 border-b bg-slate-50/80">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-500/10 rounded-lg">
+                      <Users className="h-5 w-5 text-blue-500" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg font-bold text-slate-800">Key Accounts</CardTitle>
+                      <CardDescription>Top 10 revenue partners</CardDescription>
+                    </div>
+                  </div>
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-700 font-bold">
+                    VIP Priority
+                  </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="p-4 space-y-2">
-                {healthData.clientAnalysis.map((client: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 font-bold text-xs uppercase border border-blue-100">
-                        {client.name.charAt(0)}
+              <CardContent className="p-0">
+                <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto scrollbar-thin">
+                  {healthData.clientAnalysis.map((client: any, i: number) => {
+                    const avgTicket = client.sales / (client.count || 1);
+                    return (
+                      <div key={i} className="group p-6 hover:bg-slate-50 transition-all">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="h-12 w-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600 font-black text-lg border-2 border-white shadow-sm group-hover:bg-blue-600 group-hover:text-white transition-all">
+                              {client.name.charAt(0)}
+                            </div>
+                            <div className="max-w-[140px] md:max-w-[200px]">
+                              <p className="text-base font-black text-slate-800 truncate">{client.name}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[10px] text-slate-400 font-bold uppercase">{client.count} Transactions</span>
+                                <div className="h-1 w-1 rounded-full bg-slate-300" />
+                                <span className="text-[10px] text-blue-500 font-bold uppercase">Avg {formatCurrency(avgTicket)}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-black text-blue-600 leading-none">{formatCurrency(client.sales)}</p>
+                            <Badge className="mt-2 text-[9px] bg-slate-100 text-slate-600 border-none">Tier {i < 3 ? 'A+' : 'A'}</Badge>
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-bold text-slate-700 truncate max-w-[120px]">{client.name}</p>
-                        <p className="text-[10px] text-slate-400 font-bold">{client.count} bills</p>
-                      </div>
-                    </div>
-                    <p className="text-sm font-black text-blue-600">{formatCurrency(client.sales)}</p>
-                  </div>
-                ))}
+                    );
+                  })}
+                </div>
               </CardContent>
             </Card>
 
             {/* Top Vendors */}
-            <Card className="shadow-sm border-slate-200">
-              <CardHeader className="px-6 py-4 border-b bg-slate-50/50">
-                <div className="flex items-center gap-2">
-                  <Package className="h-4 w-4 text-amber-500" />
-                  <CardTitle className="text-base font-bold text-slate-800">Prime Suppliers</CardTitle>
+            <Card className="shadow-lg border-slate-200 overflow-hidden bg-white/50 backdrop-blur-sm">
+              <CardHeader className="px-6 py-5 border-b bg-slate-50/80">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-indigo-500/10 rounded-lg">
+                      <Package className="h-5 w-5 text-indigo-500" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg font-bold text-slate-800">Prime Suppliers</CardTitle>
+                      <CardDescription>Supply chain dependency analysis</CardDescription>
+                    </div>
+                  </div>
+                  <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 font-bold">
+                    Strategic
+                  </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="p-4 space-y-2">
-                {healthData.vendorAnalysis.map((vendor: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-amber-50 flex items-center justify-center text-amber-500 font-bold text-xs uppercase border border-amber-100">
-                        {vendor.name.charAt(0)}
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-slate-700 truncate max-w-[120px]">{vendor.name}</p>
-                        <p className="text-[10px] text-slate-400 font-bold">{vendor.count} orders</p>
+              <CardContent className="p-0">
+                <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto scrollbar-thin">
+                  {healthData.vendorAnalysis.map((vendor: any, i: number) => (
+                    <div key={i} className="group p-6 hover:bg-slate-50 transition-all">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="h-12 w-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-black text-lg border-2 border-white shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                            {vendor.name.charAt(0)}
+                          </div>
+                          <div className="max-w-[140px] md:max-w-[200px]">
+                            <p className="text-base font-black text-slate-800 truncate">{vendor.name}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[10px] text-slate-400 font-bold uppercase">{vendor.count} Purchase Orders</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-black text-indigo-600 leading-none">{formatCurrency(vendor.purchases)}</p>
+                          <div className="flex items-center gap-1 justify-end mt-2">
+                            <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                            <span className="text-[9px] font-bold text-slate-400 uppercase">Verified</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <p className="text-sm font-black text-amber-600">{formatCurrency(vendor.purchases)}</p>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Business Analysis Expansion */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="shadow-lg border-slate-200">
+              <CardHeader className="px-6 py-5 border-b">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-emerald-500/10 rounded-lg">
+                    <Activity className="h-5 w-5 text-emerald-500" />
                   </div>
-                ))}
+                  <CardTitle className="text-lg font-bold">Market Segmentation</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {healthData.customerSegments.map((segment: any, i: number) => (
+                    <div key={i} className="p-5 rounded-2xl border border-slate-100 bg-slate-50/50 text-center transition-all hover:shadow-md hover:bg-white">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">{segment.name}</p>
+                      <p className="text-3xl font-black text-slate-800 mb-2">{segment.value}</p>
+                      <p className="text-[10px] font-bold text-slate-500 uppercase italic">Customers</p>
+                      <Progress 
+                        value={(segment.value / healthData.clientAnalysis.length) * 100} 
+                        className="h-1.5 mt-4" 
+                        indicatorClassName={cn(
+                          segment.name === "Active" ? "bg-emerald-500" : 
+                          segment.name === "At Risk" ? "bg-amber-500" : "bg-slate-400"
+                        )}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-lg border-slate-200">
+              <CardHeader className="px-6 py-5 border-b">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-amber-500/10 rounded-lg">
+                    <TrendingUp className="h-5 w-5 text-amber-500" />
+                  </div>
+                  <CardTitle className="text-lg font-bold">Strategic Insights</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  <div className="flex items-start gap-4 p-4 rounded-xl bg-blue-50 border border-blue-100">
+                    <Info className="h-5 w-5 text-blue-500 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-bold text-blue-900">Revenue Concentration</p>
+                      <p className="text-xs text-blue-700 leading-relaxed mt-1">
+                        Your top 3 clients represent <span className="font-black text-blue-900">
+                          {roundToTwoDecimals((healthData.clientAnalysis.slice(0, 3).reduce((s: number, c: any) => s + c.sales, 0) / (healthData.summary.totalSales || 1)) * 100)}%
+                        </span> of your total revenue. Consider diversifying your client base to mitigate risk.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-4 p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+                    <TrendingUp className="h-5 w-5 text-emerald-500 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-bold text-emerald-900">Sales Velocity</p>
+                      <p className="text-xs text-emerald-700 leading-relaxed mt-1">
+                        Average deal size for <span className="font-black">{healthData.userAnalysis[0]?.name}</span> is <span className="font-black">{formatCurrency(healthData.userAnalysis[0]?.sales / (healthData.userAnalysis[0]?.count || 1))}</span>. Scale these high-value conversion patterns across the team.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>
