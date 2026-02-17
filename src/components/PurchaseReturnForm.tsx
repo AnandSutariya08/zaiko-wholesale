@@ -39,13 +39,13 @@ export function PurchaseReturnForm({ open, onOpenChange, bill, onSuccess, editRe
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [returnItems, setReturnItems] = useState<ReturnItemState[]>([]);
-  const [returnDate, setReturnDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [returnDate, setReturnDate] = useState<string>(new Date().toISOString());
 
   useEffect(() => {
     if (open && bill) {
       const loadData = async () => {
         const products = await getProducts();
-        setReturnDate(editReturn?.returnDate || new Date().toISOString().split("T")[0]);
+        setReturnDate(editReturn?.returnDate || new Date().toISOString());
         const itemsState: ReturnItemState[] = bill.items.map(item => {
           const editedItem = editReturn?.items.find(ri => ri.description === item.description);
           const product = products.find(p => 

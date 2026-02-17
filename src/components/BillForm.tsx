@@ -131,7 +131,7 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
   >(null);
 
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split("T")[0],
+    date: new Date().toISOString(),
     paymentTerms: 30,
     deliveryNote: "",
     modeOfPayment: "",

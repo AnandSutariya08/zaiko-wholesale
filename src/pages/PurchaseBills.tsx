@@ -572,7 +572,7 @@ function PurchaseBills() {
       if (!dueDate && extracted.paymentTerms && extracted.billDate) {
         const billDate = new Date(extracted.billDate);
         billDate.setDate(billDate.getDate() + extracted.paymentTerms);
-        dueDate = billDate.toISOString().split("T")[0];
+        dueDate = billDate.toISOString();
       }
 
       const newBill: PurchaseBill = {
@@ -583,8 +583,8 @@ function PurchaseBills() {
         vendorAddress: extracted.vendorAddress,
         vendorGstin: extracted.vendorGstin,
         billNumber: extracted.billNumber,
-        billDate: extracted.billDate,
-        dueDate,
+        billDate: extracted.billDate ? new Date(extracted.billDate).toISOString() : new Date().toISOString(),
+        dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
         paymentTerms: extracted.paymentTerms,
         items: extracted.items,
         subtotal: extracted.subtotal,

@@ -567,7 +567,7 @@ export const saveBill = async (bill: Bill): Promise<void> => {
         billId: bill.id,
         type: "sale" as const,
         quantity: item.quantity,
-        date: bill.date,
+        date: new Date().toISOString(),
         userId,
       };
       batch.set(transactionRef, transaction);
