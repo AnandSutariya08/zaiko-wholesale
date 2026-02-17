@@ -403,36 +403,36 @@ export default function BusinessHealth() {
   const COLORS = ['#10b981', '#f59e0b', '#ef4444'];
 
   return (
-    <div className="space-y-6 pb-20 max-w-[1400px] mx-auto">
+    <div className="p-8 space-y-10 pb-24 max-w-[1500px] mx-auto">
       {/* Header & Controls */}
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 bg-card p-6 rounded-xl border shadow-sm">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-primary font-semibold">
-            <Activity className="h-5 w-5" />
-            <span className="uppercase tracking-wider text-xs">Enterprise Analysis</span>
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 bg-card p-8 rounded-2xl border shadow-md">
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 text-primary font-bold">
+            <Activity className="h-6 w-6" />
+            <span className="uppercase tracking-widest text-xs">Enterprise Analysis</span>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Business Health Intelligence</h1>
-          <p className="text-muted-foreground max-w-md">Comprehensive diagnostic of operational efficiency, profitability, and risk factors.</p>
+          <h1 className="text-4xl font-extrabold tracking-tight text-foreground">Business Health Intelligence</h1>
+          <p className="text-muted-foreground max-w-lg text-lg">Comprehensive diagnostic of operational efficiency, profitability, and risk factors across your enterprise.</p>
         </div>
         
-        <div className="flex flex-col sm:flex-row items-center gap-4">
-          <div className="grid grid-cols-2 gap-2 p-1.5 bg-muted/50 rounded-lg border w-full sm:w-auto">
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase text-muted-foreground px-1">Start Date</Label>
+        <div className="flex flex-col sm:flex-row items-center gap-6">
+          <div className="grid grid-cols-2 gap-4 p-2 bg-muted/40 rounded-xl border w-full sm:w-auto">
+            <div className="space-y-2">
+              <Label className="text-[10px] uppercase font-bold text-muted-foreground px-2">Start Date</Label>
               <Input 
                 type="date" 
                 value={dateRange.start} 
                 onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-                className="h-9 border-none bg-background focus-visible:ring-1"
+                className="h-10 border-none bg-background focus-visible:ring-2 px-3 rounded-lg"
               />
             </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase text-muted-foreground px-1">End Date</Label>
+            <div className="space-y-2">
+              <Label className="text-[10px] uppercase font-bold text-muted-foreground px-2">End Date</Label>
               <Input 
                 type="date" 
                 value={dateRange.end} 
                 onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-                className="h-9 border-none bg-background focus-visible:ring-1"
+                className="h-10 border-none bg-background focus-visible:ring-2 px-3 rounded-lg"
               />
             </div>
           </div>
@@ -442,8 +442,8 @@ export default function BusinessHealth() {
             className="w-full sm:w-auto"
           >
             {({ loading }) => (
-              <Button disabled={loading} size="lg" className="w-full gap-2 shadow-lg hover:shadow-primary/20 transition-all">
-                <Download className="h-4 w-4" />
+              <Button disabled={loading} size="lg" className="w-full h-14 px-8 gap-3 shadow-xl hover:shadow-primary/30 transition-all font-bold text-base">
+                <Download className="h-5 w-5" />
                 {loading ? "Analyzing..." : "Export Full Audit"}
               </Button>
             )}
@@ -452,27 +452,27 @@ export default function BusinessHealth() {
       </div>
 
       {/* Summary Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <SummaryCard title="Range Revenue" value={formatCurrency(healthData.summary.totalSales)} icon={DollarSign} trend="+12.5%" />
         <SummaryCard title="Net Profit" value={formatCurrency(healthData.summary.totalProfit)} icon={TrendingUp} trend="+8.2%" color="text-green-600" />
         <SummaryCard title="Customer LTV" value={formatCurrency(healthData.summary.ltv)} icon={Users} trend="Avg Revenue/Client" />
         <SummaryCard title="Avg Margin" value={`${healthData.summary.avgMargin}%`} icon={Percent} trend="Stable" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Growth Chart */}
-        <Card className="lg:col-span-2 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between">
+        <Card className="lg:col-span-2 shadow-md border-muted/60">
+          <CardHeader className="flex flex-row items-center justify-between pb-6">
             <div className="space-y-1">
-              <CardTitle className="text-lg">Revenue vs. Profitability Trend</CardTitle>
-              <CardDescription>Daily performance correlation</CardDescription>
+              <CardTitle className="text-xl font-bold">Revenue vs. Profitability Trend</CardTitle>
+              <CardDescription className="text-sm">Daily performance correlation across chosen interval</CardDescription>
             </div>
-            <div className="flex items-center gap-4 text-xs font-medium">
-              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-primary" /> Sales</div>
-              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-green-500" /> Profit</div>
+            <div className="flex items-center gap-6 text-xs font-bold uppercase tracking-wider">
+              <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full bg-primary" /> Sales</div>
+              <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full bg-green-500" /> Profit</div>
             </div>
           </CardHeader>
-          <CardContent className="h-[350px] pt-4">
+          <CardContent className="h-[400px] pt-4 px-6">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={healthData.trendData}>
                 <defs>
@@ -495,20 +495,20 @@ export default function BusinessHealth() {
           </CardContent>
         </Card>
 
-        {/* Profitability by Category */}
-        <Card className="shadow-sm">
+        {/* Categories Analysis */}
+        <Card className="shadow-md border-muted/60">
           <CardHeader>
-            <CardTitle className="text-lg">Profit by Category</CardTitle>
-            <CardDescription>Highest contributing segments</CardDescription>
+            <CardTitle className="text-xl font-bold">Profit by Category</CardTitle>
+            <CardDescription className="text-sm">Highest contributing segments by gross volume</CardDescription>
           </CardHeader>
-          <CardContent className="h-[350px] pt-4">
+          <CardContent className="h-[400px] pt-4 px-6">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={healthData.categoryData} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} strokeOpacity={0.4} />
+              <BarChart data={healthData.categoryData} layout="vertical" margin={{ left: 20, right: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} strokeOpacity={0.2} />
                 <XAxis type="number" hide />
-                <YAxis dataKey="name" type="category" fontSize={11} width={80} stroke="#94a3b8" />
-                <RechartsTooltip formatter={(v: any) => formatCurrency(v)} />
-                <Bar dataKey="value" fill="#10b981" radius={[0, 4, 4, 0]} />
+                <YAxis dataKey="name" type="category" fontSize={11} width={100} stroke="#94a3b8" />
+                <RechartsTooltip cursor={{fill: 'transparent'}} formatter={(v: any) => formatCurrency(v)} />
+                <Bar dataKey="value" fill="#10b981" radius={[0, 6, 6, 0]} barSize={24} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -516,27 +516,27 @@ export default function BusinessHealth() {
       </div>
 
       {/* Advanced Granular Analysis */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {/* User Wise Analysis */}
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg">User Performance</CardTitle>
-            <CardDescription>Sales contribution by staff</CardDescription>
+        <Card className="shadow-md border-muted/60">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl font-bold">User Performance</CardTitle>
+            <CardDescription>Sales contribution by staff members</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 pt-2">
             {healthData.userAnalysis.map((user: any, i: number) => (
-              <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
+              <div key={i} className="flex items-center justify-between p-4 rounded-xl bg-muted/20 border border-transparent hover:border-border transition-all">
+                <div className="flex items-center gap-4">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
                     {user.name.charAt(0)}
                   </div>
                   <div>
-                    <p className="text-sm font-medium">{user.name}</p>
-                    <p className="text-[10px] text-muted-foreground">{user.count} bills generated</p>
+                    <p className="text-sm font-bold">{user.name}</p>
+                    <p className="text-xs text-muted-foreground">{user.count} bills generated</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-bold">{formatCurrency(user.sales)}</p>
+                  <p className="text-sm font-extrabold text-foreground">{formatCurrency(user.sales)}</p>
                 </div>
               </div>
             ))}
@@ -544,69 +544,69 @@ export default function BusinessHealth() {
         </Card>
 
         {/* Client Wise Analysis */}
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg">Top 10 Clients</CardTitle>
-            <CardDescription>Revenue by customer</CardDescription>
+        <Card className="shadow-md border-muted/60">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl font-bold">Top 10 Clients</CardTitle>
+            <CardDescription>Revenue generated per customer</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4 pt-2">
+          <CardContent className="space-y-3 pt-2">
             {healthData.clientAnalysis.map((client: any, i: number) => (
-              <div key={i} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{client.name}</p>
-                  <p className="text-[10px] text-muted-foreground">{client.count} transactions</p>
+              <div key={i} className="flex items-center justify-between p-4 rounded-xl hover:bg-muted/40 border border-transparent hover:border-border transition-all group">
+                <div className="flex-1 min-w-0 pr-4">
+                  <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{client.name}</p>
+                  <p className="text-xs text-muted-foreground">{client.count} transactions</p>
                 </div>
-                <p className="text-sm font-bold text-primary">{formatCurrency(client.sales)}</p>
+                <p className="text-sm font-extrabold text-primary">{formatCurrency(client.sales)}</p>
               </div>
             ))}
           </CardContent>
         </Card>
 
         {/* Vendor Wise Analysis */}
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg">Top 10 Vendors</CardTitle>
-            <CardDescription>Procurement volume</CardDescription>
+        <Card className="shadow-md border-muted/60">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl font-bold">Top 10 Vendors</CardTitle>
+            <CardDescription>Procurement volume tracking</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4 pt-2">
+          <CardContent className="space-y-3 pt-2">
             {healthData.vendorAnalysis.map((vendor: any, i: number) => (
-              <div key={i} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{vendor.name}</p>
-                  <p className="text-[10px] text-muted-foreground">{vendor.count} purchases</p>
+              <div key={i} className="flex items-center justify-between p-4 rounded-xl hover:bg-muted/40 border border-transparent hover:border-border transition-all group">
+                <div className="flex-1 min-w-0 pr-4">
+                  <p className="text-sm font-bold truncate group-hover:text-amber-600 transition-colors">{vendor.name}</p>
+                  <p className="text-xs text-muted-foreground">{vendor.count} purchases</p>
                 </div>
-                <p className="text-sm font-bold text-amber-600">{formatCurrency(vendor.purchases)}</p>
+                <p className="text-sm font-extrabold text-amber-600">{formatCurrency(vendor.purchases)}</p>
               </div>
             ))}
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Detailed Expenses Analysis */}
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg">Expense Breakdown</CardTitle>
-            <CardDescription>Operational burn during period</CardDescription>
+        <Card className="shadow-md border-muted/60">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl font-bold">Expense Breakdown</CardTitle>
+            <CardDescription>Detailed operational burn during period</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4 pt-2">
-            <div className="flex items-center justify-between p-4 rounded-xl bg-red-50 border border-red-100">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-red-100 rounded-lg text-red-600"><TrendingDown className="h-5 w-5" /></div>
+          <CardContent className="space-y-6 pt-2">
+            <div className="flex items-center justify-between p-6 rounded-2xl bg-red-50/50 border border-red-100/50 shadow-sm">
+              <div className="flex items-center gap-5">
+                <div className="p-3 bg-red-100 rounded-xl text-red-600"><TrendingDown className="h-6 w-6" /></div>
                 <div>
-                  <p className="text-xs uppercase font-bold text-red-600">Total Expenses</p>
-                  <p className="text-2xl font-bold text-red-700">{formatCurrency(healthData.summary.totalExpenses)}</p>
+                  <p className="text-xs uppercase font-extrabold text-red-600 tracking-wider">Total Operational Expenses</p>
+                  <p className="text-3xl font-black text-red-700">{formatCurrency(healthData.summary.totalExpenses)}</p>
                 </div>
               </div>
             </div>
-            <div className="max-h-[300px] overflow-auto space-y-2 pr-2">
+            <div className="max-h-[350px] overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-muted">
               {healthData.expenses.map((exp: any, i: number) => (
-                <div key={i} className="flex items-center justify-between p-2 border-b border-muted">
+                <div key={i} className="flex items-center justify-between p-3 border-b border-muted/40 last:border-0 hover:bg-muted/10 transition-colors rounded-lg">
                   <div>
-                    <p className="text-sm font-medium">{exp.description}</p>
-                    <p className="text-[10px] text-muted-foreground">{format(new Date(exp.date), 'dd MMM yyyy')}</p>
+                    <p className="text-sm font-bold">{exp.description}</p>
+                    <p className="text-xs text-muted-foreground font-medium">{format(new Date(exp.date), 'dd MMM yyyy')}</p>
                   </div>
-                  <p className="text-sm font-semibold text-red-600">-{formatCurrency(exp.amount)}</p>
+                  <p className="text-sm font-black text-red-600">-{formatCurrency(exp.amount)}</p>
                 </div>
               ))}
             </div>
@@ -614,119 +614,120 @@ export default function BusinessHealth() {
         </Card>
 
         {/* Returns Analysis */}
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg">Returns Analysis</CardTitle>
-            <CardDescription>Impact of reversals on revenue</CardDescription>
+        <Card className="shadow-md border-muted/60">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl font-bold">Returns Analysis</CardTitle>
+            <CardDescription>Impact of transaction reversals on net revenue</CardDescription>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-4 pt-2">
-            <div className="p-4 rounded-xl bg-orange-50 border border-orange-100 text-center">
-              <p className="text-xs uppercase font-bold text-orange-600 mb-1">Sales Returns</p>
-              <p className="text-xl font-bold text-orange-700">{formatCurrency(healthData.summary.totalReturns)}</p>
-              <p className="text-[10px] text-orange-500 mt-1">Lost Opportunity</p>
+          <CardContent className="grid grid-cols-2 gap-6 pt-2">
+            <div className="p-6 rounded-2xl bg-orange-50/50 border border-orange-100/50 text-center shadow-sm">
+              <p className="text-xs uppercase font-extrabold text-orange-600 mb-2 tracking-wider">Sales Returns</p>
+              <p className="text-2xl font-black text-orange-700">{formatCurrency(healthData.summary.totalReturns)}</p>
+              <p className="text-[10px] text-orange-500 mt-2 font-bold uppercase">Revenue Leakage</p>
             </div>
-            <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 text-center">
-              <p className="text-xs uppercase font-bold text-blue-600 mb-1">Purchase Returns</p>
-              <p className="text-xl font-bold text-blue-700">{formatCurrency(healthData.summary.totalPurchaseReturns)}</p>
-              <p className="text-[10px] text-blue-500 mt-1">Recovered Cost</p>
+            <div className="p-6 rounded-2xl bg-blue-50/50 border border-blue-100/50 text-center shadow-sm">
+              <p className="text-xs uppercase font-extrabold text-blue-600 mb-2 tracking-wider">Purchase Returns</p>
+              <p className="text-2xl font-black text-blue-700">{formatCurrency(healthData.summary.totalPurchaseReturns)}</p>
+              <p className="text-[10px] text-blue-500 mt-2 font-bold uppercase">Capital Recovery</p>
             </div>
-            <div className="col-span-2 p-4 rounded-xl bg-muted/30 border text-center">
-              <p className="text-sm font-medium">Net Return Impact</p>
-              <p className="text-lg font-bold text-foreground">
+            <div className="col-span-2 p-6 rounded-2xl bg-muted/20 border border-muted/40 text-center">
+              <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-1">Net Return Impact</p>
+              <p className="text-2xl font-black text-foreground">
                 {formatCurrency(healthData.summary.totalReturns - healthData.summary.totalPurchaseReturns)}
               </p>
-              <p className="text-[10px] text-muted-foreground mt-1">Difference between sales and purchase returns</p>
+              <p className="text-xs text-muted-foreground mt-2 italic">Difference between customer refunds and supplier returns</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {/* Customer Segments */}
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg">Customer Retention</CardTitle>
-            <CardDescription>Engagement based segmentation</CardDescription>
+        <Card className="shadow-md border-muted/60">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xl font-bold">Customer Retention</CardTitle>
+            <CardDescription>Behavioral engagement segments</CardDescription>
           </CardHeader>
-          <CardContent className="h-[250px] flex items-center justify-center">
+          <CardContent className="h-[300px] flex items-center justify-center pt-0">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={healthData.customerSegments}
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
+                  innerRadius={70}
+                  outerRadius={100}
+                  paddingAngle={8}
                   dataKey="value"
+                  stroke="none"
                 >
                   {healthData.customerSegments.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <RechartsTooltip />
-                <Legend verticalAlign="bottom" height={36}/>
+                <RechartsTooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }} />
+                <Legend verticalAlign="bottom" height={40} iconType="circle" wrapperStyle={{ fontSize: '12px', fontWeight: 'bold' }} />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
         {/* Inventory Risks */}
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg">Inventory Hazards</CardTitle>
-            <CardDescription>Critical stock attention needed</CardDescription>
+        <Card className="shadow-md border-muted/60">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl font-bold">Inventory Hazards</CardTitle>
+            <CardDescription>Critical stock metrics requiring attention</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 pt-2">
             <RiskRow icon={XCircle} label="Dead Inventory" count={healthData.deadInventory} color="text-red-500" />
             <RiskRow icon={AlertTriangle} label="Margin Risks" count={healthData.lowMarginProds} color="text-amber-500" />
-            <RiskRow icon={Package} label="Overstocked" count={healthData.stockTooHigh} color="text-blue-500" />
-            <RiskRow icon={ShieldAlert} label="Return Velocity" status={healthData.tooManyRefunds ? "High" : "Normal"} color={healthData.tooManyRefunds ? "text-red-500" : "text-green-500"} />
+            <RiskRow icon={Package} label="Overstocked Items" count={healthData.stockTooHigh} color="text-blue-500" />
+            <RiskRow icon={ShieldAlert} label="Return Velocity" status={healthData.tooManyRefunds ? "High" : "Optimal"} color={healthData.tooManyRefunds ? "text-red-500" : "text-green-500"} />
           </CardContent>
         </Card>
 
         {/* Top Insights */}
-        <div className="space-y-4">
-          <Card className="shadow-sm border-l-4 border-l-primary">
-            <CardContent className="p-5 flex items-start gap-4">
-              <div className="p-3 bg-primary/10 rounded-lg text-primary">
-                <Users className="h-6 w-6" />
+        <div className="space-y-6">
+          <Card className="shadow-md border-l-[6px] border-l-primary overflow-hidden">
+            <CardContent className="p-6 flex items-start gap-5">
+              <div className="p-4 bg-primary/10 rounded-2xl text-primary">
+                <Users className="h-8 w-8" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] uppercase font-bold text-muted-foreground">Premier Partner</p>
-                <h4 className="font-bold text-lg truncate">{(healthData.topCustomer as any)?.name || "N/A"}</h4>
-                <p className="text-sm text-primary font-medium">{formatCurrency((healthData.topCustomer as any)?.totalRevenue || 0)} LTV</p>
+                <p className="text-[10px] uppercase font-black text-muted-foreground tracking-widest mb-1">MVP Partner</p>
+                <h4 className="font-black text-xl truncate text-foreground">{(healthData.topCustomer as any)?.name || "N/A"}</h4>
+                <p className="text-base text-primary font-bold mt-1">{formatCurrency((healthData.topCustomer as any)?.totalRevenue || 0)} LTV</p>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="shadow-sm border-l-4 border-l-green-500">
-            <CardHeader className="pb-2">
-              <div className="flex items-center gap-2">
-                <Zap className="h-4 w-4 text-yellow-500" />
-                <span className="text-xs font-bold uppercase text-muted-foreground">Actionable Recommendations</span>
+          <Card className="shadow-md border-l-[6px] border-l-green-500">
+            <CardHeader className="pb-3 pt-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-yellow-100 rounded-lg"><Zap className="h-5 w-5 text-yellow-600 fill-yellow-600" /></div>
+                <span className="text-sm font-black uppercase text-muted-foreground tracking-tighter">Strategic Roadmap</span>
               </div>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-4 pb-6">
               {healthData.deadInventory > 0 && (
-                <div className="flex items-start gap-2 text-sm">
-                  <div className="mt-1 h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
-                  <p>Clear <span className="font-bold">{healthData.deadInventory} dead items</span> with a discount to free up capital.</p>
+                <div className="flex items-start gap-3 p-3 rounded-xl bg-red-50/30 border border-red-100/30">
+                  <div className="mt-1.5 h-2 w-2 rounded-full bg-red-500 shrink-0" />
+                  <p className="text-sm leading-relaxed">Liquidate <span className="font-black text-red-700">{healthData.deadInventory} stagnant items</span> via clearance sales to unlock working capital.</p>
                 </div>
               )}
               {healthData.summary.avgMargin < 15 && (
-                <div className="flex items-start gap-2 text-sm">
-                  <div className="mt-1 h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
-                  <p>Current margin ({healthData.summary.avgMargin}%) is low. Review pricing for high-volume items.</p>
+                <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-50/30 border border-amber-100/30">
+                  <div className="mt-1.5 h-2 w-2 rounded-full bg-amber-500 shrink-0" />
+                  <p className="text-sm leading-relaxed">Average margin ({healthData.summary.avgMargin}%) is below target. Optimize unit economics for best-sellers.</p>
                 </div>
               )}
               {healthData.scores.cashFlow < 70 && (
-                <div className="flex items-start gap-2 text-sm">
-                  <div className="mt-1 h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
-                  <p>Follow up on <span className="font-bold">{healthData.scores.creditRisk}% overdue</span> bills to improve cash flow.</p>
+                <div className="flex items-start gap-3 p-3 rounded-xl bg-blue-50/30 border border-blue-100/30">
+                  <div className="mt-1.5 h-2 w-2 rounded-full bg-blue-500 shrink-0" />
+                  <p className="text-sm leading-relaxed">Resolve <span className="font-black text-blue-700">{healthData.scores.creditRisk}% overdue</span> receivables to stabilize operational cash flows.</p>
                 </div>
               )}
-              <div className="flex items-start gap-2 text-sm">
-                <div className="mt-1 h-1.5 w-1.5 rounded-full bg-green-500 shrink-0" />
-                <p>Focus marketing on <span className="font-bold">{(healthData.topCustomer as any)?.name || "top clients"}</span> who drive your LTV.</p>
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-green-50/30 border border-green-100/30">
+                <div className="mt-1.5 h-2 w-2 rounded-full bg-green-500 shrink-0" />
+                <p className="text-sm leading-relaxed">Incentivize <span className="font-black text-green-700">{(healthData.topCustomer as any)?.name || "top clients"}</span> with loyalty programs to maximize long-term value.</p>
               </div>
             </CardContent>
           </Card>
@@ -738,59 +739,37 @@ export default function BusinessHealth() {
 
 function SummaryCard({ title, value, icon: Icon, trend, color }: any) {
   return (
-    <Card className="shadow-sm overflow-hidden group">
-      <CardContent className="p-6 relative">
-        <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-          <Icon className="h-16 w-16" />
+    <Card className="shadow-md overflow-hidden group border-muted/60 hover:border-primary/40 transition-all duration-300">
+      <CardContent className="p-8 relative">
+        <div className="absolute -top-4 -right-4 p-4 opacity-[0.03] group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
+          <Icon className="h-24 w-24" />
         </div>
-        <div className="flex items-center gap-3 mb-3">
-          <div className="p-2 bg-muted rounded-md group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-            <Icon className="h-4 w-4" />
+        <div className="flex items-center gap-4 mb-5">
+          <div className="p-3 bg-muted/50 rounded-xl group-hover:bg-primary/10 group-hover:text-primary transition-all duration-300">
+            <Icon className="h-5 w-5" />
           </div>
-          <span className="text-xs font-bold uppercase text-muted-foreground tracking-widest">{title}</span>
+          <span className="text-xs font-black uppercase text-muted-foreground tracking-[0.2em]">{title}</span>
         </div>
-        <div className={cn("text-2xl font-bold mb-1", color)}>{value}</div>
-        <div className="flex items-center gap-1.5">
-          <Badge variant="outline" className="text-[10px] h-5 font-bold border-muted-foreground/20">{trend}</Badge>
-          <span className="text-[10px] text-muted-foreground">growth period</span>
+        <div className={cn("text-3xl font-black mb-3 tracking-tight", color)}>{value}</div>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-[10px] px-2 py-0.5 font-black border-muted-foreground/30 bg-muted/20 uppercase tracking-tighter">{trend}</Badge>
+          <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest opacity-70">period trend</span>
         </div>
       </CardContent>
     </Card>
   );
 }
 
-function AuditItem({ label, value, info, inverse }: any) {
-  const getColor = (v: number) => {
-    if (inverse) return v < 30 ? "bg-green-500" : v < 60 ? "bg-amber-500" : "bg-red-500";
-    return v > 70 ? "bg-green-500" : v > 40 ? "bg-amber-500" : "bg-red-500";
-  };
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-slate-700">{label}</span>
-          <TooltipProvider>
-            <div className="cursor-help text-muted-foreground/50 hover:text-primary transition-colors">
-              <Info className="h-3.5 w-3.5" />
-            </div>
-          </TooltipProvider>
-        </div>
-        <span className="text-sm font-bold">{value}%</span>
-      </div>
-      <Progress value={value} className={cn("h-2 transition-all duration-1000", getColor(value))} />
-      <p className="text-[10px] text-muted-foreground italic">{info}</p>
-    </div>
-  );
-}
-
 function RiskRow({ icon: Icon, label, count, status, color }: any) {
   return (
-    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-transparent hover:border-border transition-all">
-      <div className="flex items-center gap-3">
-        <Icon className={cn("h-4 w-4", color)} />
-        <span className="text-sm font-medium">{label}</span>
+    <div className="flex items-center justify-between p-4 rounded-xl bg-muted/20 border border-transparent hover:border-muted/40 hover:bg-muted/30 transition-all group">
+      <div className="flex items-center gap-4">
+        <div className={cn("p-2 rounded-lg bg-background group-hover:scale-110 transition-transform", color)}>
+          <Icon className="h-5 w-5" />
+        </div>
+        <span className="text-sm font-bold text-foreground/80">{label}</span>
       </div>
-      <span className={cn("font-bold text-sm", color)}>{count !== undefined ? count : status}</span>
+      <span className={cn("font-black text-sm px-3 py-1 rounded-full bg-background/50", color)}>{count !== undefined ? count : status}</span>
     </div>
   );
 }
