@@ -186,8 +186,13 @@ export function PaymentDialog({ bill, open, onOpenChange, onPaymentCollected }: 
             <Input
               id="payment-date"
               type="date"
-              value={paymentDate}
-              onChange={(e) => setPaymentDate(e.target.value)}
+              value={paymentDate.split("T")[0]}
+              onChange={(e) => {
+                const newDate = new Date(e.target.value);
+                const now = new Date();
+                newDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+                setPaymentDate(newDate.toISOString());
+              }}
               required
               disabled={loading}
               className="text-sm sm:text-base"

@@ -1921,14 +1921,17 @@ function PurchaseBills() {
                           </Label>
                           <Input
                             type="date"
-                            value={editedBill?.billDate || ""}
-                            onChange={(e) =>
+                            value={editedBill?.billDate?.split("T")[0] || ""}
+                            onChange={(e) => {
+                              const newDate = new Date(e.target.value);
+                              const now = new Date();
+                              newDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
                               setEditedBill((prev) =>
                                 prev
-                                  ? { ...prev, billDate: e.target.value }
+                                  ? { ...prev, billDate: newDate.toISOString() }
                                   : null,
-                              )
-                            }
+                              );
+                            }}
                             className="h-10 text-sm"
                           />
                         </div>
@@ -1938,14 +1941,17 @@ function PurchaseBills() {
                           </Label>
                           <Input
                             type="date"
-                            value={editedBill?.dueDate || ""}
-                            onChange={(e) =>
+                            value={editedBill?.dueDate?.split("T")[0] || ""}
+                            onChange={(e) => {
+                              const newDate = new Date(e.target.value);
+                              const now = new Date();
+                              newDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
                               setEditedBill((prev) =>
                                 prev
-                                  ? { ...prev, dueDate: e.target.value }
+                                  ? { ...prev, dueDate: newDate.toISOString() }
                                   : null,
-                              )
-                            }
+                              );
+                            }}
                             className="h-10 text-sm"
                           />
                         </div>

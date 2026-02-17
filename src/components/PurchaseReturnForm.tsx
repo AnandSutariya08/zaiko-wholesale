@@ -184,8 +184,13 @@ export function PurchaseReturnForm({ open, onOpenChange, bill, onSuccess, editRe
               <Input
                 id="returnDate"
                 type="date"
-                value={returnDate}
-                onChange={(e) => setReturnDate(e.target.value)}
+                value={returnDate.split("T")[0]}
+                onChange={(e) => {
+                  const newDate = new Date(e.target.value);
+                  const now = new Date();
+                  newDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+                  setReturnDate(newDate.toISOString());
+                }}
                 required
               />
             </div>

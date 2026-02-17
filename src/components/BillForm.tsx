@@ -828,10 +828,13 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
               <Label>Bill Date *</Label>
               <Input
                 type="date"
-                value={formData.date}
-                onChange={(e) =>
-                  setFormData({ ...formData, date: e.target.value })
-                }
+                value={formData.date.split("T")[0]}
+                onChange={(e) => {
+                  const newDate = new Date(e.target.value);
+                  const now = new Date();
+                  newDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+                  setFormData({ ...formData, date: newDate.toISOString() });
+                }}
               />
             </div>
 

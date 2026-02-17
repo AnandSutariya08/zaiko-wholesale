@@ -1767,7 +1767,7 @@ export const updateBillAfterReturn = async (
     const roundOff = roundedTotal - rawTotal;
 
     const existingComment = bill.returnComment || "";
-    const returnDate = new Date().toLocaleDateString("en-IN");
+    const returnDate = new Date().toISOString();
     const returnInfo = returnItems
       .map((r) => {
         const name = r.productName || "Item";
@@ -1776,8 +1776,8 @@ export const updateBillAfterReturn = async (
       })
       .join("; ");
     const returnComment = existingComment
-      ? `${existingComment}\n${returnDate}: ${returnInfo}`
-      : `${returnDate}: ${returnInfo}`;
+      ? `${existingComment}\n${new Date(returnDate).toLocaleString("en-IN")}: ${returnInfo}`
+      : `${new Date(returnDate).toLocaleString("en-IN")}: ${returnInfo}`;
 
     await updateDoc(billRef, {
       items: updatedItems,
