@@ -329,13 +329,24 @@ export default function AIAgent() {
                 {
                   role: "system",
                   content:
-                    "Summarize the entire conversation into a professional growth strategy report. Use plain text without markdown symbols for the PDF.",
+                    `Generate a highly detailed, professional Business Growth Report based on the full chat history. 
+                    The output MUST be a valid JSON object with the following structure:
+                    {
+                      "executiveSummary": "A long, attractive, and detailed overview of the business performance.",
+                      "keyInsights": ["Insight 1", "Insight 2", ...],
+                      "recommendations": ["Long recommendation 1", "Long recommendation 2", ...],
+                      "financialAdvice": "Detailed financial strategies."
+                    }
+                    IMPORTANT: 
+                    1. Use "Rs." instead of the Rupee symbol (₹) everywhere.
+                    2. Make the report detailed and professional.
+                    3. Return ONLY the JSON object.`,
                 },
                 // Include full conversation history for accurate summary
                 ...fullHistoryRef.current,
               ],
               temperature: 0.3,
-              max_tokens: 1500,
+              max_tokens: 2500,
             }),
           },
         );
