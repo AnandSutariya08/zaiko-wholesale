@@ -312,48 +312,64 @@ export default function AIAgent() {
         // Add to display messages
         setDisplayMessages((prev) => [...prev, assistantMessage]);
 
-        // Update summary for PDF using the full history
-        const summaryResponse = await fetch(
-          "https://api.sarvam.ai/v1/chat/completions",
-          {
-            method: "POST",
-            headers: {
-              "api-subscription-key":
-                import.meta.env.VITE_SARVAM_API_KEY ||
-                "sk_cgklaer7_PyVfuZMemeppS9aL53Cvbldg",
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "sarvam-m",
-              messages: [
-                {
-                  role: "system",
-                  content:
-                    `Generate a highly detailed, professional Business Growth Report based on the full chat history. 
-                    The output MUST be a valid JSON object with the following structure:
-                    {
-                      "executiveSummary": "A long, attractive, and detailed overview of the business performance.",
-                      "keyInsights": ["Insight 1", "Insight 2", ...],
-                      "recommendations": ["Long recommendation 1", "Long recommendation 2", ...],
-                      "financialAdvice": "Detailed financial strategies."
-                    }
-                    IMPORTANT: 
-                    1. Use "Rs." instead of the Rupee symbol (₹) everywhere.
-                    2. Make the report detailed and professional.
-                    3. Return ONLY the JSON object.`,
-                },
-                // Include full conversation history for accurate summary
-                ...fullHistoryRef.current,
-              ],
-              temperature: 0.3,
-              max_tokens: 2500,
-            }),
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [pdfReady, setPdfReady] = useState(false);
+
+  const generateGrowthReport = async () => {
+    if (isLoading || isGeneratingPDF) return;
+    
+    setIsGeneratingPDF(true);
+    setPdfReady(false);
+    
+    try {
+      const response = await fetch(
+        "https://api.sarvam.ai/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "api-subscription-key":
+              import.meta.env.VITE_SARVAM_API_KEY ||
+              "sk_cgklaer7_PyVfuZMemeppS9aL53Cvbldg",
+            "Content-Type": "application/json",
           },
-        );
-        const summaryData = await summaryResponse.json();
-        if (summaryData?.choices?.[0]) {
-          setChatSummary(summaryData.choices[0].message.content);
+          body: JSON.stringify({
+            model: "sarvam-m",
+            messages: [
+              {
+                role: "system",
+                content: `You are a Senior Business Consultant. Generate a very long, highly detailed, and professional Business Growth Report.
+                The output MUST be a valid JSON object. 
+                Use "Rs." instead of "₹". 
+                Format:
+                {
+                  "executiveSummary": "A very long (min 300 words), attractive, and deep analysis of the business state.",
+                  "keyInsights": ["Detailed insight 1", "Detailed insight 2", "Detailed insight 3", "Detailed insight 4", "Detailed insight 5"],
+                  "recommendations": ["Comprehensive strategy 1", "Comprehensive strategy 2", "Comprehensive strategy 3", "Comprehensive strategy 4", "Comprehensive strategy 5"],
+                  "financialAdvice": "A long, detailed section about financial optimization and profit maximization."
+                }
+                Make it look like a premium enterprise report.`,
+              },
+              ...fullHistoryRef.current,
+            ],
+            temperature: 0.4,
+            max_tokens: 3500,
+          }),
         }
+      );
+
+      const data = await response.json();
+      if (data?.choices?.[0]) {
+        setChatSummary(data.choices[0].message.content);
+        setPdfReady(true);
+        toast.success("Growth Report Generated Successfully!");
+      }
+    } catch (error) {
+      console.error("PDF Gen Error:", error);
+      toast.error("Failed to generate detailed report.");
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
       }
     } catch (error) {
       toast.error("Message delivery failed.");
@@ -399,33 +415,48 @@ export default function AIAgent() {
 
         {isAnalyzed && rawBusinessData && (
           <div className="flex items-center gap-2">
-            <PDFDownloadLink
-              document={
-                <GrowthAnalysisPDF
-                  summary={chatSummary}
-                  companyName={rawBusinessData.company?.name}
-                />
-              }
-              fileName={`Growth_Strategy_${new Date().toISOString().split("T")[0]}.pdf`}
-            >
-              {({ loading }) => (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex gap-2 rounded-full border-blue-200 hover:border-blue-500 hover:bg-blue-50 dark:border-zinc-800 transition-all duration-300 h-9 px-4"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Download className="h-3.5 w-3.5 text-blue-600" />
-                  )}
-                  <span className="font-bold text-[11px] uppercase tracking-wider">
-                    Growth PDF
-                  </span>
-                </Button>
-              )}
-            </PDFDownloadLink>
+            {!pdfReady ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={generateGrowthReport}
+                disabled={isGeneratingPDF}
+                className="flex gap-2 rounded-full border-blue-200 hover:border-blue-500 hover:bg-blue-50 dark:border-zinc-800 transition-all duration-300 h-9 px-4"
+              >
+                {isGeneratingPDF ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5 text-blue-600" />
+                )}
+                <span className="font-bold text-[11px] uppercase tracking-wider">
+                  {isGeneratingPDF ? "Generating..." : "Generate Growth PDF"}
+                </span>
+              </Button>
+            ) : (
+              <PDFDownloadLink
+                document={
+                  <GrowthAnalysisPDF
+                    summary={chatSummary}
+                    companyName={rawBusinessData.company?.name}
+                  />
+                }
+                fileName={`Growth_Strategy_${new Date().toISOString().split("T")[0]}.pdf`}
+              >
+                {({ loading }) => (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="flex gap-2 rounded-full bg-green-600 hover:bg-green-700 transition-all duration-300 h-9 px-4"
+                    disabled={loading}
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    <span className="font-bold text-[11px] uppercase tracking-wider">
+                      Download Report
+                    </span>
+                  </Button>
+                )}
+              </PDFDownloadLink>
+            )}
             <Button
               variant="ghost"
               size="icon"

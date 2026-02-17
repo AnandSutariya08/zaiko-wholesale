@@ -89,41 +89,38 @@ interface GrowthAnalysisPDFProps {
 
 export const GrowthAnalysisPDF = ({ summary, companyName }: GrowthAnalysisPDFProps) => {
   let reportData: GrowthReportData = {
-    executiveSummary: summary,
+    executiveSummary: "Analysis data unavailable. Please regenerate report.",
     keyInsights: [],
     recommendations: [],
     financialAdvice: ""
   };
 
   try {
-    // Clean potential markdown or extra text if the AI didn't return pure JSON
-    const jsonMatch = summary.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      reportData = {
-        executiveSummary: parsed.executiveSummary || summary,
-        keyInsights: parsed.keyInsights || [],
-        recommendations: parsed.recommendations || [],
-        financialAdvice: parsed.financialAdvice || ""
-      };
-    }
+    const cleanJson = summary.trim().replace(/^```json/, '').replace(/```$/, '');
+    const parsed = JSON.parse(cleanJson);
+    reportData = {
+      executiveSummary: parsed.executiveSummary || "",
+      keyInsights: parsed.keyInsights || [],
+      recommendations: parsed.recommendations || [],
+      financialAdvice: parsed.financialAdvice || ""
+    };
   } catch (e) {
-    console.error("Failed to parse AI report JSON", e);
+    // Fallback if not JSON
+    reportData.executiveSummary = summary;
   }
 
-  // Helper to replace Rupee symbols with Rs
   const formatCurrency = (text: string) => text.replace(/₹/g, 'Rs.');
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
-          <Text style={styles.companyName}>{companyName || 'SHREE RUDRA JEWELS'}</Text>
-          <Text style={styles.reportTitle}>Business Growth Strategy Report</Text>
+          <Text style={styles.companyName}>{companyName || 'BUSINESS REPORT'}</Text>
+          <Text style={styles.reportTitle}>Comprehensive Growth Strategy</Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionHeader}>Executive Analysis</Text>
+          <Text style={styles.sectionHeader}>Strategic Executive Summary</Text>
           <View style={styles.summaryCard}>
             <Text style={styles.content}>{formatCurrency(reportData.executiveSummary)}</Text>
           </View>
@@ -131,30 +128,35 @@ export const GrowthAnalysisPDF = ({ summary, companyName }: GrowthAnalysisPDFPro
 
         {reportData.keyInsights.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionHeader}>Key Business Insights</Text>
+            <Text style={styles.sectionHeader}>Deep Business Insights</Text>
             {reportData.keyInsights.map((insight, i) => (
-              <Text key={i} style={[styles.content, { marginBottom: 6 }]}>
-                • {formatCurrency(insight)}
-              </Text>
+              <View key={i} style={{ marginBottom: 10, paddingLeft: 10, borderLeftWidth: 1, borderLeftColor: '#cbd5e1' }}>
+                <Text style={styles.content}>{formatCurrency(insight)}</Text>
+              </View>
             ))}
           </View>
         )}
 
         {reportData.recommendations.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionHeader}>Strategic Recommendations</Text>
+          <View style={styles.section} break>
+            <Text style={styles.sectionHeader}>Actionable Growth Recommendations</Text>
             {reportData.recommendations.map((rec, i) => (
-              <Text key={i} style={[styles.content, { marginBottom: 6 }]}>
-                {i + 1}. {formatCurrency(rec)}
-              </Text>
+              <View key={i} style={{ marginBottom: 12, padding: 10, backgroundColor: '#f8fafc', borderRadius: 4 }}>
+                <Text style={[styles.content, { fontFamily: 'Helvetica-Bold', color: '#1e40af', marginBottom: 4 }]}>
+                  Phase {i + 1}
+                </Text>
+                <Text style={styles.content}>{formatCurrency(rec)}</Text>
+              </View>
             ))}
           </View>
         )}
 
         {reportData.financialAdvice && (
           <View style={styles.section}>
-            <Text style={styles.sectionHeader}>Financial Guidance</Text>
-            <Text style={styles.content}>{formatCurrency(reportData.financialAdvice)}</Text>
+            <Text style={styles.sectionHeader}>Financial Optimization Roadmap</Text>
+            <View style={{ padding: 12, borderTopWidth: 2, borderTopColor: '#10b981', backgroundColor: '#f0fdf4' }}>
+              <Text style={styles.content}>{formatCurrency(reportData.financialAdvice)}</Text>
+            </View>
           </View>
         )}
 
