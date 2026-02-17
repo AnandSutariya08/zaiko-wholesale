@@ -1023,7 +1023,7 @@ export default function BusinessHealth() {
                             <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter">Net Volume</p>
                           </div>
                         </div>
-                        <Progress value={share} className="h-1.5 bg-slate-100" indicatorClassName="bg-emerald-500" />
+                        <Progress value={share} className="h-1.5 bg-slate-100" />
                       </div>
                     );
                   })}
@@ -1149,12 +1149,8 @@ export default function BusinessHealth() {
                       <p className="text-3xl font-black text-slate-800 mb-2">{segment.value}</p>
                       <p className="text-[10px] font-bold text-slate-500 uppercase italic">Customers</p>
                       <Progress 
-                        value={(segment.value / healthData.clientAnalysis.length) * 100} 
+                        value={(segment.value / (healthData.clientAnalysis.length || 1)) * 100} 
                         className="h-1.5 mt-4" 
-                        indicatorClassName={cn(
-                          segment.name === "Active" ? "bg-emerald-500" : 
-                          segment.name === "At Risk" ? "bg-amber-500" : "bg-slate-400"
-                        )}
                       />
                     </div>
                   ))}
