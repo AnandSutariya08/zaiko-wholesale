@@ -699,38 +699,38 @@ export default function BusinessHealth() {
   const COLORS = ["#10b981", "#f59e0b", "#ef4444"];
 
   return (
-    <div className="p-4 md:p-8 space-y-6 pb-24 max-w-[1600px] mx-auto bg-slate-50/30 min-h-screen">
+    <div className="p-2 md:p-8 space-y-4 md:space-y-6 pb-24 max-w-[1600px] mx-auto bg-slate-50/30 min-h-screen">
       {/* Header & Controls */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white p-6 rounded-2xl border shadow-sm transition-all hover:shadow-md">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-primary/10 rounded-xl text-primary ring-1 ring-primary/20">
-            <Activity className="h-6 w-6" />
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 md:gap-6 bg-white p-4 md:p-6 rounded-2xl border shadow-sm transition-all hover:shadow-md">
+        <div className="flex items-center gap-3 md:gap-4">
+          <div className="p-2 md:p-3 bg-primary/10 rounded-xl text-primary ring-1 ring-primary/20 shrink-0">
+            <Activity className="h-5 w-5 md:h-6 md:w-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-slate-900">Business Health</h1>
-            <p className="text-sm text-slate-500 font-medium">Enterprise Performance & Risk Analytics</p>
+            <h1 className="text-xl md:text-2xl font-black tracking-tight text-slate-900">Business Health</h1>
+            <p className="text-[10px] md:text-sm text-slate-500 font-medium">Enterprise Performance & Risk Analytics</p>
           </div>
         </div>
         
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200">
-            <div className="flex flex-col px-3">
-              <span className="text-[10px] uppercase font-bold text-slate-400 leading-none mb-1">From</span>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 md:gap-4">
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <div className="flex flex-col px-2 md:px-3 flex-1">
+              <span className="text-[9px] uppercase font-bold text-slate-400 leading-none mb-1">From</span>
               <Input
                 type="date"
                 value={dateRange.start}
                 onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-                className="h-8 w-36 border-none bg-transparent p-0 text-sm font-bold focus-visible:ring-0"
+                className="h-7 md:h-8 w-full sm:w-32 md:w-36 border-none bg-transparent p-0 text-xs md:text-sm font-bold focus-visible:ring-0"
               />
             </div>
-            <div className="h-8 w-px bg-slate-200" />
-            <div className="flex flex-col px-3">
-              <span className="text-[10px] uppercase font-bold text-slate-400 leading-none mb-1">To</span>
+            <div className="h-6 md:h-8 w-px bg-slate-200" />
+            <div className="flex flex-col px-2 md:px-3 flex-1">
+              <span className="text-[9px] uppercase font-bold text-slate-400 leading-none mb-1">To</span>
               <Input
                 type="date"
                 value={dateRange.end}
                 onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-                className="h-8 w-36 border-none bg-transparent p-0 text-sm font-bold focus-visible:ring-0"
+                className="h-7 md:h-8 w-full sm:w-32 md:w-36 border-none bg-transparent p-0 text-xs md:text-sm font-bold focus-visible:ring-0"
               />
             </div>
           </div>
@@ -738,24 +738,24 @@ export default function BusinessHealth() {
           <PDFDownloadLink
             document={<HealthPDF data={healthData} dateRange={dateRange} />}
             fileName={`BusinessHealth_${dateRange.start}_${dateRange.end}.pdf`}
-            className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm hover:shadow-md hover:bg-primary/90 transition-all active:scale-95"
+            className="flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-bold text-xs md:text-sm shadow-sm hover:shadow-md hover:bg-primary/90 transition-all active:scale-95"
           >
-            {({ loading }) => (loading ? "Generating..." : <><Download className="h-4 w-4" /> Export Report</>)}
+            {({ loading }) => (loading ? "Generating..." : <><Download className="h-3.5 w-3.5 md:h-4 md:w-4" /> Export Report</>)}
           </PDFDownloadLink>
         </div>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="bg-white border p-1 rounded-xl h-auto flex-wrap justify-start gap-1 shadow-sm">
-          <TabsTrigger value="overview" className="rounded-lg px-6 py-2.5 font-bold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Overview</TabsTrigger>
-          <TabsTrigger value="financials" className="rounded-lg px-6 py-2.5 font-bold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Financials</TabsTrigger>
-          <TabsTrigger value="inventory" className="rounded-lg px-6 py-2.5 font-bold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Inventory</TabsTrigger>
-          <TabsTrigger value="stakeholders" className="rounded-lg px-6 py-2.5 font-bold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Stakeholders</TabsTrigger>
+      <Tabs defaultValue="overview" className="space-y-4 md:space-y-6">
+        <TabsList className="bg-white border p-1 rounded-xl h-auto flex-nowrap overflow-x-auto justify-start gap-1 shadow-sm scrollbar-none">
+          <TabsTrigger value="overview" className="rounded-lg px-3 md:px-6 py-2 md:py-2.5 font-bold text-xs md:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all shrink-0">Overview</TabsTrigger>
+          <TabsTrigger value="financials" className="rounded-lg px-3 md:px-6 py-2 md:py-2.5 font-bold text-xs md:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all shrink-0">Financials</TabsTrigger>
+          <TabsTrigger value="inventory" className="rounded-lg px-3 md:px-6 py-2 md:py-2.5 font-bold text-xs md:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all shrink-0">Inventory</TabsTrigger>
+          <TabsTrigger value="stakeholders" className="rounded-lg px-3 md:px-6 py-2 md:py-2.5 font-bold text-xs md:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all shrink-0">Stakeholders</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6 focus-visible:outline-none focus-visible:ring-0">
           {/* Executive Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
             <SummaryCard
               title="Total Revenue"
               value={formatCurrency(healthData.summary.totalSales)}
@@ -786,41 +786,41 @@ export default function BusinessHealth() {
             />
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
             {/* Primary Health Matrix */}
             <Card className="lg:col-span-2 shadow-sm border-slate-200">
-              <CardHeader className="flex flex-row items-center justify-between border-b bg-slate-50/50 px-6 py-4">
-                <div className="space-y-1">
-                  <CardTitle className="text-lg font-bold">Health Score Matrix</CardTitle>
-                  <CardDescription>Real-time operational efficiency scores</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between border-b bg-slate-50/50 px-4 md:px-6 py-3 md:py-4">
+                <div className="space-y-0.5 md:space-y-1">
+                  <CardTitle className="text-base md:text-lg font-bold">Health Score Matrix</CardTitle>
+                  <CardDescription className="text-xs">Real-time operational efficiency scores</CardDescription>
                 </div>
-                <div className="p-2 bg-white rounded-lg border shadow-sm">
-                  <Activity className="h-5 w-5 text-primary" />
+                <div className="p-1.5 md:p-2 bg-white rounded-lg border shadow-sm">
+                  <Activity className="h-4 w-4 md:h-5 md:w-5 text-primary" />
                 </div>
               </CardHeader>
-              <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+              <CardContent className="p-4 md:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-8">
                 {[
                   { label: "Cash Flow Stability", value: healthData.scores.cashFlow, desc: "Payment collection efficiency", icon: DollarSign },
                   { label: "Inventory Velocity", value: healthData.scores.inventoryTurnover, desc: "Stock movement rate", icon: Package },
                   { label: "Profitability Index", value: healthData.scores.profitHealth, desc: "Revenue vs Expense ratio", icon: Percent },
                   { label: "Credit Health", value: 100 - healthData.scores.creditRisk, desc: "Lower overdue transaction rate", icon: ShieldAlert },
                 ].map((score, i) => (
-                  <div key={i} className="space-y-3 p-4 rounded-xl bg-slate-50/50 border border-slate-100 transition-all hover:border-primary/20 hover:bg-white hover:shadow-md">
+                  <div key={i} className="space-y-2 md:space-y-3 p-3 md:p-4 rounded-xl bg-slate-50/50 border border-slate-100 transition-all hover:border-primary/20 hover:bg-white hover:shadow-md">
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-2">
-                        <score.icon className="h-4 w-4 text-slate-400" />
-                        <span className="text-sm font-bold text-slate-700">{score.label}</span>
+                        <score.icon className="h-3.5 w-3.5 md:h-4 md:w-4 text-slate-400" />
+                        <span className="text-xs md:text-sm font-bold text-slate-700">{score.label}</span>
                       </div>
                       <span className={cn(
-                        "text-sm font-black px-2 py-0.5 rounded-lg",
+                        "text-[10px] md:text-sm font-black px-1.5 md:px-2 py-0.5 rounded-lg",
                         score.value > 70 ? "text-emerald-600 bg-emerald-50" : 
                         score.value > 40 ? "text-amber-600 bg-amber-50" : "text-rose-600 bg-rose-50"
                       )}>
                         {roundToTwoDecimals(score.value)}%
                       </span>
                     </div>
-                    <Progress value={score.value} className="h-2" />
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{score.desc}</p>
+                    <Progress value={score.value} className="h-1.5 md:h-2" />
+                    <p className="text-[8px] md:text-[10px] text-slate-400 font-bold uppercase tracking-wider">{score.desc}</p>
                   </div>
                 ))}
               </CardContent>
@@ -828,29 +828,29 @@ export default function BusinessHealth() {
 
             {/* Strategic Roadmap */}
             <Card className="shadow-sm border-slate-200">
-              <CardHeader className="border-b bg-slate-50/50 px-6 py-4">
+              <CardHeader className="border-b bg-slate-50/50 px-4 md:px-6 py-3 md:py-4">
                 <div className="flex items-center gap-2">
-                  <Zap className="h-5 w-5 text-amber-500 fill-amber-500" />
-                  <CardTitle className="text-lg font-bold">Strategic Roadmap</CardTitle>
+                  <Zap className="h-4 w-4 md:h-5 md:w-5 text-amber-500 fill-amber-500" />
+                  <CardTitle className="text-base md:text-lg font-bold">Strategic Roadmap</CardTitle>
                 </div>
               </CardHeader>
-              <CardContent className="p-6 space-y-4">
+              <CardContent className="p-4 md:p-6 space-y-3 md:space-y-4">
                 {healthData.deadInventory > 0 && (
-                  <div className="p-4 rounded-xl bg-rose-50 border border-rose-100">
-                    <p className="text-sm leading-relaxed text-rose-900 font-medium">
+                  <div className="p-3 md:p-4 rounded-xl bg-rose-50 border border-rose-100">
+                    <p className="text-xs md:text-sm leading-relaxed text-rose-900 font-medium">
                       Liquidate <span className="font-black text-rose-700">{healthData.deadInventory} items</span> via clearance to unlock working capital.
                     </p>
                   </div>
                 )}
                 {healthData.summary.avgMargin < 15 && (
-                  <div className="p-4 rounded-xl bg-amber-50 border border-amber-100">
-                    <p className="text-sm leading-relaxed text-amber-900 font-medium">
+                  <div className="p-3 md:p-4 rounded-xl bg-amber-50 border border-amber-100">
+                    <p className="text-xs md:text-sm leading-relaxed text-amber-900 font-medium">
                       Current margin (<span className="font-black text-amber-700">{healthData.summary.avgMargin}%</span>) is below target. Review unit economics.
                     </p>
                   </div>
                 )}
-                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
-                  <p className="text-sm leading-relaxed text-emerald-900 font-medium">
+                <div className="p-3 md:p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+                  <p className="text-xs md:text-sm leading-relaxed text-emerald-900 font-medium">
                     Prioritize engagement with <span className="font-black text-emerald-700">{(healthData.topCustomer as any)?.name || "top clients"}</span> to stabilize LTV.
                   </p>
                 </div>
