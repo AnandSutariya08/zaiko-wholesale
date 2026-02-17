@@ -258,7 +258,7 @@ const HealthPDF = ({ data, dateRange }: any) => (
                   },
                 ]}
               >
-                {score.value}%
+                {roundToTwoDecimals(score.value)}%
               </Text>
             </View>
             <View style={pdfStyles.progressBar}>
@@ -266,7 +266,7 @@ const HealthPDF = ({ data, dateRange }: any) => (
                 style={[
                   pdfStyles.progressFill,
                   {
-                    width: `${score.value}%`,
+                    width: `${roundToTwoDecimals(score.value)}%`,
                     backgroundColor:
                       score.value > 70
                         ? "#10b981"
@@ -484,7 +484,7 @@ export default function BusinessHealth() {
       0,
     );
 
-    // COGS calculation fix: Ensure we're using current purchasePrice or default to 0
+    // COGS calculation fix
     let rangeCogs = 0;
     filteredBills.forEach((b: any) => {
       b.items.forEach((item: any) => {
@@ -499,7 +499,7 @@ export default function BusinessHealth() {
         ? roundToTwoDecimals((totalProfit / totalRevenue) * 100)
         : 0;
 
-    // Trend Analysis (Daily filling for charts)
+    // Trend Analysis
     const dateInterval = eachDayOfInterval({ start, end });
     const trendData = dateInterval.map((day) => {
       const dayStr = format(day, "yyyy-MM-dd");
@@ -538,14 +538,12 @@ export default function BusinessHealth() {
         (filteredBills.length || 1)) *
       100;
 
-    // Advanced Metrics
     const activeClientsCount = clients.filter(
       (c: any) =>
         c.lastBillDate && new Date(c.lastBillDate) >= subDays(new Date(), 30),
     ).length;
     const ltv = activeClientsCount > 0 ? totalRevenue / activeClientsCount : 0;
 
-    // Profitability by Category (Assuming category exists on products)
     const categoryProfit: Record<string, number> = {};
     filteredBills.forEach((b: any) => {
       b.items.forEach((item: any) => {
@@ -681,8 +679,6 @@ export default function BusinessHealth() {
     loadData();
   }, []);
 
-  // if (loading || !healthData) return <LoadingSpinner fullScreen />;
-
   if (loading || !healthData) {
     return (
       <div className="min-h-screen">
@@ -707,30 +703,42 @@ export default function BusinessHealth() {
             <Activity className="h-5 w-5 md:h-6 md:w-6" />
           </div>
           <div>
-            <h1 className="text-xl md:text-2xl font-black tracking-tight text-slate-900">Business Health</h1>
-            <p className="text-[10px] md:text-sm text-slate-500 font-medium">Enterprise Performance & Risk Analytics</p>
+            <h1 className="text-xl md:text-2xl font-semibold tracking-tight text-slate-900">
+              Business Health
+            </h1>
+            <p className="text-[10px] md:text-sm text-slate-500">
+              Enterprise Performance & Risk Analytics
+            </p>
           </div>
         </div>
-        
+
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 md:gap-4">
           <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
             <div className="flex flex-col px-2 md:px-3 flex-1">
-              <span className="text-[9px] uppercase font-bold text-slate-400 leading-none mb-1">From</span>
+              <span className="text-[9px] uppercase text-slate-400 leading-none mb-1">
+                From
+              </span>
               <Input
                 type="date"
                 value={dateRange.start}
-                onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-                className="h-7 md:h-8 w-full sm:w-32 md:w-36 border-none bg-transparent p-0 text-xs md:text-sm font-bold focus-visible:ring-0"
+                onChange={(e) =>
+                  setDateRange({ ...dateRange, start: e.target.value })
+                }
+                className="h-7 md:h-8 w-full sm:w-32 md:w-36 border-none bg-transparent p-0 text-xs md:text-sm focus-visible:ring-0"
               />
             </div>
             <div className="h-6 md:h-8 w-px bg-slate-200" />
             <div className="flex flex-col px-2 md:px-3 flex-1">
-              <span className="text-[9px] uppercase font-bold text-slate-400 leading-none mb-1">To</span>
+              <span className="text-[9px] uppercase text-slate-400 leading-none mb-1">
+                To
+              </span>
               <Input
                 type="date"
                 value={dateRange.end}
-                onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-                className="h-7 md:h-8 w-full sm:w-32 md:w-36 border-none bg-transparent p-0 text-xs md:text-sm font-bold focus-visible:ring-0"
+                onChange={(e) =>
+                  setDateRange({ ...dateRange, end: e.target.value })
+                }
+                className="h-7 md:h-8 w-full sm:w-32 md:w-36 border-none bg-transparent p-0 text-xs md:text-sm focus-visible:ring-0"
               />
             </div>
           </div>
@@ -738,22 +746,54 @@ export default function BusinessHealth() {
           <PDFDownloadLink
             document={<HealthPDF data={healthData} dateRange={dateRange} />}
             fileName={`BusinessHealth_${dateRange.start}_${dateRange.end}.pdf`}
-            className="flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-bold text-xs md:text-sm shadow-sm hover:shadow-md hover:bg-primary/90 transition-all active:scale-95"
+            className="flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-medium text-xs md:text-sm shadow-sm hover:shadow-md hover:bg-primary/90 transition-all active:scale-95"
           >
-            {({ loading }) => (loading ? "Generating..." : <><Download className="h-3.5 w-3.5 md:h-4 md:w-4" /> Export Report</>)}
+            {({ loading }) =>
+              loading ? (
+                "Generating..."
+              ) : (
+                <>
+                  <Download className="h-3.5 w-3.5 md:h-4 md:w-4" /> Export
+                  Report
+                </>
+              )
+            }
           </PDFDownloadLink>
         </div>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4 md:space-y-6">
         <TabsList className="bg-white border p-1 rounded-xl h-auto flex-nowrap overflow-x-auto justify-start gap-1 shadow-sm scrollbar-none">
-          <TabsTrigger value="overview" className="rounded-lg px-3 md:px-6 py-2 md:py-2.5 font-bold text-xs md:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all shrink-0">Overview</TabsTrigger>
-          <TabsTrigger value="financials" className="rounded-lg px-3 md:px-6 py-2 md:py-2.5 font-bold text-xs md:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all shrink-0">Financials</TabsTrigger>
-          <TabsTrigger value="inventory" className="rounded-lg px-3 md:px-6 py-2 md:py-2.5 font-bold text-xs md:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all shrink-0">Inventory</TabsTrigger>
-          <TabsTrigger value="stakeholders" className="rounded-lg px-3 md:px-6 py-2 md:py-2.5 font-bold text-xs md:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all shrink-0">Stakeholders</TabsTrigger>
+          <TabsTrigger
+            value="overview"
+            className="rounded-lg px-3 md:px-6 py-2 md:py-2.5 font-medium text-xs md:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all shrink-0"
+          >
+            Overview
+          </TabsTrigger>
+          <TabsTrigger
+            value="financials"
+            className="rounded-lg px-3 md:px-6 py-2 md:py-2.5 font-medium text-xs md:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all shrink-0"
+          >
+            Financials
+          </TabsTrigger>
+          <TabsTrigger
+            value="inventory"
+            className="rounded-lg px-3 md:px-6 py-2 md:py-2.5 font-medium text-xs md:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all shrink-0"
+          >
+            Inventory
+          </TabsTrigger>
+          <TabsTrigger
+            value="stakeholders"
+            className="rounded-lg px-3 md:px-6 py-2 md:py-2.5 font-medium text-xs md:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all shrink-0"
+          >
+            Stakeholders
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-6 focus-visible:outline-none focus-visible:ring-0">
+        <TabsContent
+          value="overview"
+          className="space-y-6 focus-visible:outline-none focus-visible:ring-0"
+        >
           {/* Executive Summary Cards */}
           <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
             <SummaryCard
@@ -761,28 +801,56 @@ export default function BusinessHealth() {
               value={formatCurrency(healthData.summary.totalSales)}
               icon={DollarSign}
               trend={`${healthData.trendData.length}d period`}
-              color="text-emerald-600"
+              color="text-emerald-700"
+              cardColor="bg-emerald-50 border-emerald-200"
+              iconColor="bg-emerald-100 text-emerald-600"
+              badgeColor="bg-emerald-100 text-emerald-700 border-emerald-200"
             />
             <SummaryCard
               title="Net Profit"
               value={formatCurrency(healthData.summary.totalProfit)}
               icon={TrendingUp}
               trend={`${healthData.summary.avgMargin}% Margin`}
-              color={healthData.summary.totalProfit >= 0 ? "text-blue-600" : "text-rose-600"}
+              color={
+                healthData.summary.totalProfit >= 0
+                  ? "text-blue-700"
+                  : "text-rose-700"
+              }
+              cardColor={
+                healthData.summary.totalProfit >= 0
+                  ? "bg-blue-50 border-blue-200"
+                  : "bg-rose-50 border-rose-200"
+              }
+              iconColor={
+                healthData.summary.totalProfit >= 0
+                  ? "bg-blue-100 text-blue-600"
+                  : "bg-rose-100 text-rose-600"
+              }
+              badgeColor={
+                healthData.summary.totalProfit >= 0
+                  ? "bg-blue-100 text-blue-700 border-blue-200"
+                  : "bg-rose-100 text-rose-700 border-rose-200"
+              }
             />
             <SummaryCard
               title="Op. Expenses"
               value={formatCurrency(healthData.summary.totalExpenses)}
               icon={TrendingDown}
               trend={`${roundToTwoDecimals((healthData.summary.totalExpenses / (healthData.summary.totalSales || 1)) * 100)}% of Rev`}
-              color="text-rose-600"
+              color="text-rose-700"
+              cardColor="bg-rose-50 border-rose-200"
+              iconColor="bg-rose-100 text-rose-600"
+              badgeColor="bg-rose-100 text-rose-700 border-rose-200"
             />
             <SummaryCard
               title="Client LTV"
               value={formatCurrency(healthData.summary.ltv)}
               icon={Users}
               trend="Per Active Client"
-              color="text-amber-600"
+              color="text-amber-700"
+              cardColor="bg-amber-50 border-amber-200"
+              iconColor="bg-amber-100 text-amber-600"
+              badgeColor="bg-amber-100 text-amber-700 border-amber-200"
             />
           </div>
 
@@ -791,8 +859,12 @@ export default function BusinessHealth() {
             <Card className="lg:col-span-2 shadow-sm border-slate-200">
               <CardHeader className="flex flex-row items-center justify-between border-b bg-slate-50/50 px-4 md:px-6 py-3 md:py-4">
                 <div className="space-y-0.5 md:space-y-1">
-                  <CardTitle className="text-base md:text-lg font-bold">Health Score Matrix</CardTitle>
-                  <CardDescription className="text-xs">Real-time operational efficiency scores</CardDescription>
+                  <CardTitle className="text-base md:text-lg font-semibold">
+                    Health Score Matrix
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Real-time operational efficiency scores
+                  </CardDescription>
                 </div>
                 <div className="p-1.5 md:p-2 bg-white rounded-lg border shadow-sm">
                   <Activity className="h-4 w-4 md:h-5 md:w-5 text-primary" />
@@ -800,27 +872,59 @@ export default function BusinessHealth() {
               </CardHeader>
               <CardContent className="p-4 md:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-8">
                 {[
-                  { label: "Cash Flow Stability", value: healthData.scores.cashFlow, desc: "Payment collection efficiency", icon: DollarSign },
-                  { label: "Inventory Velocity", value: healthData.scores.inventoryTurnover, desc: "Stock movement rate", icon: Package },
-                  { label: "Profitability Index", value: healthData.scores.profitHealth, desc: "Revenue vs Expense ratio", icon: Percent },
-                  { label: "Credit Health", value: 100 - healthData.scores.creditRisk, desc: "Lower overdue transaction rate", icon: ShieldAlert },
+                  {
+                    label: "Cash Flow Stability",
+                    value: healthData.scores.cashFlow,
+                    desc: "Payment collection efficiency",
+                    icon: DollarSign,
+                  },
+                  {
+                    label: "Inventory Velocity",
+                    value: healthData.scores.inventoryTurnover,
+                    desc: "Stock movement rate",
+                    icon: Package,
+                  },
+                  {
+                    label: "Profitability Index",
+                    value: healthData.scores.profitHealth,
+                    desc: "Revenue vs Expense ratio",
+                    icon: Percent,
+                  },
+                  {
+                    label: "Credit Health",
+                    value: 100 - healthData.scores.creditRisk,
+                    desc: "Lower overdue transaction rate",
+                    icon: ShieldAlert,
+                  },
                 ].map((score, i) => (
-                  <div key={i} className="space-y-2 md:space-y-3 p-3 md:p-4 rounded-xl bg-slate-50/50 border border-slate-100 transition-all hover:border-primary/20 hover:bg-white hover:shadow-md">
+                  <div
+                    key={i}
+                    className="space-y-2 md:space-y-3 p-3 md:p-4 rounded-xl bg-slate-50/50 border border-slate-100 transition-all hover:border-primary/20 hover:bg-white hover:shadow-md"
+                  >
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-2">
                         <score.icon className="h-3.5 w-3.5 md:h-4 md:w-4 text-slate-400" />
-                        <span className="text-xs md:text-sm font-bold text-slate-700">{score.label}</span>
+                        <span className="text-xs md:text-sm font-medium text-slate-700">
+                          {score.label}
+                        </span>
                       </div>
-                      <span className={cn(
-                        "text-[10px] md:text-sm font-black px-1.5 md:px-2 py-0.5 rounded-lg",
-                        score.value > 70 ? "text-emerald-600 bg-emerald-50" : 
-                        score.value > 40 ? "text-amber-600 bg-amber-50" : "text-rose-600 bg-rose-50"
-                      )}>
+                      <span
+                        className={cn(
+                          "text-[10px] md:text-sm font-semibold px-1.5 md:px-2 py-0.5 rounded-lg",
+                          score.value > 70
+                            ? "text-emerald-600 bg-emerald-50"
+                            : score.value > 40
+                              ? "text-amber-600 bg-amber-50"
+                              : "text-rose-600 bg-rose-50",
+                        )}
+                      >
                         {roundToTwoDecimals(score.value)}%
                       </span>
                     </div>
                     <Progress value={score.value} className="h-1.5 md:h-2" />
-                    <p className="text-[8px] md:text-[10px] text-slate-400 font-bold uppercase tracking-wider">{score.desc}</p>
+                    <p className="text-[8px] md:text-[10px] text-slate-400 uppercase tracking-wider">
+                      {score.desc}
+                    </p>
                   </div>
                 ))}
               </CardContent>
@@ -831,27 +935,41 @@ export default function BusinessHealth() {
               <CardHeader className="border-b bg-slate-50/50 px-4 md:px-6 py-3 md:py-4">
                 <div className="flex items-center gap-2">
                   <Zap className="h-4 w-4 md:h-5 md:w-5 text-amber-500 fill-amber-500" />
-                  <CardTitle className="text-base md:text-lg font-bold">Strategic Roadmap</CardTitle>
+                  <CardTitle className="text-base md:text-lg font-semibold">
+                    Strategic Roadmap
+                  </CardTitle>
                 </div>
               </CardHeader>
               <CardContent className="p-4 md:p-6 space-y-3 md:space-y-4">
                 {healthData.deadInventory > 0 && (
                   <div className="p-3 md:p-4 rounded-xl bg-rose-50 border border-rose-100">
-                    <p className="text-xs md:text-sm leading-relaxed text-rose-900 font-medium">
-                      Liquidate <span className="font-black text-rose-700">{healthData.deadInventory} items</span> via clearance to unlock working capital.
+                    <p className="text-xs md:text-sm leading-relaxed text-rose-900">
+                      Liquidate{" "}
+                      <span className="font-semibold text-rose-700">
+                        {healthData.deadInventory} items
+                      </span>{" "}
+                      via clearance to unlock working capital.
                     </p>
                   </div>
                 )}
                 {healthData.summary.avgMargin < 15 && (
                   <div className="p-3 md:p-4 rounded-xl bg-amber-50 border border-amber-100">
-                    <p className="text-xs md:text-sm leading-relaxed text-amber-900 font-medium">
-                      Current margin (<span className="font-black text-amber-700">{healthData.summary.avgMargin}%</span>) is below target. Review unit economics.
+                    <p className="text-xs md:text-sm leading-relaxed text-amber-900">
+                      Current margin (
+                      <span className="font-semibold text-amber-700">
+                        {healthData.summary.avgMargin}%
+                      </span>
+                      ) is below target. Review unit economics.
                     </p>
                   </div>
                 )}
                 <div className="p-3 md:p-4 rounded-xl bg-emerald-50 border border-emerald-100">
-                  <p className="text-xs md:text-sm leading-relaxed text-emerald-900 font-medium">
-                    Prioritize engagement with <span className="font-black text-emerald-700">{(healthData.topCustomer as any)?.name || "top clients"}</span> to stabilize LTV.
+                  <p className="text-xs md:text-sm leading-relaxed text-emerald-900">
+                    Prioritize engagement with{" "}
+                    <span className="font-semibold text-emerald-700">
+                      {(healthData.topCustomer as any)?.name || "top clients"}
+                    </span>{" "}
+                    to stabilize LTV.
                   </p>
                 </div>
               </CardContent>
@@ -859,37 +977,111 @@ export default function BusinessHealth() {
           </div>
         </TabsContent>
 
-        <TabsContent value="financials" className="space-y-6 focus-visible:outline-none focus-visible:ring-0">
+        <TabsContent
+          value="financials"
+          className="space-y-6 focus-visible:outline-none focus-visible:ring-0"
+        >
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Revenue Trend */}
             <Card className="shadow-sm border-slate-200">
               <CardHeader className="px-6 py-4 border-b bg-slate-50/50">
-                <CardTitle className="text-lg font-bold">Growth Dynamics</CardTitle>
-                <CardDescription>Net Revenue vs Profit trajectories</CardDescription>
+                <CardTitle className="text-lg font-semibold">
+                  Growth Dynamics
+                </CardTitle>
+                <CardDescription>
+                  Net Revenue vs Profit trajectories
+                </CardDescription>
               </CardHeader>
               <CardContent className="p-6 h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={healthData.trendData}>
                     <defs>
-                      <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1}/>
-                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                      <linearGradient
+                        id="colorSales"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="5%"
+                          stopColor="#3b82f6"
+                          stopOpacity={0.1}
+                        />
+                        <stop
+                          offset="95%"
+                          stopColor="#3b82f6"
+                          stopOpacity={0}
+                        />
                       </linearGradient>
-                      <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.1}/>
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                      <linearGradient
+                        id="colorProfit"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="5%"
+                          stopColor="#10b981"
+                          stopOpacity={0.1}
+                        />
+                        <stop
+                          offset="95%"
+                          stopColor="#10b981"
+                          stopOpacity={0}
+                        />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="date" tick={{fontSize: 10, fontWeight: 600, fill: '#94a3b8'}} axisLine={false} tickLine={false} />
-                    <YAxis tick={{fontSize: 10, fontWeight: 600, fill: '#94a3b8'}} axisLine={false} tickLine={false} tickFormatter={(val) => `₹${val/1000}k`} />
-                    <RechartsTooltip 
-                      contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'}}
-                      itemStyle={{fontSize: '12px', fontWeight: 700}}
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      stroke="#f1f5f9"
                     />
-                    <Area type="monotone" dataKey="sales" name="Revenue" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorSales)" />
-                    <Area type="monotone" dataKey="profit" name="Net Profit" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorProfit)" />
-                    <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{paddingBottom: '20px', fontSize: '12px', fontWeight: 700}} />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 10, fill: "#94a3b8" }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 10, fill: "#94a3b8" }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(val) => `₹${val / 1000}k`}
+                    />
+                    <RechartsTooltip
+                      contentStyle={{
+                        borderRadius: "12px",
+                        border: "none",
+                        boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
+                      }}
+                      itemStyle={{ fontSize: "12px" }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="sales"
+                      name="Revenue"
+                      stroke="#3b82f6"
+                      strokeWidth={3}
+                      fillOpacity={1}
+                      fill="url(#colorSales)"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="profit"
+                      name="Net Profit"
+                      stroke="#10b981"
+                      strokeWidth={3}
+                      fillOpacity={1}
+                      fill="url(#colorProfit)"
+                    />
+                    <Legend
+                      verticalAlign="top"
+                      height={36}
+                      iconType="circle"
+                      wrapperStyle={{ paddingBottom: "20px", fontSize: "12px" }}
+                    />
                   </AreaChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -898,8 +1090,12 @@ export default function BusinessHealth() {
             {/* Expense Breakdown */}
             <Card className="shadow-sm border-slate-200">
               <CardHeader className="px-6 py-4 border-b bg-slate-50/50">
-                <CardTitle className="text-lg font-bold">Burn Analysis</CardTitle>
-                <CardDescription>Categorized operational expenditures</CardDescription>
+                <CardTitle className="text-lg font-semibold">
+                  Burn Analysis
+                </CardTitle>
+                <CardDescription>
+                  Categorized operational expenditures
+                </CardDescription>
               </CardHeader>
               <CardContent className="p-6 space-y-6">
                 <div className="flex items-center justify-between p-6 rounded-2xl bg-rose-50 border border-rose-100 shadow-sm">
@@ -908,25 +1104,40 @@ export default function BusinessHealth() {
                       <TrendingDown className="h-6 w-6" />
                     </div>
                     <div>
-                      <p className="text-[10px] uppercase font-black text-rose-400 tracking-widest">Total OpEx</p>
-                      <p className="text-2xl font-black text-rose-700">{formatCurrency(healthData.summary.totalExpenses)}</p>
+                      <p className="text-[10px] uppercase text-rose-400 tracking-widest">
+                        Total OpEx
+                      </p>
+                      <p className="text-2xl font-semibold text-rose-700">
+                        {formatCurrency(healthData.summary.totalExpenses)}
+                      </p>
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="max-h-[250px] overflow-y-auto space-y-2 pr-2 scrollbar-thin">
                   {healthData.expenses.length > 0 ? (
                     healthData.expenses.map((exp: any, i: number) => (
-                      <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:bg-slate-50 transition-colors">
+                      <div
+                        key={i}
+                        className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:bg-slate-50 transition-colors"
+                      >
                         <div>
-                          <p className="text-sm font-bold text-slate-700">{exp.description}</p>
-                          <p className="text-[10px] text-slate-400 font-medium">{format(new Date(exp.date), "dd MMM yyyy")}</p>
+                          <p className="text-sm font-medium text-slate-700">
+                            {exp.description}
+                          </p>
+                          <p className="text-[10px] text-slate-400">
+                            {format(new Date(exp.date), "dd MMM yyyy")}
+                          </p>
                         </div>
-                        <p className="text-sm font-black text-rose-600">-{formatCurrency(exp.amount)}</p>
+                        <p className="text-sm font-medium text-rose-600">
+                          -{formatCurrency(exp.amount)}
+                        </p>
                       </div>
                     ))
                   ) : (
-                    <p className="text-center py-8 text-sm text-slate-400 font-medium italic">No expenses recorded in this period</p>
+                    <p className="text-center py-8 text-sm text-slate-400 italic">
+                      No expenses recorded in this period
+                    </p>
                   )}
                 </div>
               </CardContent>
@@ -934,52 +1145,109 @@ export default function BusinessHealth() {
           </div>
         </TabsContent>
 
-        <TabsContent value="inventory" className="space-y-6 focus-visible:outline-none focus-visible:ring-0">
+        <TabsContent
+          value="inventory"
+          className="space-y-6 focus-visible:outline-none focus-visible:ring-0"
+        >
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Inventory Risks */}
             <Card className="shadow-sm border-slate-200">
               <CardHeader className="px-6 py-4 border-b bg-slate-50/50">
-                <CardTitle className="text-lg font-bold">Stock Hazards</CardTitle>
-                <CardDescription>Critical inventory alert levels</CardDescription>
+                <CardTitle className="text-lg font-semibold">
+                  Stock Hazards
+                </CardTitle>
+                <CardDescription>
+                  Critical inventory alert levels
+                </CardDescription>
               </CardHeader>
               <CardContent className="p-6 space-y-4">
-                <RiskRow icon={XCircle} label="Dead Inventory" count={healthData.deadInventory} color="text-rose-500" />
-                <RiskRow icon={AlertTriangle} label="Margin Risks" count={healthData.lowMarginProds} color="text-amber-500" />
-                <RiskRow icon={Package} label="Overstocked Items" count={healthData.stockTooHigh} color="text-blue-500" />
-                <RiskRow icon={ShieldAlert} label="Return Velocity" status={healthData.tooManyRefunds ? "High" : "Optimal"} color={healthData.tooManyRefunds ? "text-rose-500" : "text-emerald-500"} />
+                <RiskRow
+                  icon={XCircle}
+                  label="Dead Inventory"
+                  count={healthData.deadInventory}
+                  color="text-rose-500"
+                />
+                <RiskRow
+                  icon={AlertTriangle}
+                  label="Margin Risks"
+                  count={healthData.lowMarginProds}
+                  color="text-amber-500"
+                />
+                <RiskRow
+                  icon={Package}
+                  label="Overstocked Items"
+                  count={healthData.stockTooHigh}
+                  color="text-blue-500"
+                />
+                <RiskRow
+                  icon={ShieldAlert}
+                  label="Return Velocity"
+                  status={healthData.tooManyRefunds ? "High" : "Optimal"}
+                  color={
+                    healthData.tooManyRefunds
+                      ? "text-rose-500"
+                      : "text-emerald-500"
+                  }
+                />
               </CardContent>
             </Card>
 
             {/* Returns Analysis */}
             <Card className="lg:col-span-2 shadow-sm border-slate-200">
               <CardHeader className="px-6 py-4 border-b bg-slate-50/50">
-                <CardTitle className="text-lg font-bold">Transaction Reversals</CardTitle>
-                <CardDescription>Net impact of returns and refunds</CardDescription>
+                <CardTitle className="text-lg font-semibold">
+                  Transaction Reversals
+                </CardTitle>
+                <CardDescription>
+                  Net impact of returns and refunds
+                </CardDescription>
               </CardHeader>
               <CardContent className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="p-5 rounded-2xl bg-amber-50 border border-amber-100 text-center">
-                  <p className="text-[10px] uppercase font-black text-amber-500 tracking-widest mb-1">Sales Returns</p>
-                  <p className="text-xl font-black text-amber-700">{formatCurrency(healthData.summary.totalReturns)}</p>
-                  <p className="text-[9px] text-amber-400 mt-2 font-bold uppercase">Rev leakage</p>
+                  <p className="text-[10px] uppercase text-amber-500 tracking-widest mb-1">
+                    Sales Returns
+                  </p>
+                  <p className="text-xl font-semibold text-amber-700">
+                    {formatCurrency(healthData.summary.totalReturns)}
+                  </p>
+                  <p className="text-[9px] text-amber-400 mt-2 uppercase">
+                    Rev leakage
+                  </p>
                 </div>
                 <div className="p-5 rounded-2xl bg-blue-50 border border-blue-100 text-center">
-                  <p className="text-[10px] uppercase font-black text-blue-500 tracking-widest mb-1">Purchase Returns</p>
-                  <p className="text-xl font-black text-blue-700">{formatCurrency(healthData.summary.totalPurchaseReturns)}</p>
-                  <p className="text-[9px] text-blue-400 mt-2 font-bold uppercase">Cap recovery</p>
+                  <p className="text-[10px] uppercase text-blue-500 tracking-widest mb-1">
+                    Purchase Returns
+                  </p>
+                  <p className="text-xl font-semibold text-blue-700">
+                    {formatCurrency(healthData.summary.totalPurchaseReturns)}
+                  </p>
+                  <p className="text-[9px] text-blue-400 mt-2 uppercase">
+                    Cap recovery
+                  </p>
                 </div>
                 <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 text-center shadow-lg">
-                  <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest mb-1">Net Impact</p>
-                  <p className="text-xl font-black text-white">
-                    {formatCurrency(healthData.summary.totalReturns - healthData.summary.totalPurchaseReturns)}
+                  <p className="text-[10px] uppercase text-slate-400 tracking-widest mb-1">
+                    Net Impact
                   </p>
-                  <p className="text-[9px] text-slate-500 mt-2 font-bold uppercase">Total reversal</p>
+                  <p className="text-xl font-semibold text-white">
+                    {formatCurrency(
+                      healthData.summary.totalReturns -
+                        healthData.summary.totalPurchaseReturns,
+                    )}
+                  </p>
+                  <p className="text-[9px] text-slate-500 mt-2 uppercase">
+                    Total reversal
+                  </p>
                 </div>
               </CardContent>
             </Card>
           </div>
         </TabsContent>
 
-        <TabsContent value="stakeholders" className="space-y-6 focus-visible:outline-none focus-visible:ring-0">
+        <TabsContent
+          value="stakeholders"
+          className="space-y-6 focus-visible:outline-none focus-visible:ring-0"
+        >
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             {/* User Performance */}
             <Card className="shadow-lg border-slate-200 overflow-hidden bg-white/50 backdrop-blur-sm">
@@ -990,11 +1258,18 @@ export default function BusinessHealth() {
                       <Zap className="h-5 w-5 text-amber-500" />
                     </div>
                     <div>
-                      <CardTitle className="text-lg font-bold text-slate-800">Sales Force</CardTitle>
-                      <CardDescription>Individual contribution analysis</CardDescription>
+                      <CardTitle className="text-lg font-semibold text-slate-800">
+                        Sales Force
+                      </CardTitle>
+                      <CardDescription>
+                        Individual contribution analysis
+                      </CardDescription>
                     </div>
                   </div>
-                  <Badge variant="secondary" className="bg-amber-100 text-amber-700 font-bold">
+                  <Badge
+                    variant="secondary"
+                    className="bg-amber-100 text-amber-700"
+                  >
                     {healthData.userAnalysis.length} Active
                   </Badge>
                 </div>
@@ -1002,28 +1277,48 @@ export default function BusinessHealth() {
               <CardContent className="p-0">
                 <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto scrollbar-thin">
                   {healthData.userAnalysis.map((user: any, i: number) => {
-                    const share = (user.sales / (healthData.summary.totalSales || 1)) * 100;
+                    const share =
+                      (user.sales / (healthData.summary.totalSales || 1)) * 100;
                     return (
-                      <div key={i} className="group p-6 hover:bg-slate-50 transition-all">
+                      <div
+                        key={i}
+                        className="group p-6 hover:bg-slate-50 transition-all"
+                      >
                         <div className="flex items-center justify-between mb-4">
                           <div className="flex items-center gap-4">
-                            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-slate-600 font-black text-lg border-2 border-white shadow-sm group-hover:scale-110 transition-transform">
+                            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-slate-600 font-medium text-lg border-2 border-white shadow-sm group-hover:scale-110 transition-transform">
                               {user.name.charAt(0)}
                             </div>
                             <div>
-                              <p className="text-base font-black text-slate-800">{user.name}</p>
+                              <p className="text-base font-medium text-slate-800">
+                                {user.name}
+                              </p>
                               <div className="flex items-center gap-2 mt-0.5">
-                                <Badge variant="outline" className="text-[10px] font-bold uppercase py-0">{user.count} Deals</Badge>
-                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{roundToTwoDecimals(share)}% Share</span>
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] py-0"
+                                >
+                                  {user.count} Deals
+                                </Badge>
+                                <span className="text-[10px] text-slate-400 uppercase tracking-wider">
+                                  {roundToTwoDecimals(share)}% Share
+                                </span>
                               </div>
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="text-lg font-black text-emerald-600 leading-none">{formatCurrency(user.sales)}</p>
-                            <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter">Net Volume</p>
+                            <p className="text-lg font-semibold text-emerald-600 leading-none">
+                              {formatCurrency(user.sales)}
+                            </p>
+                            <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-tighter">
+                              Net Volume
+                            </p>
                           </div>
                         </div>
-                        <Progress value={share} className="h-1.5 bg-slate-100" />
+                        <Progress
+                          value={share}
+                          className="h-1.5 bg-slate-100"
+                        />
                       </div>
                     );
                   })}
@@ -1040,11 +1335,16 @@ export default function BusinessHealth() {
                       <Users className="h-5 w-5 text-blue-500" />
                     </div>
                     <div>
-                      <CardTitle className="text-lg font-bold text-slate-800">Key Accounts</CardTitle>
+                      <CardTitle className="text-lg font-semibold text-slate-800">
+                        Key Accounts
+                      </CardTitle>
                       <CardDescription>Top 10 revenue partners</CardDescription>
                     </div>
                   </div>
-                  <Badge variant="secondary" className="bg-blue-100 text-blue-700 font-bold">
+                  <Badge
+                    variant="secondary"
+                    className="bg-blue-100 text-blue-700"
+                  >
                     VIP Priority
                   </Badge>
                 </div>
@@ -1054,24 +1354,37 @@ export default function BusinessHealth() {
                   {healthData.clientAnalysis.map((client: any, i: number) => {
                     const avgTicket = client.sales / (client.count || 1);
                     return (
-                      <div key={i} className="group p-6 hover:bg-slate-50 transition-all">
+                      <div
+                        key={i}
+                        className="group p-6 hover:bg-slate-50 transition-all"
+                      >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-4">
-                            <div className="h-12 w-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600 font-black text-lg border-2 border-white shadow-sm group-hover:bg-blue-600 group-hover:text-white transition-all">
+                            <div className="h-12 w-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600 font-medium text-lg border-2 border-white shadow-sm group-hover:bg-blue-600 group-hover:text-white transition-all">
                               {client.name.charAt(0)}
                             </div>
                             <div className="max-w-[140px] md:max-w-[200px]">
-                              <p className="text-base font-black text-slate-800 truncate">{client.name}</p>
+                              <p className="text-base font-medium text-slate-800 truncate">
+                                {client.name}
+                              </p>
                               <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-[10px] text-slate-400 font-bold uppercase">{client.count} Transactions</span>
+                                <span className="text-[10px] text-slate-400 uppercase">
+                                  {client.count} Transactions
+                                </span>
                                 <div className="h-1 w-1 rounded-full bg-slate-300" />
-                                <span className="text-[10px] text-blue-500 font-bold uppercase">Avg {formatCurrency(avgTicket)}</span>
+                                <span className="text-[10px] text-blue-500 uppercase">
+                                  Avg {formatCurrency(avgTicket)}
+                                </span>
                               </div>
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="text-lg font-black text-blue-600 leading-none">{formatCurrency(client.sales)}</p>
-                            <Badge className="mt-2 text-[9px] bg-slate-100 text-slate-600 border-none">Tier {i < 3 ? 'A+' : 'A'}</Badge>
+                            <p className="text-lg font-semibold text-blue-600 leading-none">
+                              {formatCurrency(client.sales)}
+                            </p>
+                            <Badge className="mt-2 text-[9px] bg-slate-100 text-slate-600 border-none">
+                              Tier {i < 3 ? "A+" : "A"}
+                            </Badge>
                           </div>
                         </div>
                       </div>
@@ -1090,11 +1403,18 @@ export default function BusinessHealth() {
                       <Package className="h-5 w-5 text-indigo-500" />
                     </div>
                     <div>
-                      <CardTitle className="text-lg font-bold text-slate-800">Prime Suppliers</CardTitle>
-                      <CardDescription>Supply chain dependency analysis</CardDescription>
+                      <CardTitle className="text-lg font-semibold text-slate-800">
+                        Prime Suppliers
+                      </CardTitle>
+                      <CardDescription>
+                        Supply chain dependency analysis
+                      </CardDescription>
                     </div>
                   </div>
-                  <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 font-bold">
+                  <Badge
+                    variant="secondary"
+                    className="bg-indigo-100 text-indigo-700"
+                  >
                     Strategic
                   </Badge>
                 </div>
@@ -1102,24 +1422,35 @@ export default function BusinessHealth() {
               <CardContent className="p-0">
                 <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto scrollbar-thin">
                   {healthData.vendorAnalysis.map((vendor: any, i: number) => (
-                    <div key={i} className="group p-6 hover:bg-slate-50 transition-all">
+                    <div
+                      key={i}
+                      className="group p-6 hover:bg-slate-50 transition-all"
+                    >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
-                          <div className="h-12 w-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-black text-lg border-2 border-white shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                          <div className="h-12 w-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-medium text-lg border-2 border-white shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-all">
                             {vendor.name.charAt(0)}
                           </div>
                           <div className="max-w-[140px] md:max-w-[200px]">
-                            <p className="text-base font-black text-slate-800 truncate">{vendor.name}</p>
+                            <p className="text-base font-medium text-slate-800 truncate">
+                              {vendor.name}
+                            </p>
                             <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-[10px] text-slate-400 font-bold uppercase">{vendor.count} Purchase Orders</span>
+                              <span className="text-[10px] text-slate-400 uppercase">
+                                {vendor.count} Purchase Orders
+                              </span>
                             </div>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-lg font-black text-indigo-600 leading-none">{formatCurrency(vendor.purchases)}</p>
+                          <p className="text-lg font-semibold text-indigo-600 leading-none">
+                            {formatCurrency(vendor.purchases)}
+                          </p>
                           <div className="flex items-center gap-1 justify-end mt-2">
                             <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-                            <span className="text-[9px] font-bold text-slate-400 uppercase">Verified</span>
+                            <span className="text-[9px] text-slate-400 uppercase">
+                              Verified
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -1138,22 +1469,39 @@ export default function BusinessHealth() {
                   <div className="p-2 bg-emerald-500/10 rounded-lg">
                     <Activity className="h-5 w-5 text-emerald-500" />
                   </div>
-                  <CardTitle className="text-lg font-bold">Market Segmentation</CardTitle>
+                  <CardTitle className="text-lg font-semibold">
+                    Market Segmentation
+                  </CardTitle>
                 </div>
               </CardHeader>
               <CardContent className="p-6">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {healthData.customerSegments.map((segment: any, i: number) => (
-                    <div key={i} className="p-5 rounded-2xl border border-slate-100 bg-slate-50/50 text-center transition-all hover:shadow-md hover:bg-white">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">{segment.name}</p>
-                      <p className="text-3xl font-black text-slate-800 mb-2">{segment.value}</p>
-                      <p className="text-[10px] font-bold text-slate-500 uppercase italic">Customers</p>
-                      <Progress 
-                        value={(segment.value / (healthData.clientAnalysis.length || 1)) * 100} 
-                        className="h-1.5 mt-4" 
-                      />
-                    </div>
-                  ))}
+                  {healthData.customerSegments.map(
+                    (segment: any, i: number) => (
+                      <div
+                        key={i}
+                        className="p-5 rounded-2xl border border-slate-100 bg-slate-50/50 text-center transition-all hover:shadow-md hover:bg-white"
+                      >
+                        <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">
+                          {segment.name}
+                        </p>
+                        <p className="text-3xl font-semibold text-slate-800 mb-2">
+                          {segment.value}
+                        </p>
+                        <p className="text-[10px] text-slate-500 uppercase italic">
+                          Customers
+                        </p>
+                        <Progress
+                          value={
+                            (segment.value /
+                              (healthData.clientAnalysis.length || 1)) *
+                            100
+                          }
+                          className="h-1.5 mt-4"
+                        />
+                      </div>
+                    ),
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -1164,7 +1512,9 @@ export default function BusinessHealth() {
                   <div className="p-2 bg-amber-500/10 rounded-lg">
                     <TrendingUp className="h-5 w-5 text-amber-500" />
                   </div>
-                  <CardTitle className="text-lg font-bold">Strategic Insights</CardTitle>
+                  <CardTitle className="text-lg font-semibold">
+                    Strategic Insights
+                  </CardTitle>
                 </div>
               </CardHeader>
               <CardContent className="p-6">
@@ -1172,20 +1522,46 @@ export default function BusinessHealth() {
                   <div className="flex items-start gap-4 p-4 rounded-xl bg-blue-50 border border-blue-100">
                     <Info className="h-5 w-5 text-blue-500 mt-0.5" />
                     <div>
-                      <p className="text-sm font-bold text-blue-900">Revenue Concentration</p>
+                      <p className="text-sm font-medium text-blue-900">
+                        Revenue Concentration
+                      </p>
                       <p className="text-xs text-blue-700 leading-relaxed mt-1">
-                        Your top 3 clients represent <span className="font-black text-blue-900">
-                          {roundToTwoDecimals((healthData.clientAnalysis.slice(0, 3).reduce((s: number, c: any) => s + c.sales, 0) / (healthData.summary.totalSales || 1)) * 100)}%
-                        </span> of your total revenue. Consider diversifying your client base to mitigate risk.
+                        Your top 3 clients represent{" "}
+                        <span className="font-semibold text-blue-900">
+                          {roundToTwoDecimals(
+                            (healthData.clientAnalysis
+                              .slice(0, 3)
+                              .reduce((s: number, c: any) => s + c.sales, 0) /
+                              (healthData.summary.totalSales || 1)) *
+                              100,
+                          )}
+                          %
+                        </span>{" "}
+                        of your total revenue. Consider diversifying your client
+                        base to mitigate risk.
                       </p>
                     </div>
                   </div>
                   <div className="flex items-start gap-4 p-4 rounded-xl bg-emerald-50 border border-emerald-100">
                     <TrendingUp className="h-5 w-5 text-emerald-500 mt-0.5" />
                     <div>
-                      <p className="text-sm font-bold text-emerald-900">Sales Velocity</p>
+                      <p className="text-sm font-medium text-emerald-900">
+                        Sales Velocity
+                      </p>
                       <p className="text-xs text-emerald-700 leading-relaxed mt-1">
-                        Average deal size for <span className="font-black">{healthData.userAnalysis[0]?.name}</span> is <span className="font-black">{formatCurrency(healthData.userAnalysis[0]?.sales / (healthData.userAnalysis[0]?.count || 1))}</span>. Scale these high-value conversion patterns across the team.
+                        Average deal size for{" "}
+                        <span className="font-medium">
+                          {healthData.userAnalysis[0]?.name}
+                        </span>{" "}
+                        is{" "}
+                        <span className="font-medium">
+                          {formatCurrency(
+                            healthData.userAnalysis[0]?.sales /
+                              (healthData.userAnalysis[0]?.count || 1),
+                          )}
+                        </span>
+                        . Scale these high-value conversion patterns across the
+                        team.
                       </p>
                     </div>
                   </div>
@@ -1199,32 +1575,59 @@ export default function BusinessHealth() {
   );
 }
 
-function SummaryCard({ title, value, icon: Icon, trend, color }: any) {
+function SummaryCard({
+  title,
+  value,
+  icon: Icon,
+  trend,
+  color,
+  cardColor,
+  iconColor,
+  badgeColor,
+}: any) {
   return (
-    <Card className="shadow-md overflow-hidden group border-muted/60 hover:border-primary/40 transition-all duration-300">
+    <Card
+      className={cn(
+        "shadow-md overflow-hidden group border transition-all duration-300 hover:shadow-lg",
+        cardColor,
+      )}
+    >
       <CardContent className="p-4 md:p-8 relative">
-        <div className="absolute -top-4 -right-4 p-4 opacity-[0.03] group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
+        <div className="absolute -top-4 -right-4 p-4 opacity-[0.06] group-hover:opacity-[0.12] group-hover:scale-110 transition-all duration-500">
           <Icon className="h-16 w-16 md:h-24 md:w-24" />
         </div>
         <div className="flex items-center gap-3 md:gap-4 mb-3 md:mb-5">
-          <div className="p-2 md:p-3 bg-muted/50 rounded-xl group-hover:bg-primary/10 group-hover:text-primary transition-all duration-300">
+          <div
+            className={cn(
+              "p-2 md:p-3 rounded-xl transition-all duration-300",
+              iconColor,
+            )}
+          >
             <Icon className="h-4 w-4 md:h-5 md:w-5" />
           </div>
-          <span className="text-[10px] md:text-xs font-black uppercase text-muted-foreground tracking-[0.1em] md:tracking-[0.2em]">
+          <span className="text-[10px] md:text-xs uppercase text-muted-foreground tracking-[0.1em] md:tracking-[0.2em]">
             {title}
           </span>
         </div>
-        <div className={cn("text-xl md:text-3xl font-black mb-2 md:mb-3 tracking-tight", color)}>
+        <div
+          className={cn(
+            "text-xl md:text-3xl font-semibold mb-2 md:mb-3 tracking-tight",
+            color,
+          )}
+        >
           {value}
         </div>
         <div className="flex items-center gap-1.5 md:gap-2">
           <Badge
             variant="outline"
-            className="text-[8px] md:text-[10px] px-1.5 md:px-2 py-0 md:py-0.5 font-black border-muted-foreground/30 bg-muted/20 uppercase tracking-tighter"
+            className={cn(
+              "text-[8px] md:text-[10px] px-1.5 md:px-2 py-0 md:py-0.5 uppercase tracking-tighter border",
+              badgeColor,
+            )}
           >
             {trend}
           </Badge>
-          <span className="text-[8px] md:text-[10px] text-muted-foreground font-bold uppercase tracking-wider md:tracking-widest opacity-70">
+          <span className="text-[8px] md:text-[10px] text-muted-foreground uppercase tracking-wider md:tracking-widest opacity-70">
             period trend
           </span>
         </div>
@@ -1245,11 +1648,13 @@ function RiskRow({ icon: Icon, label, count, status, color }: any) {
         >
           <Icon className="h-4 w-4 md:h-5 md:w-5" />
         </div>
-        <span className="text-xs md:text-sm font-bold text-foreground/80">{label}</span>
+        <span className="text-xs md:text-sm font-medium text-foreground/80">
+          {label}
+        </span>
       </div>
       <span
         className={cn(
-          "font-black text-[10px] md:text-sm px-2 md:px-3 py-0.5 md:py-1 rounded-full bg-background/50",
+          "font-medium text-[10px] md:text-sm px-2 md:px-3 py-0.5 md:py-1 rounded-full bg-background/50",
           color,
         )}
       >
