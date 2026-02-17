@@ -13,6 +13,9 @@ import {
   getDeadstock,
   getBillReturns,
   getExpenses,
+  getVendors,
+  getCreators,
+  getPurchaseReturns,
 } from "@/lib/storage";
 import {
   TrendingDown,
@@ -147,6 +150,88 @@ const HealthPDF = ({ data, dateRange }: any) => (
       </View>
 
       <View style={pdfStyles.section}>
+        <Text style={pdfStyles.sectionTitle}>Financial Summary</Text>
+        <View style={pdfStyles.table}>
+          <View style={pdfStyles.tableHeader}>
+            <Text style={pdfStyles.colName}>Description</Text>
+            <Text style={pdfStyles.colValue}>Amount</Text>
+          </View>
+          <View style={pdfStyles.tableRow}>
+            <Text style={pdfStyles.colName}>Sales Returns</Text>
+            <Text style={pdfStyles.colValue}>{formatCurrency(data.summary.totalReturns)}</Text>
+          </View>
+          <View style={pdfStyles.tableRow}>
+            <Text style={pdfStyles.colName}>Purchase Returns</Text>
+            <Text style={pdfStyles.colValue}>{formatCurrency(data.summary.totalPurchaseReturns)}</Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={pdfStyles.section}>
+        <Text style={pdfStyles.sectionTitle}>User Performance</Text>
+        <View style={pdfStyles.table}>
+          <View style={pdfStyles.tableHeader}>
+            <Text style={pdfStyles.colName}>User</Text>
+            <Text style={pdfStyles.colValue}>Sales</Text>
+          </View>
+          {data.userAnalysis.map((u: any, i: number) => (
+            <View key={i} style={pdfStyles.tableRow}>
+              <Text style={pdfStyles.colName}>{u.name}</Text>
+              <Text style={pdfStyles.colValue}>{formatCurrency(u.sales)}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      <View style={pdfStyles.section}>
+        <Text style={pdfStyles.sectionTitle}>Top Clients</Text>
+        <View style={pdfStyles.table}>
+          <View style={pdfStyles.tableHeader}>
+            <Text style={pdfStyles.colName}>Client</Text>
+            <Text style={pdfStyles.colValue}>Total Value</Text>
+          </View>
+          {data.clientAnalysis.map((c: any, i: number) => (
+            <View key={i} style={pdfStyles.tableRow}>
+              <Text style={pdfStyles.colName}>{c.name}</Text>
+              <Text style={pdfStyles.colValue}>{formatCurrency(c.sales)}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      <View style={pdfStyles.section}>
+        <Text style={pdfStyles.sectionTitle}>Vendor Performance</Text>
+        <View style={pdfStyles.table}>
+          <View style={pdfStyles.tableHeader}>
+            <Text style={pdfStyles.colName}>Vendor</Text>
+            <Text style={pdfStyles.colValue}>Purchases</Text>
+          </View>
+          {data.vendorAnalysis.map((v: any, i: number) => (
+            <View key={i} style={pdfStyles.tableRow}>
+              <Text style={pdfStyles.colName}>{v.name}</Text>
+              <Text style={pdfStyles.colValue}>{formatCurrency(v.purchases)}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      <View style={pdfStyles.section}>
+        <Text style={pdfStyles.sectionTitle}>Expenses Detail</Text>
+        <View style={pdfStyles.table}>
+          <View style={pdfStyles.tableHeader}>
+            <Text style={pdfStyles.colName}>Description</Text>
+            <Text style={pdfStyles.colValue}>Amount</Text>
+          </View>
+          {data.expenses.map((e: any, i: number) => (
+            <View key={i} style={pdfStyles.tableRow}>
+              <Text style={pdfStyles.colName}>{e.description}</Text>
+              <Text style={pdfStyles.colValue}>{formatCurrency(e.amount)}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      <View style={pdfStyles.section}>
         <Text style={pdfStyles.sectionTitle}>Risk Assessment</Text>
         <View style={{ gap: 8 }}>
           <Text>• Dead Stock Impact: {data.deadInventory} items currently inactive.</Text>
@@ -180,10 +265,38 @@ export default function BusinessHealth() {
     const filteredReturns = returns.filter((r: any) => isWithinInterval(new Date(r.date), { start, end }));
     const filteredExpenses = expenses.filter((e: any) => isWithinInterval(new Date(e.date), { start, end }));
     const filteredPurchases = purchases.filter((p: any) => isWithinInterval(new Date(p.createdAt || p.billDate || p.id), { start, end }));
+    const filteredPurchaseReturns = (rawData.purchaseReturns || []).filter((r: any) => isWithinInterval(new Date(r.date), { start, end }));
+
+    // Granular Analysis: User, Client, Vendor
+    const userAnalysis: Record<string, any> = {};
+    filteredBills.forEach(b => {
+      const user = b.createdBy || "System";
+      if (!userAnalysis[user]) userAnalysis[user] = { name: user, sales: 0, count: 0 };
+      userAnalysis[user].sales += b.total;
+      userAnalysis[user].count += 1;
+    });
+
+    const clientAnalysis: Record<string, any> = {};
+    filteredBills.forEach(b => {
+      const client = b.clientName || "Unknown";
+      if (!clientAnalysis[client]) clientAnalysis[client] = { name: client, sales: 0, count: 0 };
+      clientAnalysis[client].sales += b.total;
+      clientAnalysis[client].count += 1;
+    });
+
+    const vendorAnalysis: Record<string, any> = {};
+    filteredPurchases.forEach(p => {
+      const vendor = p.vendorName || "Unknown";
+      if (!vendorAnalysis[vendor]) vendorAnalysis[vendor] = { name: vendor, purchases: 0, count: 0 };
+      vendorAnalysis[vendor].purchases += p.total;
+      vendorAnalysis[vendor].count += 1;
+    });
 
     // Executive Summary Metrics
     const totalSales = filteredBills.reduce((s: number, b: any) => s + b.total, 0);
     const totalExpenses = filteredExpenses.reduce((s: number, e: any) => s + e.amount, 0);
+    const totalReturns = filteredReturns.reduce((s: number, r: any) => s + (r.total || 0), 0);
+    const totalPurchaseReturns = filteredPurchaseReturns.reduce((s: number, r: any) => s + (r.total || 0), 0);
     const totalRevenue = filteredBills.reduce((s: number, b: any) => s + (b.subtotal - (b.discount || 0)), 0);
     
     // COGS calculation fix: Ensure we're using current purchasePrice or default to 0
@@ -195,7 +308,7 @@ export default function BusinessHealth() {
         rangeCogs += item.quantity * cost;
       });
     });
-    const totalProfit = totalRevenue - rangeCogs;
+    const totalProfit = totalRevenue - rangeCogs - totalExpenses;
     const avgMargin = totalRevenue > 0 ? roundToTwoDecimals((totalProfit / totalRevenue) * 100) : 0;
 
     // Trend Analysis (Daily filling for charts)
@@ -243,7 +356,7 @@ export default function BusinessHealth() {
     const categoryData = Object.entries(categoryProfit).map(([name, value]) => ({ name, value }));
 
     return {
-      summary: { totalSales, totalProfit, totalExpenses, avgMargin, ltv },
+      summary: { totalSales, totalProfit, totalExpenses, avgMargin, ltv, totalReturns, totalPurchaseReturns },
       scores: {
         cashFlow: Math.max(0, 100 - (filteredBills.filter((b: any) => b.paymentStatus !== 'paid').length / (filteredBills.length || 1)) * 50),
         inventoryTurnover: Math.min(100, turnover * 15),
@@ -252,6 +365,10 @@ export default function BusinessHealth() {
       },
       trendData,
       categoryData,
+      userAnalysis: Object.values(userAnalysis).sort((a,b) => b.sales - a.sales),
+      clientAnalysis: Object.values(clientAnalysis).sort((a,b) => b.sales - a.sales).slice(0, 10),
+      vendorAnalysis: Object.values(vendorAnalysis).sort((a,b) => b.purchases - a.purchases).slice(0, 10),
+      expenses: filteredExpenses,
       deadInventory: products.filter((p: any) => p.stock > 0 && !new Set(filteredBills.flatMap((b: any) => b.items.map((i: any) => i.productId))).has(p.id)).length,
       lowMarginProds: products.filter((p: any) => p.price < (p.purchasePrice || 0) * 1.1).length,
       topCustomer: clients.sort((a: any, b: any) => (b.totalRevenue || 0) - (a.totalRevenue || 0))[0],
@@ -268,10 +385,10 @@ export default function BusinessHealth() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [bills, products, clients, purchases, deadstock, returns, expenses] = await Promise.all([
-          getBills(), getProducts(), getClients(), getPurchaseBills(), getDeadstock(), getBillReturns(), getExpenses()
+        const [bills, products, clients, purchases, deadstock, returns, expenses, purchaseReturns] = await Promise.all([
+          getBills(), getProducts(), getClients(), getPurchaseBills(), getDeadstock(), getBillReturns(), getExpenses(), getPurchaseReturns()
         ]);
-        setRawData({ bills, products, clients, purchases, deadstock, returns, expenses });
+        setRawData({ bills, products, clients, purchases, deadstock, returns, expenses, purchaseReturns });
       } catch (e) {
         console.error("Failed to load health data", e);
       } finally {
@@ -394,6 +511,132 @@ export default function BusinessHealth() {
                 <Bar dataKey="value" fill="#10b981" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Advanced Granular Analysis */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* User Wise Analysis */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg">User Performance</CardTitle>
+            <CardDescription>Sales contribution by staff</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-2">
+            {healthData.userAnalysis.map((user: any, i: number) => (
+              <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
+                    {user.name.charAt(0)}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">{user.name}</p>
+                    <p className="text-[10px] text-muted-foreground">{user.count} bills generated</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold">{formatCurrency(user.sales)}</p>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* Client Wise Analysis */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg">Top 10 Clients</CardTitle>
+            <CardDescription>Revenue by customer</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-2">
+            {healthData.clientAnalysis.map((client: any, i: number) => (
+              <div key={i} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{client.name}</p>
+                  <p className="text-[10px] text-muted-foreground">{client.count} transactions</p>
+                </div>
+                <p className="text-sm font-bold text-primary">{formatCurrency(client.sales)}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* Vendor Wise Analysis */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg">Top 10 Vendors</CardTitle>
+            <CardDescription>Procurement volume</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-2">
+            {healthData.vendorAnalysis.map((vendor: any, i: number) => (
+              <div key={i} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{vendor.name}</p>
+                  <p className="text-[10px] text-muted-foreground">{vendor.count} purchases</p>
+                </div>
+                <p className="text-sm font-bold text-amber-600">{formatCurrency(vendor.purchases)}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Detailed Expenses Analysis */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg">Expense Breakdown</CardTitle>
+            <CardDescription>Operational burn during period</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-2">
+            <div className="flex items-center justify-between p-4 rounded-xl bg-red-50 border border-red-100">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-red-100 rounded-lg text-red-600"><TrendingDown className="h-5 w-5" /></div>
+                <div>
+                  <p className="text-xs uppercase font-bold text-red-600">Total Expenses</p>
+                  <p className="text-2xl font-bold text-red-700">{formatCurrency(healthData.summary.totalExpenses)}</p>
+                </div>
+              </div>
+            </div>
+            <div className="max-h-[300px] overflow-auto space-y-2 pr-2">
+              {healthData.expenses.map((exp: any, i: number) => (
+                <div key={i} className="flex items-center justify-between p-2 border-b border-muted">
+                  <div>
+                    <p className="text-sm font-medium">{exp.description}</p>
+                    <p className="text-[10px] text-muted-foreground">{format(new Date(exp.date), 'dd MMM yyyy')}</p>
+                  </div>
+                  <p className="text-sm font-semibold text-red-600">-{formatCurrency(exp.amount)}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Returns Analysis */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg">Returns Analysis</CardTitle>
+            <CardDescription>Impact of reversals on revenue</CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-4 pt-2">
+            <div className="p-4 rounded-xl bg-orange-50 border border-orange-100 text-center">
+              <p className="text-xs uppercase font-bold text-orange-600 mb-1">Sales Returns</p>
+              <p className="text-xl font-bold text-orange-700">{formatCurrency(healthData.summary.totalReturns)}</p>
+              <p className="text-[10px] text-orange-500 mt-1">Lost Opportunity</p>
+            </div>
+            <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 text-center">
+              <p className="text-xs uppercase font-bold text-blue-600 mb-1">Purchase Returns</p>
+              <p className="text-xl font-bold text-blue-700">{formatCurrency(healthData.summary.totalPurchaseReturns)}</p>
+              <p className="text-[10px] text-blue-500 mt-1">Recovered Cost</p>
+            </div>
+            <div className="col-span-2 p-4 rounded-xl bg-muted/30 border text-center">
+              <p className="text-sm font-medium">Net Return Impact</p>
+              <p className="text-lg font-bold text-foreground">
+                {formatCurrency(healthData.summary.totalReturns - healthData.summary.totalPurchaseReturns)}
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-1">Difference between sales and purchase returns</p>
+            </div>
           </CardContent>
         </Card>
       </div>
