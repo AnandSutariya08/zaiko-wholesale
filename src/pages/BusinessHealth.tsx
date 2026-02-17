@@ -1202,29 +1202,29 @@ export default function BusinessHealth() {
 function SummaryCard({ title, value, icon: Icon, trend, color }: any) {
   return (
     <Card className="shadow-md overflow-hidden group border-muted/60 hover:border-primary/40 transition-all duration-300">
-      <CardContent className="p-8 relative">
+      <CardContent className="p-4 md:p-8 relative">
         <div className="absolute -top-4 -right-4 p-4 opacity-[0.03] group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
-          <Icon className="h-24 w-24" />
+          <Icon className="h-16 w-16 md:h-24 md:w-24" />
         </div>
-        <div className="flex items-center gap-4 mb-5">
-          <div className="p-3 bg-muted/50 rounded-xl group-hover:bg-primary/10 group-hover:text-primary transition-all duration-300">
-            <Icon className="h-5 w-5" />
+        <div className="flex items-center gap-3 md:gap-4 mb-3 md:mb-5">
+          <div className="p-2 md:p-3 bg-muted/50 rounded-xl group-hover:bg-primary/10 group-hover:text-primary transition-all duration-300">
+            <Icon className="h-4 w-4 md:h-5 md:w-5" />
           </div>
-          <span className="text-xs font-black uppercase text-muted-foreground tracking-[0.2em]">
+          <span className="text-[10px] md:text-xs font-black uppercase text-muted-foreground tracking-[0.1em] md:tracking-[0.2em]">
             {title}
           </span>
         </div>
-        <div className={cn("text-3xl font-black mb-3 tracking-tight", color)}>
+        <div className={cn("text-xl md:text-3xl font-black mb-2 md:mb-3 tracking-tight", color)}>
           {value}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 md:gap-2">
           <Badge
             variant="outline"
-            className="text-[10px] px-2 py-0.5 font-black border-muted-foreground/30 bg-muted/20 uppercase tracking-tighter"
+            className="text-[8px] md:text-[10px] px-1.5 md:px-2 py-0 md:py-0.5 font-black border-muted-foreground/30 bg-muted/20 uppercase tracking-tighter"
           >
             {trend}
           </Badge>
-          <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest opacity-70">
+          <span className="text-[8px] md:text-[10px] text-muted-foreground font-bold uppercase tracking-wider md:tracking-widest opacity-70">
             period trend
           </span>
         </div>
@@ -1235,21 +1235,21 @@ function SummaryCard({ title, value, icon: Icon, trend, color }: any) {
 
 function RiskRow({ icon: Icon, label, count, status, color }: any) {
   return (
-    <div className="flex items-center justify-between p-4 rounded-xl bg-muted/20 border border-transparent hover:border-muted/40 hover:bg-muted/30 transition-all group">
-      <div className="flex items-center gap-4">
+    <div className="flex items-center justify-between p-3 md:p-4 rounded-xl bg-muted/20 border border-transparent hover:border-muted/40 hover:bg-muted/30 transition-all group">
+      <div className="flex items-center gap-3 md:gap-4">
         <div
           className={cn(
-            "p-2 rounded-lg bg-background group-hover:scale-110 transition-transform",
+            "p-1.5 md:p-2 rounded-lg bg-background group-hover:scale-110 transition-transform",
             color,
           )}
         >
-          <Icon className="h-5 w-5" />
+          <Icon className="h-4 w-4 md:h-5 md:w-5" />
         </div>
-        <span className="text-sm font-bold text-foreground/80">{label}</span>
+        <span className="text-xs md:text-sm font-bold text-foreground/80">{label}</span>
       </div>
       <span
         className={cn(
-          "font-black text-sm px-3 py-1 rounded-full bg-background/50",
+          "font-black text-[10px] md:text-sm px-2 md:px-3 py-0.5 md:py-1 rounded-full bg-background/50",
           color,
         )}
       >
