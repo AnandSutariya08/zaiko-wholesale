@@ -23,6 +23,7 @@ import {
   getCreators,
   getPurchaseReturns,
 } from "@/lib/storage";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   TrendingDown,
   TrendingUp,
@@ -698,586 +699,371 @@ export default function BusinessHealth() {
   const COLORS = ["#10b981", "#f59e0b", "#ef4444"];
 
   return (
-    <div className="p-8 space-y-10 pb-24 max-w-[1500px] mx-auto">
+    <div className="p-4 md:p-8 space-y-6 pb-24 max-w-[1600px] mx-auto bg-slate-50/30 min-h-screen">
       {/* Header & Controls */}
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 bg-card p-8 rounded-2xl border shadow-md">
-        <div className="space-y-3">
-          <div className="flex items-center gap-3 text-primary font-bold">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white p-6 rounded-2xl border shadow-sm transition-all hover:shadow-md">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-primary/10 rounded-xl text-primary ring-1 ring-primary/20">
             <Activity className="h-6 w-6" />
-            <span className="uppercase tracking-widest text-xs">
-              Enterprise Analysis
-            </span>
           </div>
-          <h1 className="text-4xl font-extrabold tracking-tight text-foreground">
-            Business Health Intelligence
-          </h1>
-          <p className="text-muted-foreground max-w-lg text-lg">
-            Comprehensive diagnostic of operational efficiency, profitability,
-            and risk factors across your enterprise.
-          </p>
+          <div>
+            <h1 className="text-2xl font-black tracking-tight text-slate-900">Business Health</h1>
+            <p className="text-sm text-slate-500 font-medium">Enterprise Performance & Risk Analytics</p>
+          </div>
         </div>
-
-        <div className="flex flex-col sm:flex-row items-center gap-6">
-          <div className="grid grid-cols-2 gap-4 p-2 bg-muted/40 rounded-xl border w-full sm:w-auto">
-            <div className="space-y-2">
-              <Label className="text-[10px] uppercase font-bold text-muted-foreground px-2">
-                Start Date
-              </Label>
+        
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <div className="flex flex-col px-3">
+              <span className="text-[10px] uppercase font-bold text-slate-400 leading-none mb-1">From</span>
               <Input
                 type="date"
                 value={dateRange.start}
-                onChange={(e) =>
-                  setDateRange((prev) => ({ ...prev, start: e.target.value }))
-                }
-                className="h-10 border-none bg-background focus-visible:ring-2 px-3 rounded-lg"
+                onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
+                className="h-8 w-36 border-none bg-transparent p-0 text-sm font-bold focus-visible:ring-0"
               />
             </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] uppercase font-bold text-muted-foreground px-2">
-                End Date
-              </Label>
+            <div className="h-8 w-px bg-slate-200" />
+            <div className="flex flex-col px-3">
+              <span className="text-[10px] uppercase font-bold text-slate-400 leading-none mb-1">To</span>
               <Input
                 type="date"
                 value={dateRange.end}
-                onChange={(e) =>
-                  setDateRange((prev) => ({ ...prev, end: e.target.value }))
-                }
-                className="h-10 border-none bg-background focus-visible:ring-2 px-3 rounded-lg"
+                onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
+                className="h-8 w-36 border-none bg-transparent p-0 text-sm font-bold focus-visible:ring-0"
               />
             </div>
           </div>
+
           <PDFDownloadLink
             document={<HealthPDF data={healthData} dateRange={dateRange} />}
-            fileName={`Analysis_${dateRange.start}_to_${dateRange.end}.pdf`}
-            className="w-full sm:w-auto"
+            fileName={`BusinessHealth_${dateRange.start}_${dateRange.end}.pdf`}
+            className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm hover:shadow-md hover:bg-primary/90 transition-all active:scale-95"
           >
-            {({ loading }) => (
-              <Button
-                disabled={loading}
-                size="lg"
-                className="w-full h-14 px-8 gap-3 shadow-xl hover:shadow-primary/30 transition-all font-bold text-base"
-              >
-                <Download className="h-5 w-5" />
-                {loading ? "Analyzing..." : "Export Full Audit"}
-              </Button>
-            )}
+            {({ loading }) => (loading ? "Generating..." : <><Download className="h-4 w-4" /> Export Report</>)}
           </PDFDownloadLink>
         </div>
       </div>
 
-      {/* Summary Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <SummaryCard
-          title="Range Revenue"
-          value={formatCurrency(healthData.summary.totalSales)}
-          icon={DollarSign}
-          trend="+12.5%"
-        />
-        <SummaryCard
-          title="Net Profit"
-          value={formatCurrency(healthData.summary.totalProfit)}
-          icon={TrendingUp}
-          trend="+8.2%"
-          color="text-green-600"
-        />
-        <SummaryCard
-          title="Customer LTV"
-          value={formatCurrency(healthData.summary.ltv)}
-          icon={Users}
-          trend="Avg Revenue/Client"
-        />
-        <SummaryCard
-          title="Avg Margin"
-          value={`${healthData.summary.avgMargin}%`}
-          icon={Percent}
-          trend="Stable"
-        />
-      </div>
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList className="bg-white border p-1 rounded-xl h-auto flex-wrap justify-start gap-1 shadow-sm">
+          <TabsTrigger value="overview" className="rounded-lg px-6 py-2.5 font-bold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Overview</TabsTrigger>
+          <TabsTrigger value="financials" className="rounded-lg px-6 py-2.5 font-bold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Financials</TabsTrigger>
+          <TabsTrigger value="inventory" className="rounded-lg px-6 py-2.5 font-bold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Inventory</TabsTrigger>
+          <TabsTrigger value="stakeholders" className="rounded-lg px-6 py-2.5 font-bold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Stakeholders</TabsTrigger>
+        </TabsList>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Growth Chart */}
-        <Card className="lg:col-span-2 shadow-md border-muted/60">
-          <CardHeader className="flex flex-row items-center justify-between pb-6">
-            <div className="space-y-1">
-              <CardTitle className="text-xl font-bold">
-                Revenue vs. Profitability Trend
-              </CardTitle>
-              <CardDescription className="text-sm">
-                Daily performance correlation across chosen interval
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-6 text-xs font-bold uppercase tracking-wider">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full bg-primary" /> Sales
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full bg-green-500" /> Profit
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="h-[400px] pt-4 px-6">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={healthData.trendData}>
-                <defs>
-                  <linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  vertical={false}
-                  strokeOpacity={0.4}
-                />
-                <XAxis
-                  dataKey="date"
-                  tickFormatter={(d) => format(new Date(d), "dd MMM")}
-                  fontSize={11}
-                  stroke="#94a3b8"
-                />
-                <YAxis
-                  fontSize={11}
-                  stroke="#94a3b8"
-                  tickFormatter={(v) => `₹${v}`}
-                />
-                <RechartsTooltip
-                  contentStyle={{
-                    borderRadius: "8px",
-                    border: "none",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                  }}
-                  formatter={(value: any) => [formatCurrency(value), ""]}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="sales"
-                  stroke="#3b82f6"
-                  strokeWidth={2.5}
-                  fill="url(#salesGrad)"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="profit"
-                  stroke="#10b981"
-                  strokeWidth={2.5}
-                  fill="transparent"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        <TabsContent value="overview" className="space-y-6 focus-visible:outline-none focus-visible:ring-0">
+          {/* Executive Summary Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <SummaryCard
+              title="Total Revenue"
+              value={formatCurrency(healthData.summary.totalSales)}
+              icon={DollarSign}
+              trend={`${healthData.trendData.length}d period`}
+              color="text-emerald-600"
+            />
+            <SummaryCard
+              title="Net Profit"
+              value={formatCurrency(healthData.summary.totalProfit)}
+              icon={TrendingUp}
+              trend={`${healthData.summary.avgMargin}% Margin`}
+              color={healthData.summary.totalProfit >= 0 ? "text-blue-600" : "text-rose-600"}
+            />
+            <SummaryCard
+              title="Op. Expenses"
+              value={formatCurrency(healthData.summary.totalExpenses)}
+              icon={TrendingDown}
+              trend={`${roundToTwoDecimals((healthData.summary.totalExpenses / (healthData.summary.totalSales || 1)) * 100)}% of Rev`}
+              color="text-rose-600"
+            />
+            <SummaryCard
+              title="Client LTV"
+              value={formatCurrency(healthData.summary.ltv)}
+              icon={Users}
+              trend="Per Active Client"
+              color="text-amber-600"
+            />
+          </div>
 
-        {/* Categories Analysis */}
-        <Card className="shadow-md border-muted/60">
-          <CardHeader>
-            <CardTitle className="text-xl font-bold">
-              Profit by Category
-            </CardTitle>
-            <CardDescription className="text-sm">
-              Highest contributing segments by gross volume
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="h-[400px] pt-4 px-6">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={healthData.categoryData}
-                layout="vertical"
-                margin={{ left: 20, right: 20 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  horizontal={false}
-                  strokeOpacity={0.2}
-                />
-                <XAxis type="number" hide />
-                <YAxis
-                  dataKey="name"
-                  type="category"
-                  fontSize={11}
-                  width={100}
-                  stroke="#94a3b8"
-                />
-                <RechartsTooltip
-                  cursor={{ fill: "transparent" }}
-                  formatter={(v: any) => formatCurrency(v)}
-                />
-                <Bar
-                  dataKey="value"
-                  fill="#10b981"
-                  radius={[0, 6, 6, 0]}
-                  barSize={24}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Advanced Granular Analysis */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {/* User Wise Analysis */}
-        <Card className="shadow-md border-muted/60">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-xl font-bold">
-              User Performance
-            </CardTitle>
-            <CardDescription>
-              Sales contribution by staff members
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 pt-2">
-            {healthData.userAnalysis.map((user: any, i: number) => (
-              <div
-                key={i}
-                className="flex items-center justify-between p-4 rounded-xl bg-muted/20 border border-transparent hover:border-border transition-all"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
-                    {user.name.charAt(0)}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Primary Health Matrix */}
+            <Card className="lg:col-span-2 shadow-sm border-slate-200">
+              <CardHeader className="flex flex-row items-center justify-between border-b bg-slate-50/50 px-6 py-4">
+                <div className="space-y-1">
+                  <CardTitle className="text-lg font-bold">Health Score Matrix</CardTitle>
+                  <CardDescription>Real-time operational efficiency scores</CardDescription>
+                </div>
+                <div className="p-2 bg-white rounded-lg border shadow-sm">
+                  <Activity className="h-5 w-5 text-primary" />
+                </div>
+              </CardHeader>
+              <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+                {[
+                  { label: "Cash Flow Stability", value: healthData.scores.cashFlow, desc: "Payment collection efficiency", icon: DollarSign },
+                  { label: "Inventory Velocity", value: healthData.scores.inventoryTurnover, desc: "Stock movement rate", icon: Package },
+                  { label: "Profitability Index", value: healthData.scores.profitHealth, desc: "Revenue vs Expense ratio", icon: Percent },
+                  { label: "Credit Health", value: 100 - healthData.scores.creditRisk, desc: "Lower overdue transaction rate", icon: ShieldAlert },
+                ].map((score, i) => (
+                  <div key={i} className="space-y-3 p-4 rounded-xl bg-slate-50/50 border border-slate-100 transition-all hover:border-primary/20 hover:bg-white hover:shadow-md">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <score.icon className="h-4 w-4 text-slate-400" />
+                        <span className="text-sm font-bold text-slate-700">{score.label}</span>
+                      </div>
+                      <span className={cn(
+                        "text-sm font-black px-2 py-0.5 rounded-lg",
+                        score.value > 70 ? "text-emerald-600 bg-emerald-50" : 
+                        score.value > 40 ? "text-amber-600 bg-amber-50" : "text-rose-600 bg-rose-50"
+                      )}>
+                        {roundToTwoDecimals(score.value)}%
+                      </span>
+                    </div>
+                    <Progress value={score.value} className="h-2" />
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{score.desc}</p>
                   </div>
-                  <div>
-                    <p className="text-sm font-bold">{user.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {user.count} bills generated
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Strategic Roadmap */}
+            <Card className="shadow-sm border-slate-200">
+              <CardHeader className="border-b bg-slate-50/50 px-6 py-4">
+                <div className="flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-amber-500 fill-amber-500" />
+                  <CardTitle className="text-lg font-bold">Strategic Roadmap</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="p-6 space-y-4">
+                {healthData.deadInventory > 0 && (
+                  <div className="p-4 rounded-xl bg-rose-50 border border-rose-100">
+                    <p className="text-sm leading-relaxed text-rose-900 font-medium">
+                      Liquidate <span className="font-black text-rose-700">{healthData.deadInventory} items</span> via clearance to unlock working capital.
                     </p>
                   </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-extrabold text-foreground">
-                    {formatCurrency(user.sales)}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        {/* Client Wise Analysis */}
-        <Card className="shadow-md border-muted/60">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-xl font-bold">Top 10 Clients</CardTitle>
-            <CardDescription>Revenue generated per customer</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 pt-2">
-            {healthData.clientAnalysis.map((client: any, i: number) => (
-              <div
-                key={i}
-                className="flex items-center justify-between p-4 rounded-xl hover:bg-muted/40 border border-transparent hover:border-border transition-all group"
-              >
-                <div className="flex-1 min-w-0 pr-4">
-                  <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">
-                    {client.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {client.count} transactions
-                  </p>
-                </div>
-                <p className="text-sm font-extrabold text-primary">
-                  {formatCurrency(client.sales)}
-                </p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        {/* Vendor Wise Analysis */}
-        <Card className="shadow-md border-muted/60">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-xl font-bold">Top 10 Vendors</CardTitle>
-            <CardDescription>Procurement volume tracking</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 pt-2">
-            {healthData.vendorAnalysis.map((vendor: any, i: number) => (
-              <div
-                key={i}
-                className="flex items-center justify-between p-4 rounded-xl hover:bg-muted/40 border border-transparent hover:border-border transition-all group"
-              >
-                <div className="flex-1 min-w-0 pr-4">
-                  <p className="text-sm font-bold truncate group-hover:text-amber-600 transition-colors">
-                    {vendor.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {vendor.count} purchases
-                  </p>
-                </div>
-                <p className="text-sm font-extrabold text-amber-600">
-                  {formatCurrency(vendor.purchases)}
-                </p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Detailed Expenses Analysis */}
-        <Card className="shadow-md border-muted/60">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-xl font-bold">
-              Expense Breakdown
-            </CardTitle>
-            <CardDescription>
-              Detailed operational burn during period
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6 pt-2">
-            <div className="flex items-center justify-between p-6 rounded-2xl bg-red-50/50 border border-red-100/50 shadow-sm">
-              <div className="flex items-center gap-5">
-                <div className="p-3 bg-red-100 rounded-xl text-red-600">
-                  <TrendingDown className="h-6 w-6" />
-                </div>
-                <div>
-                  <p className="text-xs uppercase font-extrabold text-red-600 tracking-wider">
-                    Total Operational Expenses
-                  </p>
-                  <p className="text-3xl font-black text-red-700">
-                    {formatCurrency(healthData.summary.totalExpenses)}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="max-h-[350px] overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-muted">
-              {healthData.expenses.map((exp: any, i: number) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between p-3 border-b border-muted/40 last:border-0 hover:bg-muted/10 transition-colors rounded-lg"
-                >
-                  <div>
-                    <p className="text-sm font-bold">{exp.description}</p>
-                    <p className="text-xs text-muted-foreground font-medium">
-                      {format(new Date(exp.date), "dd MMM yyyy")}
-                    </p>
-                  </div>
-                  <p className="text-sm font-black text-red-600">
-                    -{formatCurrency(exp.amount)}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Returns Analysis */}
-        <Card className="shadow-md border-muted/60">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-xl font-bold">
-              Returns Analysis
-            </CardTitle>
-            <CardDescription>
-              Impact of transaction reversals on net revenue
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-6 pt-2">
-            <div className="p-6 rounded-2xl bg-orange-50/50 border border-orange-100/50 text-center shadow-sm">
-              <p className="text-xs uppercase font-extrabold text-orange-600 mb-2 tracking-wider">
-                Sales Returns
-              </p>
-              <p className="text-2xl font-black text-orange-700">
-                {formatCurrency(healthData.summary.totalReturns)}
-              </p>
-              <p className="text-[10px] text-orange-500 mt-2 font-bold uppercase">
-                Revenue Leakage
-              </p>
-            </div>
-            <div className="p-6 rounded-2xl bg-blue-50/50 border border-blue-100/50 text-center shadow-sm">
-              <p className="text-xs uppercase font-extrabold text-blue-600 mb-2 tracking-wider">
-                Purchase Returns
-              </p>
-              <p className="text-2xl font-black text-blue-700">
-                {formatCurrency(healthData.summary.totalPurchaseReturns)}
-              </p>
-              <p className="text-[10px] text-blue-500 mt-2 font-bold uppercase">
-                Capital Recovery
-              </p>
-            </div>
-            <div className="col-span-2 p-6 rounded-2xl bg-muted/20 border border-muted/40 text-center">
-              <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-1">
-                Net Return Impact
-              </p>
-              <p className="text-2xl font-black text-foreground">
-                {formatCurrency(
-                  healthData.summary.totalReturns -
-                    healthData.summary.totalPurchaseReturns,
                 )}
-              </p>
-              <p className="text-xs text-muted-foreground mt-2 italic">
-                Difference between customer refunds and supplier returns
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                {healthData.summary.avgMargin < 15 && (
+                  <div className="p-4 rounded-xl bg-amber-50 border border-amber-100">
+                    <p className="text-sm leading-relaxed text-amber-900 font-medium">
+                      Current margin (<span className="font-black text-amber-700">{healthData.summary.avgMargin}%</span>) is below target. Review unit economics.
+                    </p>
+                  </div>
+                )}
+                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+                  <p className="text-sm leading-relaxed text-emerald-900 font-medium">
+                    Prioritize engagement with <span className="font-black text-emerald-700">{(healthData.topCustomer as any)?.name || "top clients"}</span> to stabilize LTV.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {/* Customer Segments */}
-        <Card className="shadow-md border-muted/60">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xl font-bold">
-              Customer Retention
-            </CardTitle>
-            <CardDescription>Behavioral engagement segments</CardDescription>
-          </CardHeader>
-          <CardContent className="h-[300px] flex items-center justify-center pt-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={healthData.customerSegments}
-                  innerRadius={70}
-                  outerRadius={100}
-                  paddingAngle={8}
-                  dataKey="value"
-                  stroke="none"
-                >
-                  {healthData.customerSegments.map((_, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={COLORS[index % COLORS.length]}
+        <TabsContent value="financials" className="space-y-6 focus-visible:outline-none focus-visible:ring-0">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Revenue Trend */}
+            <Card className="shadow-sm border-slate-200">
+              <CardHeader className="px-6 py-4 border-b bg-slate-50/50">
+                <CardTitle className="text-lg font-bold">Growth Dynamics</CardTitle>
+                <CardDescription>Net Revenue vs Profit trajectories</CardDescription>
+              </CardHeader>
+              <CardContent className="p-6 h-[400px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={healthData.trendData}>
+                    <defs>
+                      <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1}/>
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.1}/>
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="date" tick={{fontSize: 10, fontWeight: 600, fill: '#94a3b8'}} axisLine={false} tickLine={false} />
+                    <YAxis tick={{fontSize: 10, fontWeight: 600, fill: '#94a3b8'}} axisLine={false} tickLine={false} tickFormatter={(val) => `₹${val/1000}k`} />
+                    <RechartsTooltip 
+                      contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'}}
+                      itemStyle={{fontSize: '12px', fontWeight: 700}}
                     />
-                  ))}
-                </Pie>
-                <RechartsTooltip
-                  contentStyle={{
-                    borderRadius: "12px",
-                    border: "none",
-                    boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
-                  }}
-                />
-                <Legend
-                  verticalAlign="bottom"
-                  height={40}
-                  iconType="circle"
-                  wrapperStyle={{ fontSize: "12px", fontWeight: "bold" }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+                    <Area type="monotone" dataKey="sales" name="Revenue" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorSales)" />
+                    <Area type="monotone" dataKey="profit" name="Net Profit" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorProfit)" />
+                    <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{paddingBottom: '20px', fontSize: '12px', fontWeight: 700}} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
 
-        {/* Inventory Risks */}
-        <Card className="shadow-md border-muted/60">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-xl font-bold">
-              Inventory Hazards
-            </CardTitle>
-            <CardDescription>
-              Critical stock metrics requiring attention
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 pt-2">
-            <RiskRow
-              icon={XCircle}
-              label="Dead Inventory"
-              count={healthData.deadInventory}
-              color="text-red-500"
-            />
-            <RiskRow
-              icon={AlertTriangle}
-              label="Margin Risks"
-              count={healthData.lowMarginProds}
-              color="text-amber-500"
-            />
-            <RiskRow
-              icon={Package}
-              label="Overstocked Items"
-              count={healthData.stockTooHigh}
-              color="text-blue-500"
-            />
-            <RiskRow
-              icon={ShieldAlert}
-              label="Return Velocity"
-              status={healthData.tooManyRefunds ? "High" : "Optimal"}
-              color={
-                healthData.tooManyRefunds ? "text-red-500" : "text-green-500"
-              }
-            />
-          </CardContent>
-        </Card>
+            {/* Expense Breakdown */}
+            <Card className="shadow-sm border-slate-200">
+              <CardHeader className="px-6 py-4 border-b bg-slate-50/50">
+                <CardTitle className="text-lg font-bold">Burn Analysis</CardTitle>
+                <CardDescription>Categorized operational expenditures</CardDescription>
+              </CardHeader>
+              <CardContent className="p-6 space-y-6">
+                <div className="flex items-center justify-between p-6 rounded-2xl bg-rose-50 border border-rose-100 shadow-sm">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-white rounded-xl text-rose-600 shadow-sm">
+                      <TrendingDown className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase font-black text-rose-400 tracking-widest">Total OpEx</p>
+                      <p className="text-2xl font-black text-rose-700">{formatCurrency(healthData.summary.totalExpenses)}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="max-h-[250px] overflow-y-auto space-y-2 pr-2 scrollbar-thin">
+                  {healthData.expenses.length > 0 ? (
+                    healthData.expenses.map((exp: any, i: number) => (
+                      <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:bg-slate-50 transition-colors">
+                        <div>
+                          <p className="text-sm font-bold text-slate-700">{exp.description}</p>
+                          <p className="text-[10px] text-slate-400 font-medium">{format(new Date(exp.date), "dd MMM yyyy")}</p>
+                        </div>
+                        <p className="text-sm font-black text-rose-600">-{formatCurrency(exp.amount)}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-center py-8 text-sm text-slate-400 font-medium italic">No expenses recorded in this period</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
 
-        {/* Top Insights */}
-        <div className="space-y-6">
-          <Card className="shadow-md border-l-[6px] border-l-primary overflow-hidden">
-            <CardContent className="p-6 flex items-start gap-5">
-              <div className="p-4 bg-primary/10 rounded-2xl text-primary">
-                <Users className="h-8 w-8" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] uppercase font-black text-muted-foreground tracking-widest mb-1">
-                  MVP Partner
-                </p>
-                <h4 className="font-black text-xl truncate text-foreground">
-                  {(healthData.topCustomer as any)?.name || "N/A"}
-                </h4>
-                <p className="text-base text-primary font-bold mt-1">
-                  {formatCurrency(
-                    (healthData.topCustomer as any)?.totalRevenue || 0,
-                  )}{" "}
-                  LTV
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="inventory" className="space-y-6 focus-visible:outline-none focus-visible:ring-0">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Inventory Risks */}
+            <Card className="shadow-sm border-slate-200">
+              <CardHeader className="px-6 py-4 border-b bg-slate-50/50">
+                <CardTitle className="text-lg font-bold">Stock Hazards</CardTitle>
+                <CardDescription>Critical inventory alert levels</CardDescription>
+              </CardHeader>
+              <CardContent className="p-6 space-y-4">
+                <RiskRow icon={XCircle} label="Dead Inventory" count={healthData.deadInventory} color="text-rose-500" />
+                <RiskRow icon={AlertTriangle} label="Margin Risks" count={healthData.lowMarginProds} color="text-amber-500" />
+                <RiskRow icon={Package} label="Overstocked Items" count={healthData.stockTooHigh} color="text-blue-500" />
+                <RiskRow icon={ShieldAlert} label="Return Velocity" status={healthData.tooManyRefunds ? "High" : "Optimal"} color={healthData.tooManyRefunds ? "text-rose-500" : "text-emerald-500"} />
+              </CardContent>
+            </Card>
 
-          <Card className="shadow-md border-l-[6px] border-l-green-500">
-            <CardHeader className="pb-3 pt-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-yellow-100 rounded-lg">
-                  <Zap className="h-5 w-5 text-yellow-600 fill-yellow-600" />
+            {/* Returns Analysis */}
+            <Card className="lg:col-span-2 shadow-sm border-slate-200">
+              <CardHeader className="px-6 py-4 border-b bg-slate-50/50">
+                <CardTitle className="text-lg font-bold">Transaction Reversals</CardTitle>
+                <CardDescription>Net impact of returns and refunds</CardDescription>
+              </CardHeader>
+              <CardContent className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="p-5 rounded-2xl bg-amber-50 border border-amber-100 text-center">
+                  <p className="text-[10px] uppercase font-black text-amber-500 tracking-widest mb-1">Sales Returns</p>
+                  <p className="text-xl font-black text-amber-700">{formatCurrency(healthData.summary.totalReturns)}</p>
+                  <p className="text-[9px] text-amber-400 mt-2 font-bold uppercase">Rev leakage</p>
                 </div>
-                <span className="text-sm font-black uppercase text-muted-foreground tracking-tighter">
-                  Strategic Roadmap
-                </span>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4 pb-6">
-              {healthData.deadInventory > 0 && (
-                <div className="flex items-start gap-3 p-3 rounded-xl bg-red-50/30 border border-red-100/30">
-                  <div className="mt-1.5 h-2 w-2 rounded-full bg-red-500 shrink-0" />
-                  <p className="text-sm leading-relaxed">
-                    Liquidate{" "}
-                    <span className="font-black text-red-700">
-                      {healthData.deadInventory} stagnant items
-                    </span>{" "}
-                    via clearance sales to unlock working capital.
+                <div className="p-5 rounded-2xl bg-blue-50 border border-blue-100 text-center">
+                  <p className="text-[10px] uppercase font-black text-blue-500 tracking-widest mb-1">Purchase Returns</p>
+                  <p className="text-xl font-black text-blue-700">{formatCurrency(healthData.summary.totalPurchaseReturns)}</p>
+                  <p className="text-[9px] text-blue-400 mt-2 font-bold uppercase">Cap recovery</p>
+                </div>
+                <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 text-center shadow-lg">
+                  <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest mb-1">Net Impact</p>
+                  <p className="text-xl font-black text-white">
+                    {formatCurrency(healthData.summary.totalReturns - healthData.summary.totalPurchaseReturns)}
                   </p>
+                  <p className="text-[9px] text-slate-500 mt-2 font-bold uppercase">Total reversal</p>
                 </div>
-              )}
-              {healthData.summary.avgMargin < 15 && (
-                <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-50/30 border border-amber-100/30">
-                  <div className="mt-1.5 h-2 w-2 rounded-full bg-amber-500 shrink-0" />
-                  <p className="text-sm leading-relaxed">
-                    Average margin ({healthData.summary.avgMargin}%) is below
-                    target. Optimize unit economics for best-sellers.
-                  </p>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="stakeholders" className="space-y-6 focus-visible:outline-none focus-visible:ring-0">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* User Performance */}
+            <Card className="shadow-sm border-slate-200">
+              <CardHeader className="px-6 py-4 border-b bg-slate-50/50">
+                <div className="flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-amber-500" />
+                  <CardTitle className="text-base font-bold text-slate-800">Sales Force</CardTitle>
                 </div>
-              )}
-              {healthData.scores.cashFlow < 70 && (
-                <div className="flex items-start gap-3 p-3 rounded-xl bg-blue-50/30 border border-blue-100/30">
-                  <div className="mt-1.5 h-2 w-2 rounded-full bg-blue-500 shrink-0" />
-                  <p className="text-sm leading-relaxed">
-                    Resolve{" "}
-                    <span className="font-black text-blue-700">
-                      {healthData.scores.creditRisk}% overdue
-                    </span>{" "}
-                    receivables to stabilize operational cash flows.
-                  </p>
+              </CardHeader>
+              <CardContent className="p-4 space-y-2">
+                {healthData.userAnalysis.map((user: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs uppercase border">
+                        {user.name.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-700">{user.name}</p>
+                        <p className="text-[10px] text-slate-400 font-bold">{user.count} deals</p>
+                      </div>
+                    </div>
+                    <p className="text-sm font-black text-emerald-600">{formatCurrency(user.sales)}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Top Clients */}
+            <Card className="shadow-sm border-slate-200">
+              <CardHeader className="px-6 py-4 border-b bg-slate-50/50">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-blue-500" />
+                  <CardTitle className="text-base font-bold text-slate-800">Key Accounts</CardTitle>
                 </div>
-              )}
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-green-50/30 border border-green-100/30">
-                <div className="mt-1.5 h-2 w-2 rounded-full bg-green-500 shrink-0" />
-                <p className="text-sm leading-relaxed">
-                  Incentivize{" "}
-                  <span className="font-black text-green-700">
-                    {(healthData.topCustomer as any)?.name || "top clients"}
-                  </span>{" "}
-                  with loyalty programs to maximize long-term value.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+              </CardHeader>
+              <CardContent className="p-4 space-y-2">
+                {healthData.clientAnalysis.map((client: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 font-bold text-xs uppercase border border-blue-100">
+                        {client.name.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-700 truncate max-w-[120px]">{client.name}</p>
+                        <p className="text-[10px] text-slate-400 font-bold">{client.count} bills</p>
+                      </div>
+                    </div>
+                    <p className="text-sm font-black text-blue-600">{formatCurrency(client.sales)}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Top Vendors */}
+            <Card className="shadow-sm border-slate-200">
+              <CardHeader className="px-6 py-4 border-b bg-slate-50/50">
+                <div className="flex items-center gap-2">
+                  <Package className="h-4 w-4 text-amber-500" />
+                  <CardTitle className="text-base font-bold text-slate-800">Prime Suppliers</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 space-y-2">
+                {healthData.vendorAnalysis.map((vendor: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-amber-50 flex items-center justify-center text-amber-500 font-bold text-xs uppercase border border-amber-100">
+                        {vendor.name.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-700 truncate max-w-[120px]">{vendor.name}</p>
+                        <p className="text-[10px] text-slate-400 font-bold">{vendor.count} orders</p>
+                      </div>
+                    </div>
+                    <p className="text-sm font-black text-amber-600">{formatCurrency(vendor.purchases)}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
+}
 }
 
 function SummaryCard({ title, value, icon: Icon, trend, color }: any) {
