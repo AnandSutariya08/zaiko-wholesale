@@ -1,13 +1,21 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bot, User, Send, Loader2, Download, Sparkles, X, ChevronRight } from "lucide-react";
+import {
+  Bot,
+  User,
+  Send,
+  Loader2,
+  Download,
+  Sparkles,
+  X,
+  ChevronRight,
+} from "lucide-react";
 import { toast } from "sonner";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { GrowthAnalysisPDF } from "@/components/GrowthAnalysisPDF";
 import { getBusinessDataForAI } from "@/lib/businessDataCollector";
+import { AIMessageRenderer } from "@/components/AIMessageRenderer";
 import {
   getBills,
   getProducts,
@@ -27,13 +35,18 @@ interface Message {
 }
 
 export default function AIAgent() {
-  const [messages, setMessages] = useState<Message[]>([]);
+  // displayMessages: only what's shown in the UI (no system messages)
+  const [displayMessages, setDisplayMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isAnalyzed, setIsAnalyzed] = useState(false);
   const [rawBusinessData, setRawBusinessData] = useState<any>(null);
   const [chatSummary, setChatSummary] = useState<string>("");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  // fullHistory: the complete message history sent to the API every time
+  // (includes system prompt + initial user bootstrap + all subsequent turns)
+  const fullHistoryRef = useRef<Message[]>([]);
 
   const scrollToBottom = () => {
     if (scrollAreaRef.current) {
@@ -48,7 +61,7 @@ export default function AIAgent() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [displayMessages]);
 
   useEffect(() => {
     const autoAnalyse = async () => {
@@ -87,7 +100,9 @@ export default function AIAgent() {
             gstCollected: processedData.stats.gstLiability,
             totalDiscount: 0,
             totalPurchases: processedData.stats.totalPurchases,
-            grossProfit: processedData.stats.totalSales - processedData.stats.totalPurchases,
+            grossProfit:
+              processedData.stats.totalSales -
+              processedData.stats.totalPurchases,
             profit: processedData.stats.netProfit,
             totalCOGS: processedData.stats.totalPurchases,
             totalExpenses: processedData.stats.totalExpenses,
@@ -98,41 +113,82 @@ export default function AIAgent() {
             totalBills: bills.length,
             totalPurchaseBills: purchaseBills.length,
             totalClients: clients.length,
-            overdueBills: bills.filter(b => b.paymentStatus === "pending").length,
-            pendingAmount: processedData.stats.totalSales - processedData.stats.totalCollected,
+            overdueBills: bills.filter((b) => b.paymentStatus === "pending")
+              .length,
+            pendingAmount:
+              processedData.stats.totalSales -
+              processedData.stats.totalCollected,
             pendingPurchases: processedData.stats.totalPurchases,
             netGst: processedData.stats.gstLiability,
             gstPaid: 0,
             paidSubtotal: processedData.stats.totalCollected,
-            pendingSubtotal: processedData.stats.totalSales - processedData.stats.totalCollected,
-            overdueSubtotal: 0
+            pendingSubtotal:
+              processedData.stats.totalSales -
+              processedData.stats.totalCollected,
+            overdueSubtotal: 0,
           },
           chartData: {
             paymentBreakdown: [
-              { name: 'Paid', value: processedData.stats.totalCollected },
-              { name: 'Pending', value: processedData.stats.totalSales - processedData.stats.totalCollected }
+              { name: "Paid", value: processedData.stats.totalCollected },
+              {
+                name: "Pending",
+                value:
+                  processedData.stats.totalSales -
+                  processedData.stats.totalCollected,
+              },
             ],
-            monthlySpendVsSales: (processedData.monthlyTrends || []).map((t: any) => ({ period: t.month, sales: t.sales, purchases: 0 })),
-            monthlyProfit: (processedData.monthlyTrends || []).map((t: any) => ({ period: t.month, profit: t.sales }))
+            monthlySpendVsSales: (processedData.monthlyTrends || []).map(
+              (t: any) => ({ period: t.month, sales: t.sales, purchases: 0 }),
+            ),
+            monthlyProfit: (processedData.monthlyTrends || []).map(
+              (t: any) => ({ period: t.month, profit: t.sales }),
+            ),
           },
           productAnalytics: {
-            topProductsByRevenue: (processedData.topPerformingProducts || []).map((p: any) => ({ name: p.name, revenue: p.sales, quantity: p.stock, profit: p.sales, margin: 20, productId: p.name })),
-            topProductsByProfit: (processedData.topPerformingProducts || []).map((p: any) => ({ name: p.name, revenue: p.sales, profit: p.sales, margin: 20, productId: p.name })),
-            mostReturnedProducts: []
+            topProductsByRevenue: (
+              processedData.topPerformingProducts || []
+            ).map((p: any) => ({
+              name: p.name,
+              revenue: p.sales,
+              quantity: p.stock,
+              profit: p.sales,
+              margin: 20,
+              productId: p.name,
+            })),
+            topProductsByProfit: (
+              processedData.topPerformingProducts || []
+            ).map((p: any) => ({
+              name: p.name,
+              revenue: p.sales,
+              profit: p.sales,
+              margin: 20,
+              productId: p.name,
+            })),
+            mostReturnedProducts: [],
           },
           clientAnalytics: {
-            topClientsByRevenue: (processedData.clientHealth || []).map((c: any) => ({ name: c.name, revenue: c.totalSales, billCount: 0, avgBillValue: 0, pendingAmount: c.pending, clientId: c.name })),
+            topClientsByRevenue: (processedData.clientHealth || []).map(
+              (c: any) => ({
+                name: c.name,
+                revenue: c.totalSales,
+                billCount: 0,
+                avgBillValue: 0,
+                pendingAmount: c.pending,
+                clientId: c.name,
+              }),
+            ),
             topClientsByOrders: [],
-            clientReturnStats: []
+            clientReturnStats: [],
           },
           company: profile,
-          dateRange: { start: '', end: '' }
+          dateRange: { start: "", end: "" },
         });
 
+        // Build the initial payload: system → user (bootstrap)
         const systemMessage: Message = {
           role: "system",
           content: `You are a simple Business Growth AI for billing software users.
-            
+
             UNIFIED MISSION:
             1. Help the user grow their business using simple, clear language that anyone can understand.
             2. Tell them who owes money and which products are selling best.
@@ -146,10 +202,13 @@ export default function AIAgent() {
             - Focus on: "Make more money", "Save money", and "Good customers".`,
         };
 
-        const initialMessage: Message = {
+        const initialUserMessage: Message = {
           role: "user",
           content: `Tell me how my business is doing and how to grow. Data: ${JSON.stringify(processedData)}`,
         };
+
+        // Store bootstrap messages in the full history ref
+        fullHistoryRef.current = [systemMessage, initialUserMessage];
 
         const response = await fetch(
           "https://api.sarvam.ai/v1/chat/completions",
@@ -163,7 +222,7 @@ export default function AIAgent() {
             },
             body: JSON.stringify({
               model: "sarvam-m",
-              messages: [systemMessage, initialMessage],
+              messages: fullHistoryRef.current, // [system, user]
               temperature: 0.7,
               max_tokens: 2000,
             }),
@@ -174,11 +233,22 @@ export default function AIAgent() {
 
         const data = await response.json();
         if (data?.choices?.[0]) {
-          setMessages([
-            { role: "assistant", content: data.choices[0].message.content },
-          ]);
+          const assistantReply = data.choices[0].message.content;
+
+          // Append assistant reply to the full history
+          const assistantMessage: Message = {
+            role: "assistant",
+            content: assistantReply,
+          };
+          fullHistoryRef.current = [
+            ...fullHistoryRef.current,
+            assistantMessage,
+          ];
+
+          // Only show assistant message in UI (hide the system + bootstrap user msg)
+          setDisplayMessages([assistantMessage]);
           setIsAnalyzed(true);
-          setChatSummary(data.choices[0].message.content);
+          setChatSummary(assistantReply);
         }
       } catch (error) {
         console.error("Error:", error);
@@ -196,7 +266,10 @@ export default function AIAgent() {
     if (!input.trim() || isLoading) return;
 
     const userMsg: Message = { role: "user", content: input };
-    setMessages(prev => [...prev, userMsg]);
+
+    // Add to display and to full history
+    setDisplayMessages((prev) => [...prev, userMsg]);
+    fullHistoryRef.current = [...fullHistoryRef.current, userMsg];
     setInput("");
     setIsLoading(true);
 
@@ -213,7 +286,8 @@ export default function AIAgent() {
           },
           body: JSON.stringify({
             model: "sarvam-m",
-            messages: [...messages, userMsg],
+            // Always send the FULL history: system + bootstrap + all turns
+            messages: fullHistoryRef.current,
             temperature: 0.7,
             max_tokens: 1000,
           }),
@@ -222,10 +296,23 @@ export default function AIAgent() {
 
       const data = await response.json();
       if (data?.choices?.[0]) {
-        const assistantMsg = data.choices[0].message.content;
-        setMessages(prev => [...prev, { role: "assistant", content: assistantMsg }]);
-        
-        // Update summary for PDF
+        const assistantReply = data.choices[0].message.content;
+
+        const assistantMessage: Message = {
+          role: "assistant",
+          content: assistantReply,
+        };
+
+        // Append assistant reply to full history
+        fullHistoryRef.current = [
+          ...fullHistoryRef.current,
+          assistantMessage,
+        ];
+
+        // Add to display messages
+        setDisplayMessages((prev) => [...prev, assistantMessage]);
+
+        // Update summary for PDF using the full history
         const summaryResponse = await fetch(
           "https://api.sarvam.ai/v1/chat/completions",
           {
@@ -239,15 +326,18 @@ export default function AIAgent() {
             body: JSON.stringify({
               model: "sarvam-m",
               messages: [
-                { role: "system", content: "Summarize the entire conversation into a professional growth strategy report. Use plain text without markdown symbols for the PDF." },
-                ...messages, 
-                userMsg, 
-                { role: "assistant", content: assistantMsg }
+                {
+                  role: "system",
+                  content:
+                    "Summarize the entire conversation into a professional growth strategy report. Use plain text without markdown symbols for the PDF.",
+                },
+                // Include full conversation history for accurate summary
+                ...fullHistoryRef.current,
               ],
               temperature: 0.3,
               max_tokens: 1500,
             }),
-          }
+          },
         );
         const summaryData = await summaryResponse.json();
         if (summaryData?.choices?.[0]) {
@@ -266,9 +356,9 @@ export default function AIAgent() {
       {/* Premium Header */}
       <div className="sticky top-0 z-30 border-b bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl px-4 md:px-8 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => window.history.back()}
             className="md:hidden"
           >
@@ -299,24 +389,35 @@ export default function AIAgent() {
         {isAnalyzed && rawBusinessData && (
           <div className="flex items-center gap-2">
             <PDFDownloadLink
-              document={<GrowthAnalysisPDF summary={chatSummary} companyName={rawBusinessData.company?.name} />}
-              fileName={`Growth_Strategy_${new Date().toISOString().split('T')[0]}.pdf`}
+              document={
+                <GrowthAnalysisPDF
+                  summary={chatSummary}
+                  companyName={rawBusinessData.company?.name}
+                />
+              }
+              fileName={`Growth_Strategy_${new Date().toISOString().split("T")[0]}.pdf`}
             >
               {({ loading }) => (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="flex gap-2 rounded-full border-blue-200 hover:border-blue-500 hover:bg-blue-50 dark:border-zinc-800 transition-all duration-300 h-9 px-4"
                   disabled={loading}
                 >
-                  {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5 text-blue-600" />}
-                  <span className="font-bold text-[11px] uppercase tracking-wider">Growth PDF</span>
+                  {loading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Download className="h-3.5 w-3.5 text-blue-600" />
+                  )}
+                  <span className="font-bold text-[11px] uppercase tracking-wider">
+                    Growth PDF
+                  </span>
                 </Button>
               )}
             </PDFDownloadLink>
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => window.history.back()}
               className="hidden md:flex h-9 w-9 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800"
             >
@@ -329,7 +430,7 @@ export default function AIAgent() {
       <div className="flex-1 flex flex-col min-h-0 relative">
         <ScrollArea ref={scrollAreaRef} className="h-full px-4 py-6 md:py-10">
           <div className="max-w-3xl mx-auto space-y-8 pb-32">
-            {messages.length === 0 && isLoading && (
+            {displayMessages.length === 0 && isLoading && (
               <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-in fade-in zoom-in-95 duration-1000">
                 <div className="relative">
                   <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-3xl animate-pulse" />
@@ -348,22 +449,31 @@ export default function AIAgent() {
               </div>
             )}
 
-            {messages.filter(m => m.role !== 'system').map((msg, i) => (
-              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} group animate-in slide-in-from-bottom-4 duration-500`}>
-                <div className={`flex gap-3 max-w-[95%] md:max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                  <div className={`mt-0.5 h-8 w-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-zinc-800 border dark:border-zinc-700'}`}>
-                    {msg.role === 'user' ? <User size={16} /> : <Bot size={16} className="text-blue-600 dark:text-blue-400" />}
-                  </div>
-                  <div className={`relative px-5 py-3.5 rounded-2xl shadow-sm border transition-all duration-300 ${msg.role === 'user' ? 'bg-blue-600 border-blue-700 text-white rounded-tr-none' : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 rounded-tl-none'}`}>
-                    <div className={`prose prose-sm dark:prose-invert max-w-none break-words leading-relaxed ${msg.role === 'user' ? 'text-white prose-invert' : 'text-zinc-800 dark:text-zinc-200'}`}>
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+            {displayMessages
+              .filter((m) => m.role !== "system")
+              .map((msg, i) =>
+                msg.role === "assistant" ? (
+                  // Rich structured renderer for AI messages
+                  <AIMessageRenderer key={i} content={msg.content} />
+                ) : (
+                  // Clean bubble for user messages
+                  <div
+                    key={i}
+                    className="flex justify-end animate-in slide-in-from-bottom-4 duration-500"
+                  >
+                    <div className="flex gap-2.5 items-end max-w-[80%] md:max-w-[70%]">
+                      <div className="px-4 py-2.5 bg-blue-600 text-white rounded-2xl rounded-br-sm shadow-sm text-[14px] leading-relaxed font-medium">
+                        {msg.content}
+                      </div>
+                      <div className="mb-0.5 h-7 w-7 rounded-xl bg-blue-600 flex items-center justify-center shrink-0 shadow-sm">
+                        <User size={14} className="text-white" />
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            ))}
+                ),
+              )}
 
-            {isLoading && messages.length > 0 && (
+            {isLoading && displayMessages.length > 0 && (
               <div className="flex justify-start animate-in fade-in-0 duration-300">
                 <div className="flex gap-3">
                   <div className="mt-0.5 h-8 w-8 rounded-xl bg-white dark:bg-zinc-900 border dark:border-zinc-700 flex items-center justify-center shadow-sm">
@@ -387,7 +497,10 @@ export default function AIAgent() {
           <div className="absolute bottom-6 left-0 right-0 z-40 px-4">
             <div className="max-w-2xl mx-auto">
               <div className="relative flex items-center bg-white dark:bg-zinc-900 shadow-xl rounded-2xl border border-zinc-200 dark:border-zinc-800 p-1.5 pl-4 transition-all duration-300 focus-within:ring-4 focus-within:ring-blue-500/10 group">
-                <form onSubmit={handleSendMessage} className="flex-1 flex gap-2">
+                <form
+                  onSubmit={handleSendMessage}
+                  className="flex-1 flex gap-2"
+                >
                   <input
                     placeholder="Type your question here..."
                     value={input}
