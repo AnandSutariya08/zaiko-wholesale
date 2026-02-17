@@ -113,16 +113,16 @@ export default function AIAgent() {
               { name: 'Paid', value: processedData.stats.totalCollected },
               { name: 'Pending', value: processedData.stats.totalSales - processedData.stats.totalCollected }
             ],
-            monthlySpendVsSales: processedData.monthlyTrends.map(t => ({ period: t.month, sales: t.sales, purchases: 0 })),
-            monthlyProfit: processedData.monthlyTrends.map(t => ({ period: t.month, profit: t.sales }))
+            monthlySpendVsSales: (processedData.monthlyTrends || []).map((t: any) => ({ period: t.month, sales: t.sales, purchases: 0 })),
+            monthlyProfit: (processedData.monthlyTrends || []).map((t: any) => ({ period: t.month, profit: t.sales }))
           },
           productAnalytics: {
-            topProductsByRevenue: processedData.topPerformingProducts.map(p => ({ name: p.name, revenue: p.sales, quantity: p.stock, profit: p.sales, margin: 20, productId: p.name })),
-            topProductsByProfit: processedData.topPerformingProducts.map(p => ({ name: p.name, revenue: p.sales, profit: p.sales, margin: 20, productId: p.name })),
+            topProductsByRevenue: (processedData.topPerformingProducts || []).map((p: any) => ({ name: p.name, revenue: p.sales, quantity: p.stock, profit: p.sales, margin: 20, productId: p.name })),
+            topProductsByProfit: (processedData.topPerformingProducts || []).map((p: any) => ({ name: p.name, revenue: p.sales, profit: p.sales, margin: 20, productId: p.name })),
             mostReturnedProducts: []
           },
           clientAnalytics: {
-            topClientsByRevenue: processedData.clientHealth.map(c => ({ name: c.name, revenue: c.totalSales, billCount: 0, avgBillValue: 0, pendingAmount: c.pending, clientId: c.name })),
+            topClientsByRevenue: (processedData.clientHealth || []).map((c: any) => ({ name: c.name, revenue: c.totalSales, billCount: 0, avgBillValue: 0, pendingAmount: c.pending, clientId: c.name })),
             topClientsByOrders: [],
             clientReturnStats: []
           },

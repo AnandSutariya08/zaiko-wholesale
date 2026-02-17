@@ -30,18 +30,21 @@ export const getBusinessDataForAI = async () => {
       totalExpenses: expenses.reduce((sum, b) => sum + b.amount, 0),
       inventoryValue: products.reduce((sum, p) => sum + (p.stock * (p.purchasePrice || 0)), 0),
       netProfit: 0, // Calculated below
-      gstLiability: bills.reduce((sum, b) => sum + (b.gstAmount || 0), 0) - purchaseBills.reduce((sum, b) => sum + (b.gstAmount || 0), 0)
+      gstLiability: bills.reduce((sum, b) => sum + (b.totalTax || 0), 0) - purchaseBills.reduce((sum, b) => sum + (b.totalTax || 0), 0)
     };
     stats.netProfit = stats.totalSales - stats.totalPurchases - stats.totalExpenses;
 
     const summary = {
-      company: company ? { name: company.name, type: company.businessType } : "Generic Business",
+      company: company ? { name: company.name, type: (company as any).businessType || 'Retail' } : "Generic Business",
       stats,
       topPerformingProducts: products
         .map(p => ({ 
           name: p.name, 
           stock: p.stock, 
-          sales: bills.reduce((sum, b) => sum + b.items.filter(i => i.productName === p.name).reduce((isum, item) => isum + item.totalPrice, 0), 0)
+          sales: bills.reduce((sum, b) => {
+            const productItems = b.items.filter(i => i.productName === p.name);
+            return sum + productItems.reduce((isum, item) => isum + (item.amount || item.quantity * item.ratePerUnit), 0);
+          }, 0)
         }))
         .sort((a, b) => b.sales - a.sales)
         .slice(0, 5),
