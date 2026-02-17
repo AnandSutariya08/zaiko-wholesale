@@ -3137,14 +3137,12 @@ function PurchaseBills() {
                             <td className="p-4">
                               <Badge
                                 className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
-                                  entry.type === "purchase"
+                                  entry.type === "purchase_payment"
                                     ? "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 border-rose-200 dark:border-rose-800"
-                                    : entry.type === "payment"
-                                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
-                                      : "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 border-sky-200 dark:border-sky-800"
+                                    : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
                                 }`}
                               >
-                                {entry.type}
+                                {entry.type === "purchase_payment" ? "Payment" : "Return"}
                               </Badge>
                             </td>
                             <td className="p-4">
@@ -3159,9 +3157,13 @@ function PurchaseBills() {
                             </td>
                             <td className="p-4 text-right">
                               <span
-                                className={`font-black tabular-nums text-sm ${entry.amount >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
+                                className={`font-black tabular-nums text-sm ${
+                                  entry.type === "purchase_payment" 
+                                    ? "text-red-600 dark:text-red-400" 
+                                    : "text-green-600 dark:text-green-400"
+                                }`}
                               >
-                                {entry.amount >= 0 ? "+" : ""}
+                                {entry.type === "purchase_payment" ? "-" : "+"}
                                 {formatCurrency(entry.amount)}
                               </span>
                             </td>
