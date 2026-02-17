@@ -137,47 +137,19 @@ function PurchaseBills() {
   const getPurchaseHistory = (bill: PurchaseBill) => {
     const history: any[] = [];
 
-    // Add the original purchase
-    history.push({
-      id: `purchase-${bill.id}`,
-      date: bill.billDate || bill.createdAt,
-      type: "purchase",
-      description: `Purchase - Bill #${bill.billNumber || "N/A"}`,
-      amount: -bill.total,
-      quantity: bill.items.reduce((sum, item) => sum + item.quantity, 0),
-    });
-
     // Add payments
     if (bill.payments && bill.payments.length > 0) {
       bill.payments.forEach((payment) => {
+        const isReturnPayment = payment.amount < 0;
         history.push({
           id: `payment-${payment.id}`,
           date: payment.date,
-          type: "payment",
-          description: `Payment Made (${payment.method})${payment.note ? ` - ${payment.note}` : ""}`,
-          amount: payment.amount,
+          type: isReturnPayment ? "return_payment" : "purchase_payment",
+          description: isReturnPayment 
+            ? `Return Payment from Vendor (${payment.method})${payment.note ? ` - ${payment.note}` : ""}`
+            : `Purchase Payment to Vendor (${payment.method})${payment.note ? ` - ${payment.note}` : ""}`,
+          amount: Math.abs(payment.amount),
           quantity: 0,
-        });
-      });
-    }
-
-    // Add returns
-    if (bill.returns && bill.returns.length > 0) {
-      bill.returns.forEach((ret) => {
-        const productNames = ret.items
-          .map((item) => item.description)
-          .join(", ");
-        const returnQty = ret.items.reduce(
-          (sum, item) => sum + item.quantity,
-          0,
-        );
-        history.push({
-          id: `return-${ret.id}`,
-          date: ret.returnDate,
-          type: "return",
-          description: `Purchase Return (${productNames})${ret.notes ? ` - ${ret.notes}` : ""}`,
-          amount: ret.totalReturnValue,
-          quantity: returnQty,
         });
       });
     }
@@ -408,6 +380,51 @@ function PurchaseBills() {
     setPage(1);
     setLoading(false);
   };
+
+  const stats = (() => {
+    const totalPurchase = bills.reduce((sum, b) => {
+      const totalReturns =
+        b.returns?.reduce((s, r) => s + r.totalReturnValue, 0) || 0;
+
+      return sum + (b.total - totalReturns); // ✅ Net Purchase
+    }, 0);
+
+    const totalPaid = bills.reduce((sum, b) => sum + (b.paidAmount || 0), 0);
+
+    const totalReturns = bills.reduce(
+      (sum, b) =>
+        sum +
+        (b.returns?.reduce((s, r) => s + r.totalReturnValue, 0) || 0),
+      0,
+    );
+
+    const totalReturnCollected = bills.reduce(
+      (sum, b) =>
+        sum +
+        (b.payments
+          ?.filter((p) => p.amount < 0)
+          .reduce((s, p) => s + Math.abs(p.amount), 0) || 0),
+      0,
+    );
+
+    const amountRemaining = bills.reduce((sum, b) => {
+      const totalReturns =
+        b.returns?.reduce((s, r) => s + r.totalReturnValue, 0) || 0;
+
+      const netTotal = b.total - totalReturns;
+
+      return sum + (netTotal - (b.paidAmount || 0));
+    }, 0);
+
+    return {
+      totalPurchase,
+      totalPaid,
+      amountRemaining,
+      totalReturns,
+      totalReturnCollected,
+    };
+  })();
+
 
   const filterAndSortBills = () => {
     let filtered = [...bills];
@@ -1237,6 +1254,60 @@ function PurchaseBills() {
         </div>
       </div>
 
+      {/* Summary Tiles */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card className="bg-primary/5 border-primary/20 shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-4">
+            <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1 flex items-center gap-1">
+              <BookOpen className="h-3 w-3 text-primary" /> Total Purchase
+            </p>
+            <p className="text-xl font-bold truncate">
+              {formatCurrency(stats.totalPurchase)}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="bg-emerald-50 border-emerald-200 shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-4">
+            <p className="text-[10px] text-emerald-600 uppercase font-bold mb-1 flex items-center gap-1">
+              <CheckCircle className="h-3 w-3" /> Amount Paid
+            </p>
+            <p className="text-xl font-bold text-emerald-700 truncate">
+              {formatCurrency(stats.totalPaid)}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="bg-orange-50 border-orange-200 shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-4">
+            <p className="text-[10px] text-orange-600 uppercase font-bold mb-1 flex items-center gap-1">
+              <Clock className="h-3 w-3" /> Remaining to Pay
+            </p>
+            <p className="text-xl font-bold text-orange-700 truncate">
+              {formatCurrency(stats.amountRemaining)}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="bg-rose-50 border-rose-200 shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-4">
+            <p className="text-[10px] text-rose-600 uppercase font-bold mb-1 flex items-center gap-1">
+              <RotateCcw className="h-3 w-3" /> Total Return
+            </p>
+            <p className="text-xl font-bold text-rose-700 truncate">
+              {formatCurrency(stats.totalReturns)}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="bg-blue-50 border-blue-200 shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-4">
+            <p className="text-[10px] text-blue-600 uppercase font-bold mb-1 flex items-center gap-1">
+              <IndianRupee className="h-3 w-3" /> Return Collected
+            </p>
+            <p className="text-xl font-bold text-blue-700 truncate">
+              {formatCurrency(stats.totalReturnCollected)}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
@@ -1426,86 +1497,90 @@ function PurchaseBills() {
                       )}
                     </div>
 
-                    <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t pt-3">
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-wider font-bold">
-                            Total:
-                          </span>
-                          <p className="text-[10px] sm:text-base font-black text-foreground">
-                            {formatCurrency(
-                              bill.total -
-                                (bill.returns?.reduce(
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t mt-4 pt-4">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-wider font-bold">
+                              Total:
+                            </span>
+                            <p className="text-[10px] sm:text-base font-black text-foreground">
+                              {formatCurrency(
+                                bill.total -
+                                  (bill.returns?.reduce(
+                                    (sum, r) => sum + r.totalReturnValue,
+                                    0,
+                                  ) || 0),
+                              )}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-wider font-bold">
+                              Remaining:
+                            </span>
+                            <p
+                              className={`text-sm sm:text-base font-black text-foreground ${
+                                bill.total -
+                                  (bill.returns?.reduce(
+                                    (sum, r) => sum + r.totalReturnValue,
+                                    0,
+                                  ) || 0) -
+                                  (bill.paidAmount || 0) <
+                                0
+                                  ? "text-red-600"
+                                  : "text-black-600"
+                              }`}
+                            >
+                              {formatCurrency(
+                                bill.total -
+                                  (bill.returns?.reduce(
+                                    (sum, r) => sum + r.totalReturnValue,
+                                    0,
+                                  ) || 0) -
+                                  (bill.paidAmount || 0),
+                              )}
+                            </p>
+                          </div>
+                          {bill.returns && bill.returns.length > 0 && (
+                            <p className="text-[11px] sm:text-xs text-orange-600 font-bold">
+                              Ret:{" "}
+                              {formatCurrency(
+                                bill.returns.reduce(
                                   (sum, r) => sum + r.totalReturnValue,
                                   0,
-                                ) || 0),
-                            )}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-wider font-bold">
-                            Remaining:
-                          </span>
-                          <p
-                            className={`text-sm sm:text-base font-black text-foreground ${
-                              bill.total -
-                                (bill.returns?.reduce(
-                                  (sum, r) => sum + r.totalReturnValue,
-                                  0,
-                                ) || 0) -
-                                (bill.paidAmount || 0) <
-                              0
-                                ? "text-red-600"
-                                : "text-black-600"
-                            }`}
-                          >
-                            {formatCurrency(
-                              bill.total -
-                                (bill.returns?.reduce(
-                                  (sum, r) => sum + r.totalReturnValue,
-                                  0,
-                                ) || 0) -
-                                (bill.paidAmount || 0),
-                            )}
-                          </p>
-                        </div>
-                        {bill.returns && bill.returns.length > 0 && (
-                          <p className="text-[11px] sm:text-xs text-orange-600 font-bold">
-                            Ret:{" "}
-                            {formatCurrency(
-                              bill.returns.reduce(
-                                (sum, r) => sum + r.totalReturnValue,
-                                0,
-                              ),
-                            )}
-                          </p>
-                        )}
-                        {bill.paidAmount > 0 &&
-                          bill.payments &&
-                          bill.payments.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5">
-                              {Object.entries(
-                                bill.payments.reduce(
-                                  (acc, p) => {
-                                    acc[p.method] =
-                                      (acc[p.method] || 0) + p.amount;
-                                    return acc;
-                                  },
-                                  {} as Record<string, number>,
                                 ),
-                              ).map(([method, amount]) => (
-                                <Badge
-                                  key={method}
-                                  variant="outline"
-                                  className="text-[10px] sm:text-[11px] px-2 py-0 h-5 flex items-center gap-1 bg-primary/5 border-primary/20 text-primary font-bold"
-                                >
-                                  <span>{method}:</span>
-                                  <span>{formatCurrency(amount)}</span>
-                                </Badge>
-                              ))}
-                            </div>
+                              )}
+                            </p>
                           )}
-                      </div>
+                          {bill.paidAmount > 0 &&
+                            bill.payments &&
+                            bill.payments.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5">
+                                {Object.entries(
+                                  bill.payments.reduce(
+                                    (acc, p) => {
+                                      acc[p.method] =
+                                        (acc[p.method] || 0) + p.amount;
+                                      return acc;
+                                    },
+                                    {} as Record<string, number>,
+                                  ),
+                                ).map(([method, amount]) => (
+                                  <Badge
+                                    key={method}
+                                    variant="outline"
+                                    className={`text-[10px] sm:text-[11px] px-2 py-0 h-5 flex items-center gap-1 font-bold ${
+                                      amount < 0 
+                                        ? "bg-green-50 border-green-200 text-green-700" 
+                                        : "bg-red-50 border-red-200 text-red-700"
+                                    }`}
+                                  >
+                                    <span>{method}:</span>
+                                    <span>{formatCurrency(Math.abs(amount))}</span>
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                        </div>
 
                       <div className="flex items-center justify-end gap-2">
                         <Button
@@ -3161,14 +3236,12 @@ function PurchaseBills() {
                             <td className="p-4">
                               <Badge
                                 className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
-                                  entry.type === "purchase"
+                                  entry.type === "purchase_payment"
                                     ? "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 border-rose-200 dark:border-rose-800"
-                                    : entry.type === "payment"
-                                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
-                                      : "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 border-sky-200 dark:border-sky-800"
+                                    : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
                                 }`}
                               >
-                                {entry.type}
+                                {entry.type === "purchase_payment" ? "Payment" : "Return"}
                               </Badge>
                             </td>
                             <td className="p-4">
@@ -3183,9 +3256,13 @@ function PurchaseBills() {
                             </td>
                             <td className="p-4 text-right">
                               <span
-                                className={`font-black tabular-nums text-sm ${entry.amount >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
+                                className={`font-black tabular-nums text-sm ${
+                                  entry.type === "purchase_payment" 
+                                    ? "text-red-600 dark:text-red-400" 
+                                    : "text-green-600 dark:text-green-400"
+                                }`}
                               >
-                                {entry.amount >= 0 ? "+" : ""}
+                                {entry.type === "purchase_payment" ? "-" : "+"}
                                 {formatCurrency(entry.amount)}
                               </span>
                             </td>

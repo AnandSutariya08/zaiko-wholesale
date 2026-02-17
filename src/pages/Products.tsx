@@ -1241,7 +1241,7 @@ export default function Products() {
                     <div className="bg-gradient-to-r from-emerald-500/10 to-blue-500/10 p-3 rounded-lg space-y-2 border border-emerald-200/50">
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-sm font-medium">
-                          Current Avg Purchase Price
+                          Current Avg Price
                         </span>
                         <span className="font-medium text-black-600">
                           {" "}
