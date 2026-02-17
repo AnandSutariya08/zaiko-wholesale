@@ -1064,7 +1064,6 @@ export default function BusinessHealth() {
     </div>
   );
 }
-}
 
 function SummaryCard({ title, value, icon: Icon, trend, color }: any) {
   return (
