@@ -35,21 +35,21 @@ export const getBusinessDataForAI = async () => {
     stats.netProfit = stats.totalSales - stats.totalPurchases - stats.totalExpenses;
 
     const summary = {
-      company: company ? { name: company.name, type: (company as any).businessType || 'Retail' } : "Generic Business",
+      company: company ? { name: company.name, type: (company as any).businessType || 'Retail' } : { name: 'Generic Business', type: 'Retail' },
       stats,
-      topPerformingProducts: products
+      topPerformingProducts: (products || [])
         .map(p => ({ 
           name: p.name, 
           stock: p.stock, 
-          sales: bills.reduce((sum, b) => {
-            const productItems = b.items.filter(i => i.productName === p.name);
+          sales: (bills || []).reduce((sum, b) => {
+            const productItems = (b.items || []).filter(i => i.productName === p.name);
             return sum + productItems.reduce((isum, item) => isum + (item.amount || item.quantity * item.ratePerUnit), 0);
           }, 0)
         }))
         .sort((a, b) => b.sales - a.sales)
         .slice(0, 5),
-      clientHealth: clients.map(c => {
-        const clientBills = bills.filter(b => b.client?.id === c.id || (b as any).clientName === c.name);
+      clientHealth: (clients || []).map(c => {
+        const clientBills = (bills || []).filter(b => b.client?.id === c.id || (b as any).clientName === c.name);
         const total = clientBills.reduce((sum, b) => sum + b.total, 0);
         const paid = clientBills.reduce((sum, b) => sum + (b.paidAmount || 0), 0);
         return {
@@ -63,7 +63,7 @@ export const getBusinessDataForAI = async () => {
         const date = new Date();
         date.setMonth(date.getMonth() - i);
         const monthYear = date.toLocaleString('default', { month: 'short', year: '2-digit' });
-        const monthBills = bills.filter(b => {
+        const monthBills = (bills || []).filter(b => {
           const bDate = new Date(b.date);
           return bDate.getMonth() === date.getMonth() && bDate.getFullYear() === date.getFullYear();
         });
