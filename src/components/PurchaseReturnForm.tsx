@@ -16,10 +16,11 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
 interface ReturnItemState {
+  productId: string; // Ensure productId is here
   selected: boolean;
   returnQuantity: number;
   maxQuantity: number;
-  currentStock: number; // Added to track current inventory
+  currentStock: number;
   description: string;
   rate: number;
   gstRate: number;
@@ -38,13 +39,13 @@ export function PurchaseReturnForm({ open, onOpenChange, bill, onSuccess, editRe
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [returnItems, setReturnItems] = useState<ReturnItemState[]>([]);
-  const [returnDate, setReturnDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [returnDate, setReturnDate] = useState<string>(new Date().toISOString());
 
   useEffect(() => {
     if (open && bill) {
       const loadData = async () => {
         const products = await getProducts();
-        setReturnDate(editReturn?.returnDate || new Date().toISOString().split("T")[0]);
+        setReturnDate(editReturn?.returnDate || new Date().toISOString());
         const itemsState: ReturnItemState[] = bill.items.map(item => {
           const editedItem = editReturn?.items.find(ri => ri.description === item.description);
           const product = products.find(p => 
@@ -52,6 +53,7 @@ export function PurchaseReturnForm({ open, onOpenChange, bill, onSuccess, editRe
             (item.hsnCode && p.hsnCode === item.hsnCode)
           );
           return {
+            productId: product?.id || '',
             selected: !!editedItem,
             returnQuantity: editedItem?.quantity || 0,
             maxQuantity: item.quantity,
@@ -119,12 +121,15 @@ export function PurchaseReturnForm({ open, onOpenChange, bill, onSuccess, editRe
         const amount = item.returnQuantity * item.rate;
         const gstAmount = (amount * item.gstRate) / 100;
         return {
-          description: item.description,
+          productId: item.productId || '',
+          productName: item.description,
+          description: item.description, // Added description property
           quantity: item.returnQuantity,
           rate: item.rate,
           amount,
           gstRate: item.gstRate,
           gstAmount,
+          condition: 'good',
         };
       });
 
@@ -179,8 +184,13 @@ export function PurchaseReturnForm({ open, onOpenChange, bill, onSuccess, editRe
               <Input
                 id="returnDate"
                 type="date"
-                value={returnDate}
-                onChange={(e) => setReturnDate(e.target.value)}
+                value={returnDate.split("T")[0]}
+                onChange={(e) => {
+                  const newDate = new Date(e.target.value);
+                  const now = new Date();
+                  newDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+                  setReturnDate(newDate.toISOString());
+                }}
                 required
               />
             </div>

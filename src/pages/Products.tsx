@@ -107,6 +107,9 @@ export default function Products() {
   const [stockValues, setStockValues] = useState<Record<string, number>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [avgPriceFilter, setAvgPriceFilter] = useState<string>("all");
+  const [stockSortOrder, setStockSortOrder] = useState<
+    "none" | "low-to-high" | "high-to-low"
+  >("none");
   const [formData, setFormData] = useState({
     name: "",
     hsnCode: "",
@@ -474,15 +477,24 @@ export default function Products() {
   };
 
   // Filter products based on search query
-  const filteredProducts = products.filter((product) => {
-    if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase().trim();
-    return (
-      product.name.toLowerCase().includes(query) ||
-      product.hsnCode.toLowerCase().includes(query) ||
-      (product.unit && product.unit.toLowerCase().includes(query))
-    );
-  });
+  const filteredProducts = products
+    .filter((product) => {
+      if (!searchQuery.trim()) return true;
+      const query = searchQuery.toLowerCase().trim();
+      return (
+        product.name.toLowerCase().includes(query) ||
+        product.hsnCode.toLowerCase().includes(query) ||
+        (product.unit && product.unit.toLowerCase().includes(query))
+      );
+    })
+    .sort((a, b) => {
+      if (stockSortOrder === "low-to-high") {
+        return a.stock - b.stock;
+      } else if (stockSortOrder === "high-to-low") {
+        return b.stock - a.stock;
+      }
+      return 0;
+    });
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -691,19 +703,48 @@ export default function Products() {
   if (loading) {
     return (
       <div className="min-h-screen">
-        <LoadingSpinner size="xl" text="Loading products..." fullScreen contentAreaOnly />
+        <LoadingSpinner
+          size="xl"
+          text="Loading products..."
+          fullScreen
+          contentAreaOnly
+        />
       </div>
     );
   }
 
   return (
     <div className="space-y-6 p-4">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="items-start sm:items-center gap-4">
         <div>
           <h1 className="page-title">Products</h1>
           <p className="page-subtitle">Manage your product inventory</p>
         </div>
-        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto pt-8">
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            {/* <div className="relative flex-1 sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search products..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div> */}
+            <Select
+              value={stockSortOrder}
+              onValueChange={(value: any) => setStockSortOrder(value)}
+            >
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Sort by Stock" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Default Sort</SelectItem>
+                <SelectItem value="low-to-high">Stock: Low to High</SelectItem>
+                <SelectItem value="high-to-low">Stock: High to Low</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <Button size="lg" onClick={() => setIsOpen(true)}>
             <Plus className="h-5 w-5 mr-2" />
             Create Product
@@ -1200,7 +1241,7 @@ export default function Products() {
                     <div className="bg-gradient-to-r from-emerald-500/10 to-blue-500/10 p-3 rounded-lg space-y-2 border border-emerald-200/50">
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-sm font-medium">
-                          Current Avg Purchase Price
+                          Current Avg Price
                         </span>
                         <span className="font-medium text-black-600">
                           {" "}

@@ -114,28 +114,21 @@ export default function Passbook() {
 
             // Add purchases (negative amounts for money spent)
             purchaseBills.forEach(purchase => {
-                // Main purchase payment (if any)
+                // We only show payments here, not the purchase itself, to reflect actual cash flow
                 if (purchase.payments && purchase.payments.length > 0) {
                     purchase.payments.forEach(payment => {
+                        const isReturnPayment = payment.amount < 0;
                         allEntries.push({
                             id: `purchase-payment-${payment.id}`,
                             date: payment.date,
-                            type: 'purchase',
-                            description: `Purchase Payment - ${purchase.vendorName || 'Vendor'} - Bill #${purchase.billNumber || 'N/A'} (${payment.method})`,
-                            amount: -payment.amount,
+                            type: isReturnPayment ? 'return' : 'purchase',
+                            description: isReturnPayment 
+                                ? `Return Payment from Vendor - ${purchase.vendorName || 'Vendor'} - Bill #${purchase.billNumber || 'N/A'} (${payment.method})`
+                                : `Purchase Payment to Vendor - ${purchase.vendorName || 'Vendor'} - Bill #${purchase.billNumber || 'N/A'} (${payment.method})`,
+                            amount: payment.amount < 0 ? Math.abs(payment.amount) : -payment.amount,
                             balance: 0,
                             details: { ...purchase, currentPayment: payment },
                         });
-                    });
-                } else if (purchase.paidAmount && purchase.paidAmount > 0) {
-                    allEntries.push({
-                        id: `purchase-${purchase.id}`,
-                        date: purchase.billDate || purchase.createdAt || purchase.id,
-                        type: 'purchase',
-                        description: `Purchase - ${purchase.vendorName || 'Vendor'} - Bill #${purchase.billNumber || 'N/A'}`,
-                        amount: -purchase.paidAmount,
-                        balance: 0,
-                        details: purchase,
                     });
                 }
             });
@@ -168,24 +161,11 @@ export default function Passbook() {
             });
 
             // Add purchase returns
-            purchaseBills.forEach(purchase => {
-                if (purchase.returns && purchase.returns.length > 0) {
-                    purchase.returns.forEach(ret => {
-                        allEntries.push({
-                            id: `purchase-return-${ret.id}`,
-                            date: ret.returnDate,
-                            type: 'return',
-                            description: `Purchase Return - ${purchase.vendorName} - Bill #${purchase.billNumber}`,
-                            amount: ret.totalReturnValue, // Positive as it's money back or credit
-                            balance: 0,
-                            details: ret,
-                        });
-                    });
-                }
-            });
+            // REMOVED: Purchase returns are now handled via return payments from vendors in the purchase payment logic above
+            // This prevents duplicate entries for the same return if it was already adjusted or refunded.
 
             // Sort by date (Oldest to Newest) and calculate running balance
-            // When dates are the same, we need a secondary sort (e.g., ID or type) to ensure consistency
+            // Strictly chronological order
             const sortedEntries = allEntries.sort((a, b) => {
                 const dateA = new Date(a.date).getTime();
                 const dateB = new Date(b.date).getTime();
@@ -203,8 +183,9 @@ export default function Passbook() {
                 };
             });
 
-            // For display purposes, we show Newest to Oldest, but balance was calculated Oldest to Newest
-            const displayEntries = [...entriesWithBalance].reverse();
+            // For display purposes, we show Newest to Oldest or Oldest to Newest based on sortOrder
+            // But we ensure the chronological calculation is preserved
+            const displayEntries = sortOrder === 'asc' ? [...entriesWithBalance] : [...entriesWithBalance].reverse();
             setEntries(displayEntries);
         } catch (error) {
             console.error('Error loading passbook data:', error);
@@ -310,11 +291,13 @@ export default function Passbook() {
         }
     };
 
-    const totalIncome = entries.filter(e => e.amount > 0 && (e.type === 'payment' || (e.type === 'return' && e.amount > 0))).reduce((sum, e) => sum + e.amount, 0);
-    const totalPurchases = Math.abs(entries.filter(e => e.type === 'purchase').reduce((sum, e) => sum + e.amount, 0));
-    const totalExpensesOnly = Math.abs(entries.filter(e => e.type === 'expense').reduce((sum, e) => sum + e.amount, 0));
-    const totalReturnsValue = entries.filter(e => e.type === 'return').reduce((sum, e) => sum + e.amount, 0);
-    const totalOutflow = Math.abs(entries.filter(e => (e.amount < 0 && e.type !== 'return') || (e.type === 'return' && e.amount < 0)).reduce((sum, e) => sum + e.amount, 0));
+    const totalIncome = entries.filter(e => e.amount > 0 && e.type === 'payment').reduce((sum, e) => sum + e.amount, 0);
+    const totalPurchases = entries.filter(e => e.type === 'purchase').reduce((sum, e) => sum + Math.abs(e.amount), 0);
+    const totalExpensesOnly = entries.filter(e => e.type === 'expense').reduce((sum, e) => sum + Math.abs(e.amount), 0);
+    const totalOutflow = entries.filter(e => (e.amount < 0 && e.type !== 'return') || (e.type === 'return' && e.amount < 0)).reduce((sum, e) => sum + Math.abs(e.amount), 0);
+    
+    // Purchase Returns Summary
+    const totalPurchaseReturns = entries.filter(e => e.type === 'return' && e.amount > 0).reduce((sum, e) => sum + e.amount, 0);
     
     // Budget/Net Balance calculation: 
     // Usually Passbook is Cash Flow. So it should be (Payments Received) - (Purchases) - (Expenses) + (Returns)
@@ -372,80 +355,18 @@ export default function Passbook() {
             </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                <Card className="border shadow-md hover:shadow-lg transition-shadow">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                        <CardTitle className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">Total Income</CardTitle>
-                        <div className="h-10 w-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                            <Plus className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl md:text-3xl font-bold text-emerald-600 dark:text-emerald-400 mb-1">{formatCurrency(totalIncome)}</div>
-                        <p className="text-xs text-muted-foreground">
-                            Actual cash received
-                        </p>
-                    </CardContent>
-                </Card>
-
-                <Card className="border shadow-md hover:shadow-lg transition-shadow">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                        <CardTitle className="text-sm font-semibold text-rose-600 dark:text-rose-400">Total Outflow</CardTitle>
-                        <div className="h-10 w-10 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center">
-                            <TrendingDown className="h-5 w-5 text-rose-600 dark:text-rose-400" />
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl md:text-3xl font-bold text-rose-600 dark:text-rose-400 mb-1">{formatCurrency(totalOutflow)}</div>
-                        <p className="text-xs text-muted-foreground">
-                            Purchases: {formatCurrency(totalPurchases)} | Expenses: {formatCurrency(totalExpensesOnly)}
-                        </p>
-                    </CardContent>
-                </Card>
-
-                <Card className="border shadow-md hover:shadow-lg transition-shadow">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                        <CardTitle className="text-sm font-semibold text-blue-600 dark:text-blue-400">Returns</CardTitle>
-                        <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                            <ArrowUpDown className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className={`text-2xl md:text-3xl font-bold mb-1 ${totalReturnsValue >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                            {formatCurrency(totalReturnsValue)}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                            Net value of all returns
-                        </p>
-                    </CardContent>
-                </Card>
-
-                <Card className="border shadow-md hover:shadow-lg transition-shadow">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                        <CardTitle className="text-sm font-semibold text-amber-600 dark:text-amber-400">Total Inventory</CardTitle>
-                        <div className="h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                            <BookOpen className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl md:text-3xl font-bold text-amber-600 dark:text-amber-400 mb-1">{formatCurrency(inventoryValue)}</div>
-                        <p className="text-xs text-muted-foreground">
-                            Total value of stock in hand
-                        </p>
-                    </CardContent>
-                </Card>
-
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4 items-stretch">
                 <Card className={`border shadow-md hover:shadow-lg transition-shadow ${netBalance >= 0 ? 'border-primary/20 bg-primary/5' : 'border-destructive/20 bg-destructive/5'}`}>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                        <CardTitle className={`text-sm font-semibold ${netBalance >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className={`text-xs sm:text-sm font-medium tracking-wide uppercase ${netBalance >= 0 ? 'text-primary' : 'text-destructive'}`}>
                             Net Balance
                         </CardTitle>
                         <div className={`h-10 w-10 rounded-full flex items-center justify-center ${netBalance >= 0 ? 'bg-primary/10' : 'bg-destructive/10'}`}>
                             <BookOpen className={`h-5 w-5 ${netBalance >= 0 ? 'text-primary' : 'text-destructive'}`} />
                         </div>
                     </CardHeader>
-                    <CardContent>
-                        <div className={`text-2xl md:text-3xl font-bold mb-1 ${netBalance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                    <CardContent className="pt-1">
+                        <div className={`text-xl sm:text-2xl font-bold mb-1 ${netBalance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                             {formatCurrency(netBalance)}
                         </div>
                         <p className="text-xs text-muted-foreground">
@@ -453,6 +374,68 @@ export default function Passbook() {
                         </p>
                     </CardContent>
                 </Card>
+
+                <Card className="border shadow-md hover:shadow-lg transition-shadow">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-xs sm:text-sm font-medium tracking-wide uppercase text-emerald-600 dark:text-emerald-400">Total Income</CardTitle>
+                        <div className="h-10 w-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                            <Plus className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                        </div>
+                    </CardHeader>
+                    <CardContent className="pt-1">
+                        <div className="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mb-1">{formatCurrency(totalIncome)}</div>
+                        <p className="text-xs text-muted-foreground">
+                            Actual cash received
+                        </p>
+                    </CardContent>
+                </Card>
+
+                <Card className="border shadow-md hover:shadow-lg transition-shadow">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-xs sm:text-sm font-medium tracking-wide uppercase text-rose-600 dark:text-rose-400">Total Outflow</CardTitle>
+                        <div className="h-10 w-10 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center">
+                            <TrendingDown className="h-5 w-5 text-rose-600 dark:text-rose-400" />
+                        </div>
+                    </CardHeader>
+                    <CardContent className="pt-1">
+                        <div className="text-xl sm:text-2xl font-bold text-rose-600 dark:text-rose-400 mb-1">{formatCurrency(totalOutflow)}</div>
+                        <p className="text-xs text-muted-foreground">
+                            Purchases: {formatCurrency(totalPurchases)} | Expenses: {formatCurrency(totalExpensesOnly)}
+                        </p>
+                    </CardContent>
+                </Card>
+
+                <Card className="border shadow-md hover:shadow-lg transition-shadow">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-xs sm:text-sm font-medium tracking-wide uppercase text-amber-600 dark:text-amber-400">Total Inventory</CardTitle>
+                        <div className="h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                            <BookOpen className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                        </div>
+                    </CardHeader>
+                    <CardContent className="pt-1">
+                        <div className="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400 mb-1">{formatCurrency(inventoryValue)}</div>
+                        <p className="text-xs text-muted-foreground">
+                            Total value of stock in hand
+                        </p>
+                    </CardContent>
+                </Card>
+
+                <Card className="border shadow-md hover:shadow-lg transition-shadow">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-xs sm:text-sm font-medium tracking-wide uppercase text-blue-600 dark:text-blue-400">Purchase Returns</CardTitle>
+                        <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                            <ArrowUpDown className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                        </div>
+                    </CardHeader>
+                    <CardContent className="pt-1">
+                        <div className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400 mb-1">{formatCurrency(totalPurchaseReturns)}</div>
+                        <p className="text-xs text-muted-foreground">
+                            Collected/Remaining returns
+                        </p>
+                    </CardContent>
+                </Card>
+
+                
             </div>
 
             {/* Collection by Payment Mode */}

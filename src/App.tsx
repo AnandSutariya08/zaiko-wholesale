@@ -33,6 +33,7 @@ import BillCreators from "@/pages/BillCreators";
 import BankAccounts from "@/pages/BankAccounts";
 import ExpoDashboard from "@/pages/Expo/ExpoDashboard";
 import AIAgent from "@/pages/AIAgent";
+import BusinessHealth from "@/pages/BusinessHealth";
 import { LoadingSpinner } from "./components/LoadingSpinner";
 import { Suspense } from "react";
 import { SampleBillForm } from "./components/SampleBillForm";
@@ -83,6 +84,7 @@ const App = () => (
                       <Route path="/bill-creators" element={<BillCreators />} />
                       <Route path="/expo-dashboard/:expoId" element={<ExpoDashboard />} />
                       <Route path="/ai-agent" element={<AIAgent />} />
+                      <Route path="/business-health" element={<BusinessHealth />} />
                       <Route path="*" element={<NotFound />} />
                       <Route path="/sample-bills" element={<SampleBills />} />
                       <Route

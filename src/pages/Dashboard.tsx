@@ -352,12 +352,18 @@ export default function Dashboard() {
 
       // Total purchases (money spent on buying inventory)
       const totalPurchases = roundToTwoDecimals(
-        purchaseBillsInRange.reduce((sum, bill) => sum + bill.total, 0),
+        purchaseBillsInRange.reduce((sum, bill) => {
+          const returns = bill.returns?.reduce((rSum, r) => rSum + r.totalReturnValue, 0) || 0;
+          return sum + (bill.total - returns);
+        }, 0),
       );
       const pendingPurchases = roundToTwoDecimals(
         purchaseBillsInRange
           .filter((b) => b.paymentStatus !== "paid")
-          .reduce((sum, bill) => sum + bill.total, 0),
+          .reduce((sum, bill) => {
+            const returns = bill.returns?.reduce((rSum, r) => rSum + r.totalReturnValue, 0) || 0;
+            return sum + (bill.total - returns - (bill.paidAmount || 0));
+          }, 0),
       );
 
       // Charts data prep
@@ -717,7 +723,14 @@ export default function Dashboard() {
         paidBills.reduce((sum, bill) => sum + bill.totalTax, 0),
       );
       const gstPaid = roundToTwoDecimals(
-        purchaseBillsInRange.reduce((sum, bill) => sum + bill.totalTax, 0),
+        purchaseBillsInRange.reduce((sum, bill) => {
+          // Calculate GST paid on items that weren't returned
+          // For simplicity, we assume returns reduce the taxable value proportionally if not explicitly tracked per item
+          const totalReturns = bill.returns?.reduce((rSum, r) => rSum + r.totalReturnValue, 0) || 0;
+          const returnRatio = bill.total > 0 ? totalReturns / bill.total : 0;
+          const adjustedGst = bill.totalTax * (1 - returnRatio);
+          return sum + adjustedGst;
+        }, 0),
       );
       const netGst = roundToTwoDecimals(gstCollected - gstPaid);
 

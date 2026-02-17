@@ -286,7 +286,7 @@ Return ONLY the JSON object, no other text.`;
         vendorAddress: parsed.vendorAddress || "",
         vendorGstin: parsed.vendorGstin || "",
         billNumber: parsed.billNumber || "",
-        billDate: parsed.billDate || new Date().toISOString().split("T")[0],
+        billDate: parsed.billDate || new Date().toISOString(),
         dueDate: parsed.dueDate || "",
         paymentTerms: Number(parsed.paymentTerms) || 0,
         items,

@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { getVendors, saveVendor, deleteVendor, getPurchaseBills } from "@/lib/storage";
 import { Vendor, PurchaseBill } from "@/types";
-import { Plus, Edit, Trash2, Store, Eye, Loader2, Search, Receipt, History, Download, FileSpreadsheet, FileText } from "lucide-react";
+import { Plus, Edit, Trash2, Store, Eye, Loader2, Search, Receipt, History, Download, FileSpreadsheet, FileText, ArrowLeftRight } from "lucide-react";
 import { toast } from "sonner";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -72,6 +72,13 @@ export default function Vendors() {
     loadPurchaseBills();
   }, []);
 
+  // Reload purchase bills whenever the dialog is opened to ensure fresh data
+  useEffect(() => {
+    if (isViewOpen && viewingVendor) {
+      loadPurchaseBills();
+    }
+  }, [isViewOpen, viewingVendor]);
+
   const loadVendors = async () => {
     try {
       setLoading(true);
@@ -103,43 +110,23 @@ export default function Vendors() {
     const transactions: any[] = [];
 
     vendorBills.forEach(bill => {
-      // Add the bill itself as a "Purchase" transaction
-      transactions.push({
-        id: `bill-${bill.id}`,
-        date: bill.billDate || bill.createdAt,
-        type: "Purchase",
-        reference: bill.billNumber || "N/A",
-        amount: bill.total,
-        status: bill.paymentStatus,
-        billId: bill.id // Store billId for easier reference
-      });
-
-      // Add payments
+      // Add payments only - Purchase and Return payments
       if (bill.payments) {
         bill.payments.forEach(payment => {
+          const isReturnPayment = payment.amount < 0;
+          
           transactions.push({
             id: `pay-${payment.id}`,
             date: payment.date,
-            type: "Payment",
-            reference: `For Bill #${bill.billNumber || ""}`,
-            amount: payment.amount,
+            displayDate: payment.date,
+            type: isReturnPayment ? "Return Payment" : "Purchase Payment",
+            reference: isReturnPayment 
+              ? `Return Payment from Vendor - Bill #${bill.billNumber || ""}` 
+              : `Purchase Payment to Vendor - Bill #${bill.billNumber || ""}`,
+            amount: Math.abs(payment.amount),
             method: payment.method,
-            billId: bill.id
-          });
-        });
-      }
-
-      // Add returns
-      if (bill.returns) {
-        bill.returns.forEach(ret => {
-          transactions.push({
-            id: `ret-${ret.id}`,
-            date: ret.returnDate,
-            type: "Return",
-            reference: `From Bill #${bill.billNumber || ""}`,
-            amount: ret.totalReturnValue,
-            notes: ret.notes,
-            billId: bill.id
+            billId: bill.id,
+            isRefund: isReturnPayment
           });
         });
       }
@@ -167,7 +154,11 @@ export default function Vendors() {
         
         return matchesSearch && matchesDate;
       })
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      .sort((a, b) => {
+        // Sort by full timestamp DESCENDING (newest first - most recent at top)
+        // This includes hours, minutes, seconds for precise ordering
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+      });
   };
 
   const getVendorStats = (vendorId: string, vendorName: string) => {
@@ -298,10 +289,12 @@ export default function Vendors() {
     });
   };
 
-  const filteredVendors = vendors.filter((v) =>
-    v.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    v.gstin.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredVendors = vendors
+    .filter((v) =>
+      v.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      v.gstin.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 
   if (loading) return <LoadingSpinner size="xl" text="Loading vendors..." fullScreen contentAreaOnly />;
 
@@ -458,47 +451,76 @@ export default function Vendors() {
                       <div className="space-y-3">
                         {(() => {
                           const term = viewingVendor.name.toLowerCase().trim();
-          const filteredBills = purchaseBills.filter(b => 
-            (b.vendorId && b.vendorId === viewingVendor.id) || 
-            (b.vendorName && b.vendorName.toLowerCase().trim() === term)
-          );
-          
-          if (filteredBills.length > 0) {
-            return (
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Bill #</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Total</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Action</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredBills.map(bill => (
-                      <TableRow key={bill.id}>
-                        <TableCell className="font-medium">{bill.billNumber || "N/A"}</TableCell>
-                        <TableCell>{formatDate(bill.billDate || bill.createdAt)}</TableCell>
-                        <TableCell>{formatCurrency(bill.total)}</TableCell>
-                        <TableCell>
-                          <Badge variant={bill.paymentStatus === 'paid' ? 'default' : bill.paymentStatus === 'overdue' ? 'destructive' : 'outline'}>
-                            {bill.paymentStatus.toUpperCase()}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="sm" onClick={() => navigate(`/purchase-bills?id=${bill.id}`)}>View</Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            );
-          }
-          return <div className="text-center py-8 text-muted-foreground">No purchase bills found for this vendor.</div>;
-        })()}
+                          const filteredBills = purchaseBills.filter(b => 
+                            (b.vendorId && b.vendorId === viewingVendor.id) || 
+                            (b.vendorName && b.vendorName.toLowerCase().trim() === term)
+                          );
+                          
+                          if (filteredBills.length > 0) {
+                            return (
+                              <div className="rounded-md border">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>Bill #</TableHead>
+                                      <TableHead>Date</TableHead>
+                                      <TableHead>Total</TableHead>
+                                      <TableHead>Paid</TableHead>
+                                      <TableHead>Status</TableHead>
+                                      <TableHead className="text-right">Action</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {filteredBills.map(bill => {
+                                      // Calculate real-time values
+                                      const totalReturns = (bill.returns || []).reduce((sum, r) => sum + r.totalReturnValue, 0);
+                                      const netTotal = bill.total - totalReturns;
+                                      const paidAmount = bill.paidAmount || 0;
+                                      const remainingAmount = netTotal - paidAmount;
+                                      
+                                      // Determine current status
+                                      let currentStatus: string = bill.paymentStatus;
+                                      if (remainingAmount < 0) {
+                                        currentStatus = 'overpaid';
+                                      } else if (remainingAmount === 0) {
+                                        currentStatus = 'paid';
+                                      } else if (paidAmount > 0) {
+                                        currentStatus = 'partial';
+                                      } else if (bill.dueDate && new Date(bill.dueDate) < new Date()) {
+                                        currentStatus = 'overdue';
+                                      } else {
+                                        currentStatus = 'pending';
+                                      }
+                                      
+                                      return (
+                                        <TableRow key={bill.id}>
+                                          <TableCell className="font-medium">{bill.billNumber || "N/A"}</TableCell>
+                                          <TableCell>{formatDate(bill.billDate || bill.createdAt)}</TableCell>
+                                          <TableCell>{formatCurrency(netTotal)}</TableCell>
+                                          <TableCell>{formatCurrency(paidAmount)}</TableCell>
+                                          <TableCell>
+                                            <Badge variant={
+                                              currentStatus === 'paid' ? 'default' : 
+                                              currentStatus === 'overdue' || currentStatus === 'overpaid' ? 'destructive' : 
+                                              currentStatus === 'partial' ? 'secondary' : 
+                                              'outline'
+                                            }>
+                                              {currentStatus.toUpperCase()}
+                                            </Badge>
+                                          </TableCell>
+                                          <TableCell className="text-right">
+                                            <Button variant="ghost" size="sm" onClick={() => navigate(`/purchase-bills?id=${bill.id}`)}>View</Button>
+                                          </TableCell>
+                                        </TableRow>
+                                      );
+                                    })}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            );
+                          }
+                          return <div className="text-center py-8 text-muted-foreground">No purchase bills found for this vendor.</div>;
+                        })()}
                       </div>
                     </CardContent>
                   </Card>
@@ -551,29 +573,41 @@ export default function Vendors() {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-3">
-                        {getVendorTransactions(viewingVendor.id, viewingVendor.name).length > 0 ? (
-                          getVendorTransactions(viewingVendor.id, viewingVendor.name).map(tx => (
-                            <div key={tx.id} className="flex justify-between items-center p-3 border rounded hover:bg-muted/50 transition-colors">
-                              <div className="flex items-center gap-3">
-                                <div className={`p-2 rounded-full ${tx.type === 'Purchase' ? 'bg-orange-100 text-orange-600' : tx.type === 'Payment' ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
-                                  {tx.type === 'Purchase' ? <Receipt className="h-4 w-4" /> : tx.type === 'Payment' ? <Plus className="h-4 w-4" /> : <History className="h-4 w-4" />}
+                        {(() => {
+                          const transactions = getVendorTransactions(viewingVendor.id, viewingVendor.name);
+                          if (transactions.length > 0) {
+                            return transactions.map(tx => (
+                              <div key={tx.id} className={`flex justify-between items-center p-3 border rounded hover:bg-muted/50 transition-colors ${
+                                tx.type === 'Purchase Payment' ? 'bg-red-50/30 dark:bg-red-900/10 border-red-100' :
+                                tx.type === 'Return Payment' ? 'bg-green-50/30 dark:bg-green-900/10 border-green-100' : ''
+                              }`}>
+                                <div className="flex items-center gap-3">
+                                  <div className={`p-2 rounded-full ${
+                                    tx.type === 'Purchase Payment' ? 'bg-red-100 text-red-600' : 
+                                    tx.type === 'Return Payment' ? 'bg-green-100 text-green-600' : ''
+                                  }`}>
+                                    {tx.type === 'Purchase Payment' ? <Receipt className="h-4 w-4" /> : 
+                                     tx.type === 'Return Payment' ? <Plus className="h-4 w-4" /> : null}
+                                  </div>
+                                  <div>
+                                    <p className="font-medium">{tx.type}</p>
+                                    <p className="text-xs text-muted-foreground">{tx.reference} • {formatDate(tx.displayDate || tx.date)}</p>
+                                  </div>
                                 </div>
-                                <div>
-                                  <p className="font-medium">{tx.type}</p>
-                                  <p className="text-xs text-muted-foreground">{tx.reference} • {formatDate(tx.date)}</p>
+                                <div className="text-right">
+                                  <p className={`font-semibold ${
+                                    tx.type === 'Purchase Payment' ? 'text-red-600' : 
+                                    tx.type === 'Return Payment' ? 'text-green-600' : ''
+                                  }`}>
+                                    {tx.type === 'Purchase Payment' ? '-' : '+'}{formatCurrency(tx.amount)}
+                                  </p>
+                                  {tx.method && <p className="text-[10px] text-muted-foreground uppercase">{tx.method}</p>}
                                 </div>
                               </div>
-                              <div className="text-right">
-                                <p className={`font-semibold ${tx.type === 'Purchase' ? 'text-destructive' : 'text-green-600'}`}>
-                                  {tx.type === 'Purchase' ? '-' : '+'}{formatCurrency(tx.amount)}
-                                </p>
-                                {tx.method && <p className="text-[10px] text-muted-foreground uppercase">{tx.method}</p>}
-                              </div>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="text-center py-8 text-muted-foreground">No transactions found for this vendor.</div>
-                        )}
+                            ));
+                          }
+                          return <div className="text-center py-8 text-muted-foreground">No transactions found for this vendor.</div>;
+                        })()}
                       </div>
                     </CardContent>
                   </Card>
@@ -586,4 +620,3 @@ export default function Vendors() {
     </div>
   );
 }
-

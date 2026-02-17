@@ -90,7 +90,7 @@ export function SampleBillForm({ bill, isEdit = false }: SampleBillFormProps) {
   );
 
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split("T")[0],
+    date: new Date().toISOString(),
     paymentTerms: 30,
     deliveryNote: "",
     modeOfPayment: "",
@@ -501,10 +501,13 @@ export function SampleBillForm({ bill, isEdit = false }: SampleBillFormProps) {
               <Label>Bill Date *</Label>
               <Input
                 type="date"
-                value={formData.date}
-                onChange={(e) =>
-                  setFormData({ ...formData, date: e.target.value })
-                }
+                value={formData.date.split("T")[0]}
+                onChange={(e) => {
+                  const newDate = new Date(e.target.value);
+                  const now = new Date();
+                  newDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+                  setFormData({ ...formData, date: newDate.toISOString() });
+                }}
               />
             </div>
 
