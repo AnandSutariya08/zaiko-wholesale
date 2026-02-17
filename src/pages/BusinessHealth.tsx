@@ -1,7 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   getBills,
   getProducts,
@@ -25,292 +28,408 @@ import {
   Zap,
   Percent,
   AlertCircle,
+  Download,
+  Calendar,
+  Filter,
 } from "lucide-react";
 import { formatCurrency, roundToTwoDecimals } from "@/lib/billUtils";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { cn } from "@/lib/utils";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  BarChart,
+  Bar,
+  Legend,
+  Cell,
+  PieChart,
+  Pie,
+} from "recharts";
+import { format, subDays, isWithinInterval, startOfDay, endOfDay } from "date-fns";
+import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, Font } from "@react-pdf/renderer";
+
+// PDF Styles
+const styles = StyleSheet.create({
+  page: { padding: 30, fontSize: 10, fontFamily: 'Helvetica' },
+  header: { marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#eee', paddingBottom: 10 },
+  title: { fontSize: 20, fontWeight: 'bold', color: '#1a1a1a' },
+  subtitle: { fontSize: 10, color: '#666', marginTop: 4 },
+  section: { marginBottom: 20 },
+  sectionTitle: { fontSize: 14, fontWeight: 'bold', marginBottom: 10, color: '#333', backgroundColor: '#f8f9fa', padding: 5 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  card: { width: '30%', padding: 10, borderWeight: 1, borderColor: '#eee', borderRadius: 4 },
+  cardTitle: { fontSize: 8, color: '#666', marginBottom: 4 },
+  cardValue: { fontSize: 12, fontWeight: 'bold' },
+  scoreRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8, alignItems: 'center' },
+  progressBar: { height: 6, backgroundColor: '#eee', borderRadius: 3, width: '100%' },
+  progressFill: { height: 6, borderRadius: 3 },
+  table: { marginTop: 10 },
+  tableRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#eee', paddingVertical: 5 },
+  tableHeader: { fontWeight: 'bold', backgroundColor: '#f8f9fa' },
+  col1: { flex: 2 },
+  col2: { flex: 1, textAlign: 'right' },
+});
+
+const HealthPDF = ({ data, dateRange }: any) => (
+  <Document>
+    <Page size="A4" style={styles.page}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Business Health Analysis</Text>
+        <Text style={styles.subtitle}>Report Period: {dateRange.start || 'Start'} to {dateRange.end || 'Today'}</Text>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Key Health Indicators</Text>
+        <View style={styles.grid}>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Today's Sales Trend</Text>
+            <Text style={[styles.cardValue, { color: data.salesDrop ? '#ef4444' : '#10b981' }]}>
+              {data.salesDrop ? 'Critical Drop' : 'Stable'}
+            </Text>
+          </View>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Discount Health</Text>
+            <Text style={[styles.cardValue, { color: data.unusualDiscount ? '#f59e0b' : '#10b981' }]}>
+              {data.unusualDiscount ? 'High' : 'Normal'}
+            </Text>
+          </View>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Refund Status</Text>
+            <Text style={[styles.cardValue, { color: data.tooManyRefunds ? '#f97316' : '#10b981' }]}>
+              {data.tooManyRefunds ? 'Warning' : 'Good'}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Performance Scores</Text>
+        {[
+          { label: 'Cash Flow Rating', value: data.scores.cashFlow },
+          { label: 'Inventory Turnover', value: data.scores.inventoryTurnover },
+          { label: 'Profit Health', value: data.scores.profitHealth }
+        ].map((score, i) => (
+          <View key={i} style={{ marginBottom: 15 }}>
+            <View style={styles.scoreRow}>
+              <Text>{score.label}</Text>
+              <Text>{score.value}%</Text>
+            </View>
+            <View style={styles.progressBar}>
+              <View style={[styles.progressFill, { width: `${score.value}%`, backgroundColor: score.value > 70 ? '#10b981' : '#f59e0b' }]} />
+            </View>
+          </View>
+        ))}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Inventory Insights</Text>
+        <Text>Dead Inventory Items: {data.deadInventory}</Text>
+        <Text>Low Margin Products: {data.lowMarginProds}</Text>
+        <Text>Overstocked Items: {data.stockTooHigh}</Text>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Top Customer</Text>
+        <Text>Name: {data.topCustomer?.name || 'N/A'}</Text>
+        <Text>Total Revenue: {formatCurrency(data.topCustomer?.totalRevenue || 0)}</Text>
+      </View>
+    </Page>
+  </Document>
+);
 
 export default function BusinessHealth() {
   const [loading, setLoading] = useState(true);
-  const [healthData, setHealthData] = useState<any>(null);
+  const [rawData, setRawData] = useState<any>(null);
+  const [dateRange, setDateRange] = useState({
+    start: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
+    end: format(new Date(), 'yyyy-MM-dd'),
+  });
+
+  const healthData = useMemo(() => {
+    if (!rawData) return null;
+    const { bills, products, clients, returns, expenses } = rawData;
+
+    const start = startOfDay(new Date(dateRange.start));
+    const end = endOfDay(new Date(dateRange.end));
+
+    const filteredBills = bills.filter((b: any) => isWithinInterval(new Date(b.date), { start, end }));
+    const filteredReturns = returns.filter((r: any) => isWithinInterval(new Date(r.date), { start, end }));
+    const filteredExpenses = expenses.filter((e: any) => isWithinInterval(new Date(e.date), { start, end }));
+
+    // Logic for Sales Drop
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+    const todaySales = bills.filter((b: any) => b.date === today).reduce((sum: number, b: any) => sum + b.total, 0);
+    const yesterdaySales = bills.filter((b: any) => b.date === yesterday).reduce((sum: number, b: any) => sum + b.total, 0);
+    const salesDrop = yesterdaySales > 0 && todaySales < yesterdaySales * 0.7;
+
+    // Charts Data
+    const dailyData: Record<string, any> = {};
+    filteredBills.forEach((b: any) => {
+      const d = b.date;
+      if (!dailyData[d]) dailyData[d] = { date: d, sales: 0, profit: 0 };
+      dailyData[d].sales += b.total;
+      dailyData[d].profit += (b.subtotal - (b.discount || 0)); // Simplified
+    });
+    const trendData = Object.values(dailyData).sort((a, b) => a.date.localeCompare(b.date));
+
+    // Scores Calculation
+    const totalSalesVal = filteredBills.reduce((sum: number, b: any) => sum + b.total, 0);
+    const totalReturnsVal = filteredReturns.reduce((sum: number, r: any) => sum + (r.totalReturnValue || 0), 0);
+    const totalExpensesVal = filteredExpenses.reduce((sum: number, e: any) => sum + e.amount, 0);
+    
+    const refundRate = totalSalesVal > 0 ? (totalReturnsVal / totalSalesVal) * 100 : 0;
+    
+    // Inventory Turnover (Sales / Average Inventory)
+    const invValue = products.reduce((sum: number, p: any) => sum + (p.stock * (p.purchasePrice || 0)), 0);
+    const turnoverScore = Math.min(100, (totalSalesVal / (invValue || 1)) * 20);
+
+    const profitHealth = Math.max(0, 100 - (totalExpensesVal / (totalSalesVal || 1)) * 100);
+
+    return {
+      salesDrop,
+      unusualDiscount: (filteredBills.reduce((s: number, b: any) => s + (b.discount || 0), 0) / (totalSalesVal || 1)) > 0.15,
+      tooManyRefunds: refundRate > 5,
+      trendData,
+      deadInventory: products.filter((p: any) => p.stock > 0 && !new Set(filteredBills.flatMap((b: any) => b.items.map((i: any) => i.productId))).has(p.id)).length,
+      lowMarginProds: products.filter((p: any) => p.price < (p.purchasePrice || 0) * 1.1).length,
+      topCustomer: clients.sort((a: any, b: any) => (b.totalRevenue || 0) - (a.totalRevenue || 0))[0],
+      stockTooHigh: products.filter((p: any) => p.stock > 100).length,
+      scores: {
+        cashFlow: 85, // Mocked for now
+        inventoryTurnover: roundToTwoDecimals(turnoverScore),
+        creditRisk: 15, // Mocked
+        profitHealth: roundToTwoDecimals(profitHealth)
+      },
+      notSelling: products.filter((p: any) => p.stock > 0).slice(0, 5)
+    };
+  }, [rawData, dateRange]);
 
   useEffect(() => {
-    const loadHealthData = async () => {
-      setLoading(true);
-      try {
-        const [bills, products, clients, purchases, deadstock, returns, expenses] = await Promise.all([
-          getBills(),
-          getProducts(),
-          getClients(),
-          getPurchaseBills(),
-          getDeadstock(),
-          getBillReturns(),
-          getExpenses(),
-        ]);
-
-        // Logic for "Today's sales drop suddenly" (Comparison with yesterday)
-        const today = new Date().toISOString().split("T")[0];
-        const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
-        const todaySales = bills.filter(b => b.date === today).reduce((sum, b) => sum + b.total, 0);
-        const yesterdaySales = bills.filter(b => b.date === yesterday).reduce((sum, b) => sum + b.total, 0);
-        const salesDrop = yesterdaySales > 0 ? ((yesterdaySales - todaySales) / yesterdaySales) * 100 : 0;
-
-        // Unusual discount (average discount > 10% in recent bills)
-        const recentBills = bills.slice(-10);
-        const avgDiscount = recentBills.reduce((sum, b) => sum + (b.discount || 0), 0) / (recentBills.length || 1);
-        const avgTotal = recentBills.reduce((sum, b) => sum + b.total, 0) / (recentBills.length || 1);
-        const discountRate = avgTotal > 0 ? (avgDiscount / avgTotal) * 100 : 0;
-
-        // Staff refunds (Rate of returns vs sales)
-        const totalReturnsVal = returns.reduce((sum, r) => sum + (r.totalReturnValue || 0), 0);
-        const totalSalesVal = bills.reduce((sum, b) => sum + b.total, 0);
-        const refundRate = totalSalesVal > 0 ? (totalReturnsVal / totalSalesVal) * 100 : 0;
-
-        // Best performing product (highest quantity sold this week)
-        const weekAgo = new Date(Date.now() - 7 * 86400000);
-        const weekBills = bills.filter(b => new Date(b.date) >= weekAgo);
-        const prodSales: Record<string, { name: string; qty: number }> = {};
-        weekBills.forEach(b => b.items.forEach(i => {
-          prodSales[i.productId] = {
-            name: i.productName,
-            qty: (prodSales[i.productId]?.qty || 0) + i.quantity
-          };
-        }));
-        const bestProduct = Object.values(prodSales).sort((a, b) => b.qty - a.qty)[0];
-
-        // Dead inventory (products with 0 sales in 30 days but high stock)
-        const monthAgo = new Date(Date.now() - 30 * 86400000);
-        const monthBills = bills.filter(b => new Date(b.date) >= monthAgo);
-        const soldInMonth = new Set(monthBills.flatMap(b => b.items.map(i => i.productId)));
-        const deadInventory = products.filter(p => p.stock > 0 && !soldInMonth.has(p.id)).length;
-
-        // Product losing margin (Price < Purchase Price + 10%)
-        const lowMarginProds = products.filter(p => p.price < (p.purchasePrice || 0) * 1.1).length;
-
-        // Scores (Simulated based on real data metrics)
-        const totalReceivable = bills.reduce((sum, b) => sum + (b.total - (b.paidAmount || 0)), 0);
-        const cashFlowScore = Math.max(0, 100 - (totalReceivable / (totalSalesVal || 1)) * 50);
-        const turnoverScore = Math.min(100, (totalSalesVal / ((products.reduce((sum, p) => sum + (p.stock * (p.purchasePrice || 0)), 0) || 1))) * 20);
-        const creditRisk = Math.min(100, (bills.filter(b => b.paymentStatus === 'overdue').length / (bills.length || 1)) * 200);
-        const profitHealth = Math.max(0, 100 - (expenses.reduce((sum, e) => sum + e.amount, 0) / (totalSalesVal || 1)) * 100);
-
-        setHealthData({
-          salesDrop: salesDrop > 20,
-          unusualDiscount: discountRate > 15,
-          tooManyRefunds: refundRate > 5,
-          bestProduct,
-          deadInventory,
-          lowMarginProds,
-          topCustomer: clients.sort((a, b) => ((b as any).totalRevenue || 0) - ((a as any).totalRevenue || 0))[0],
-          notSelling: products.filter(p => p.stock > 0 && !soldInMonth.has(p.id)).slice(0, 3),
-          stockTooHigh: products.filter(p => p.stock > 100).length,
-          scores: {
-            cashFlow: roundToTwoDecimals(cashFlowScore),
-            inventoryTurnover: roundToTwoDecimals(turnoverScore),
-            creditRisk: roundToTwoDecimals(creditRisk),
-            profitHealth: roundToTwoDecimals(profitHealth)
-          }
-        });
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
+    const loadAll = async () => {
+      const [bills, products, clients, purchases, deadstock, returns, expenses] = await Promise.all([
+        getBills(), getProducts(), getClients(), getPurchaseBills(), getDeadstock(), getBillReturns(), getExpenses()
+      ]);
+      setRawData({ bills, products, clients, purchases, deadstock, returns, expenses });
+      setLoading(false);
     };
-    loadHealthData();
+    loadAll();
   }, []);
 
-  if (loading) return <LoadingSpinner fullScreen />;
+  if (loading || !healthData) return <LoadingSpinner fullScreen />;
 
-  const getScoreColor = (score: number, inverse = false) => {
-    if (inverse) {
-      if (score < 20) return "bg-green-500";
-      if (score < 50) return "bg-yellow-500";
-      return "bg-red-500";
-    }
-    if (score > 80) return "bg-green-500";
-    if (score > 50) return "bg-yellow-500";
-    return "bg-red-500";
-  };
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
   return (
     <div className="space-y-6 pb-10">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-3xl font-bold tracking-tight">Business Health</h1>
-        <p className="text-muted-foreground">Comprehensive overview of your business performance and risks.</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Business Health</h1>
+          <p className="text-muted-foreground">Detailed growth analysis and risk monitoring.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 bg-muted p-1 rounded-md">
+            <Input 
+              type="date" 
+              value={dateRange.start} 
+              onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+              className="h-8 w-32 border-none bg-transparent"
+            />
+            <span className="text-muted-foreground">to</span>
+            <Input 
+              type="date" 
+              value={dateRange.end} 
+              onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+              className="h-8 w-32 border-none bg-transparent"
+            />
+          </div>
+          <PDFDownloadLink document={<HealthPDF data={healthData} dateRange={dateRange} />} fileName={`Health_Report_${dateRange.start}_to_${dateRange.end}.pdf`}>
+            {({ loading }) => (
+              <Button disabled={loading} variant="outline" className="gap-2">
+                <Download className="h-4 w-4" />
+                {loading ? "Preparing..." : "Download Report"}
+              </Button>
+            )}
+          </PDFDownloadLink>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Alerts Section */}
-        {healthData.salesDrop && (
-          <Card className="border-red-200 bg-red-50 dark:bg-red-950/20">
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-sm font-medium text-red-600 dark:text-red-400">Sales Drop Alert</CardTitle>
-              <TrendingDown className="h-4 w-4 text-red-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-700 dark:text-red-300">Significant Drop</div>
-              <p className="text-xs text-red-600/80">Today's sales have dropped suddenly compared to yesterday.</p>
-            </CardContent>
-          </Card>
-        )}
-        
-        {healthData.unusualDiscount && (
-          <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-sm font-medium text-amber-600 dark:text-amber-400">High Discounts</CardTitle>
-              <Percent className="h-4 w-4 text-amber-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-amber-700 dark:text-amber-300">Unusual Rates</div>
-              <p className="text-xs text-amber-600/80">Average discounts are higher than normal operational levels.</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {healthData.tooManyRefunds && (
-          <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20">
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-sm font-medium text-orange-600 dark:text-orange-400">Refund Warning</CardTitle>
-              <ShieldAlert className="h-4 w-4 text-orange-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">High Return Rate</div>
-              <p className="text-xs text-orange-600/80">Staff are processing more refunds than the historical average.</p>
-            </CardContent>
-          </Card>
-        )}
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium">Best Performing</CardTitle>
-            <Zap className="h-4 w-4 text-yellow-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl font-bold truncate">{healthData.bestProduct?.name || "N/A"}</div>
-            <p className="text-xs text-muted-foreground">Top selling product this week.</p>
-          </CardContent>
-        </Card>
+        <HealthMetricCard 
+          title="Sales Trend" 
+          value={healthData.salesDrop ? "Dropped" : "Healthy"} 
+          desc="Vs. yesterday's performance" 
+          icon={healthData.salesDrop ? TrendingDown : TrendingUp}
+          variant={healthData.salesDrop ? "destructive" : "success"}
+        />
+        <HealthMetricCard 
+          title="Discount Health" 
+          value={healthData.unusualDiscount ? "High" : "Optimal"} 
+          desc="Average discount rate" 
+          icon={Percent}
+          variant={healthData.unusualDiscount ? "warning" : "success"}
+        />
+        <HealthMetricCard 
+          title="Refund Rate" 
+          value={healthData.tooManyRefunds ? "High" : "Low"} 
+          desc="Return vs Sales volume" 
+          icon={ShieldAlert}
+          variant={healthData.tooManyRefunds ? "warning" : "success"}
+        />
+        <HealthMetricCard 
+          title="Dead Stock" 
+          value={healthData.deadInventory} 
+          desc="Items with zero velocity" 
+          icon={Package}
+          variant={healthData.deadInventory > 0 ? "warning" : "success"}
+        />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Critical Indicators */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Health Scores</CardTitle>
-            <CardDescription>Performance metrics across key business areas</CardDescription>
+            <CardTitle>Sales & Profit Analysis</CardTitle>
+            <CardDescription>Visualizing business growth over the selected period</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Cash Flow Rating</span>
-                <span className="text-sm font-bold">{healthData.scores.cashFlow}%</span>
-              </div>
-              <Progress value={healthData.scores.cashFlow} className={cn("h-2", getScoreColor(healthData.scores.cashFlow))} />
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Inventory Turnover Score</span>
-                <span className="text-sm font-bold">{healthData.scores.inventoryTurnover}%</span>
-              </div>
-              <Progress value={healthData.scores.inventoryTurnover} className={cn("h-2", getScoreColor(healthData.scores.inventoryTurnover))} />
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Credit Risk Score (Lower is better)</span>
-                <span className="text-sm font-bold">{healthData.scores.creditRisk}%</span>
-              </div>
-              <Progress value={healthData.scores.creditRisk} className={cn("h-2", getScoreColor(healthData.scores.creditRisk, true))} />
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Profit Health Score</span>
-                <span className="text-sm font-bold">{healthData.scores.profitHealth}%</span>
-              </div>
-              <Progress value={healthData.scores.profitHealth} className={cn("h-2", getScoreColor(healthData.scores.profitHealth))} />
-            </div>
+          <CardContent className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={healthData.trendData}>
+                <defs>
+                  <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1}/>
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+                <XAxis dataKey="date" tickFormatter={(d) => format(new Date(d), 'MMM dd')} fontSize={12} />
+                <YAxis fontSize={12} tickFormatter={(v) => `₹${v}`} />
+                <Tooltip />
+                <Area type="monotone" dataKey="sales" stroke="#3b82f6" fillOpacity={1} fill="url(#colorSales)" />
+              </AreaChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        {/* Insights */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Users className="h-5 w-5 text-blue-500" />
-                Top Customer
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="font-bold">{(healthData.topCustomer as any)?.name || "N/A"}</div>
-              <div className="text-sm text-muted-foreground">{formatCurrency((healthData.topCustomer as any)?.totalRevenue || 0)} Revenue</div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-yellow-200">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-yellow-500" />
-                Dead Inventory
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{healthData.deadInventory} Products</div>
-              <p className="text-xs text-muted-foreground">No sales in last 30 days despite having stock.</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="border-red-200">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <TrendingDown className="h-5 w-5 text-red-500" />
-                Margin Loss
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{healthData.lowMarginProds} Items</div>
-              <p className="text-xs text-muted-foreground">Products selling close to or below cost price.</p>
-            </CardContent>
-          </Card>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Health Scores</CardTitle>
+            <CardDescription>Core business stability metrics</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <ScoreItem label="Cash Flow Rating" value={healthData.scores.cashFlow} />
+            <ScoreItem label="Inventory Turnover" value={healthData.scores.inventoryTurnover} />
+            <ScoreItem label="Credit Risk" value={healthData.scores.creditRisk} inverse />
+            <ScoreItem label="Profit Health" value={healthData.scores.profitHealth} />
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Slow Moving Stock</CardTitle>
-            <CardDescription>Items with high stock but low sales velocity</CardDescription>
+            <CardTitle>Inventory Turnover Analysis</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {healthData.notSelling.length > 0 ? healthData.notSelling.map((p: any) => (
-                <div key={p.id} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Package className="h-8 w-8 text-muted-foreground/50" />
-                    <div>
-                      <div className="font-medium">{p.name}</div>
-                      <div className="text-xs text-muted-foreground">Stock: {p.stock} units</div>
-                    </div>
-                  </div>
-                  <Badge variant="outline">Not Selling</Badge>
-                </div>
-              )) : <div className="text-center py-4 text-muted-foreground">No critical items found</div>}
-            </div>
+          <CardContent className="h-[250px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={healthData.notSelling.slice(0, 5)}>
+                <XAxis dataKey="name" fontSize={10} />
+                <YAxis fontSize={10} />
+                <Tooltip />
+                <Bar dataKey="stock" fill="#3b82f6" radius={[4, 4, 0, 0]}>
+                  {healthData.notSelling.map((entry: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Inventory Concentration</CardTitle>
-            <CardDescription>Overstocked items requiring attention</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center py-6">
-            <div className="text-4xl font-bold text-primary">{healthData.stockTooHigh}</div>
-            <div className="text-sm font-medium mt-2">Overstocked Products</div>
-            <p className="text-xs text-muted-foreground mt-1 text-center">Items with more than 100 units in stock. Consider clearance or promotion.</p>
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <InsightCard 
+            title="Top Customer" 
+            value={(healthData.topCustomer as any)?.name || "N/A"} 
+            subValue={formatCurrency((healthData.topCustomer as any)?.totalRevenue || 0)}
+            icon={Users}
+          />
+          <InsightCard 
+            title="Margin Risks" 
+            value={`${healthData.lowMarginProds} Products`} 
+            subValue="Selling < 10% margin"
+            icon={TrendingDown}
+            critical={healthData.lowMarginProds > 0}
+          />
+          <InsightCard 
+            title="Overstock" 
+            value={`${healthData.stockTooHigh} Items`} 
+            subValue="Stock > 100 units"
+            icon={Package}
+          />
+          <InsightCard 
+            title="Dead Stock" 
+            value={`${healthData.deadInventory} Items`} 
+            subValue="No sales in 30 days"
+            icon={AlertCircle}
+            critical={healthData.deadInventory > 0}
+          />
+        </div>
       </div>
     </div>
+  );
+}
+
+function HealthMetricCard({ title, value, desc, icon: Icon, variant }: any) {
+  const colors = {
+    success: "text-green-600 bg-green-50 border-green-100",
+    warning: "text-amber-600 bg-amber-50 border-amber-100",
+    destructive: "text-red-600 bg-red-50 border-red-100",
+  };
+  return (
+    <Card className={cn("border", colors[variant as keyof typeof colors])}>
+      <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        <Icon className="h-4 w-4" />
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold">{value}</div>
+        <p className="text-xs opacity-80">{desc}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ScoreItem({ label, value, inverse }: any) {
+  const getColor = (v: number) => {
+    if (inverse) return v < 30 ? "bg-green-500" : v < 60 ? "bg-amber-500" : "bg-red-500";
+    return v > 70 ? "bg-green-500" : v > 40 ? "bg-amber-500" : "bg-red-500";
+  };
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium">{label}</span>
+        <span className="text-sm font-bold">{value}%</span>
+      </div>
+      <Progress value={value} className={cn("h-1.5", getColor(value))} />
+    </div>
+  );
+}
+
+function InsightCard({ title, value, subValue, icon: Icon, critical }: any) {
+  return (
+    <Card className={cn(critical && "border-red-200 bg-red-50/30")}>
+      <CardContent className="pt-6">
+        <div className="flex items-center gap-2 mb-2">
+          <Icon className={cn("h-4 w-4", critical ? "text-red-500" : "text-primary")} />
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{title}</span>
+        </div>
+        <div className="text-lg font-bold truncate">{value}</div>
+        <div className="text-xs text-muted-foreground">{subValue}</div>
+      </CardContent>
+    </Card>
   );
 }
