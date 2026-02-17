@@ -6,6 +6,7 @@ import { checkSessionExpiry, logout, getCurrentUser } from "@/pages/Auth";
 import { toast } from "sonner";
 import {
   LayoutDashboard,
+  HeartPulse,
   FileText,
   Package,
   Users,
@@ -283,6 +284,7 @@ export function Layout({ children }: LayoutProps) {
 
   const allNavItems = [
     { path: "/", icon: LayoutDashboard, label: "Home" },
+    { path: "/business-health", icon: HeartPulse, label: "Health" },
     { path: "/bills", icon: FileText, label: "Bills" },
     { path: "/sample-bill", icon: FileStack, label: "Sample" },
     { path: "/purchases", icon: ShoppingCart, label: "Buy" },
