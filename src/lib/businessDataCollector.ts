@@ -22,38 +22,50 @@ export const getBusinessDataForAI = async () => {
       getCompanyProfile()
     ]);
 
-    // Format data for AI consumption - reducing size for context window
+    // Format data for AI consumption - reducing size and focus on relevant business metrics
+    const stats = {
+      totalSales: bills.reduce((sum, b) => sum + b.total, 0),
+      totalCollected: bills.reduce((sum, b) => sum + (b.paidAmount || 0), 0),
+      totalPurchases: purchaseBills.reduce((sum, b) => sum + b.total, 0),
+      totalExpenses: expenses.reduce((sum, b) => sum + b.amount, 0),
+      inventoryValue: products.reduce((sum, p) => sum + (p.stock * (p.purchasePrice || 0)), 0),
+      netProfit: 0, // Calculated below
+      gstLiability: bills.reduce((sum, b) => sum + (b.gstAmount || 0), 0) - purchaseBills.reduce((sum, b) => sum + (b.gstAmount || 0), 0)
+    };
+    stats.netProfit = stats.totalSales - stats.totalPurchases - stats.totalExpenses;
+
     const summary = {
-      company: company ? { name: company.name, businessType: company.businessType } : "Not set",
-      stats: {
-        totalSales: bills.reduce((sum, b) => sum + b.total, 0),
-        totalCollected: bills.reduce((sum, b) => sum + (b.paidAmount || 0), 0),
-        totalPurchases: purchaseBills.reduce((sum, b) => sum + b.total, 0),
-        totalExpenses: expenses.reduce((sum, b) => sum + b.amount, 0),
-        inventoryValue: products.reduce((sum, p) => sum + (p.stock * (p.purchasePrice || 0)), 0),
-        totalReturns: returns.length,
-        deadstockCount: deadstock.length
-      },
-      topClients: clients.slice(0, 5).map(c => ({ name: c.name, city: c.city })),
-      recentBills: bills.slice(0, 10).map(b => ({ 
-        no: b.billNumber, 
-        client: b.client.name, 
-        total: b.total, 
-        status: b.paymentStatus 
-      })),
-      recentExpenses: expenses.slice(0, 10).map(e => ({ 
-        cat: e.category, 
-        amt: e.amount, 
-        desc: e.description 
-      })),
-      clientwiseSales: clients.map(c => {
-        const clientBills = bills.filter(b => b.client.id === c.id);
+      company: company ? { name: company.name, type: company.businessType } : "Generic Business",
+      stats,
+      topPerformingProducts: products
+        .map(p => ({ 
+          name: p.name, 
+          stock: p.stock, 
+          sales: bills.reduce((sum, b) => sum + b.items.filter(i => i.productName === p.name).reduce((isum, item) => isum + item.totalPrice, 0), 0)
+        }))
+        .sort((a, b) => b.sales - a.sales)
+        .slice(0, 5),
+      clientHealth: clients.map(c => {
+        const clientBills = bills.filter(b => b.client?.id === c.id || (b as any).clientName === c.name);
+        const total = clientBills.reduce((sum, b) => sum + b.total, 0);
+        const paid = clientBills.reduce((sum, b) => sum + (b.paidAmount || 0), 0);
         return {
           name: c.name,
-          totalSales: clientBills.reduce((sum, b) => sum + b.total, 0),
-          pending: clientBills.reduce((sum, b) => sum + (b.total - (b.paidAmount || 0)), 0)
+          totalSales: total,
+          pending: total - paid,
+          risk: (total - paid) > (total * 0.5) ? "High" : "Low"
         };
-      }).sort((a, b) => b.totalSales - a.totalSales).slice(0, 10)
+      }).sort((a, b) => b.totalSales - a.totalSales).slice(0, 8),
+      monthlyTrends: Array.from({ length: 6 }).map((_, i) => {
+        const date = new Date();
+        date.setMonth(date.getMonth() - i);
+        const monthYear = date.toLocaleString('default', { month: 'short', year: '2-digit' });
+        const monthBills = bills.filter(b => {
+          const bDate = new Date(b.date);
+          return bDate.getMonth() === date.getMonth() && bDate.getFullYear() === date.getFullYear();
+        });
+        return { month: monthYear, sales: monthBills.reduce((sum, b) => sum + b.total, 0) };
+      }).reverse()
     };
 
     return summary;
