@@ -620,7 +620,7 @@ export const BillPDF = ({
               >
                 Description of Goods
               </Text>
-            {gstEnabled && bill.totalTax > 0 && (
+            {showGST && (
               <View
                 style={{
                   width: hsnWidth,
@@ -721,7 +721,7 @@ export const BillPDF = ({
                     </Text>
                   )}
                 </View>
-                {gstEnabled && (
+                {showGST && (
                   <Text
                     style={{
                       width: "12%",
@@ -987,7 +987,7 @@ export const BillPDF = ({
               <Text style={styles.smallText}>
                 {addressLines(company.address)}
               </Text>
-              {gstEnabled && (
+              {showGST && (
                 <View style={{ ...styles.smallText, marginTop: 4 }}>
                   <Text>
                     <Text style={styles.bold}>GSTIN/UIN:</Text> {company.gstin}
@@ -1174,7 +1174,7 @@ export const BillPDF = ({
                 bill.client.shippingAddress || bill.client.billingAddress,
               )}
             </Text>
-            {gstEnabled && !isInternational && (
+            {showGST && !isInternational && (
               <View style={{ ...styles.smallText, marginTop: 4 }}>
                 <Text>
                   <Text style={styles.bold}>GSTIN/UIN:</Text>{" "}
@@ -1220,7 +1220,7 @@ export const BillPDF = ({
             <Text style={{ ...styles.smallText, marginTop: 4 }}>
               {addressLines(bill.client.billingAddress)}
             </Text>
-            {gstEnabled && !isInternational && (
+            {showGST && !isInternational && (
               <View style={{ ...styles.smallText, marginTop: 4 }}>
                 <Text>
                   <Text style={styles.bold}>GSTIN/UIN:</Text>{" "}
@@ -1261,7 +1261,7 @@ export const BillPDF = ({
             <Text style={{ flex: 1, ...styles.tableCell }}>
               Description of Goods
             </Text>
-            {gstEnabled && !isInternational && bill.totalTax > 0 && (
+            {showGST && !isInternational && (
               <Text
                 style={{
                   width: hsnWidth,
@@ -1272,7 +1272,7 @@ export const BillPDF = ({
                 HSN/SAC
               </Text>
             )}
-            {gstEnabled && !isInternational && bill.totalTax > 0 && (
+            {showGST && !isInternational && (
               <Text
                 style={{
                   width: gstRateWidth,
@@ -1353,7 +1353,7 @@ export const BillPDF = ({
                     </Text>
                   )}
               </View>
-            {gstEnabled && bill.totalTax > 0 && (
+            {showGST && (
               <Text
                 style={{
                   width: hsnWidth,
@@ -1364,7 +1364,7 @@ export const BillPDF = ({
                 {item.hsnCode}
               </Text>
             )}
-            {gstEnabled && !isInternational && bill.totalTax > 0 && (
+            {showGST && !isInternational && (
               <Text
                 style={{
                   width: gstRateWidth,
@@ -1494,7 +1494,7 @@ export const BillPDF = ({
             </View>
           )}
           {/* Taxes */}
-          {gstEnabled &&
+          {showGST &&
             !isInternational &&
             bill.totalTax > 0 &&
             (isInterState ? (
@@ -2360,7 +2360,7 @@ export function BillView({ bill }: BillViewProps) {
                       >
                         Description of Goods
                       </th>
-                      {gstEnabled && bill.totalTax > 0 && (
+                      {showGST && (
                         <th
                           className="p-1.5 text-center border-r border-black"
                           style={{ width: "12%" }}
@@ -2407,7 +2407,7 @@ export function BillView({ bill }: BillViewProps) {
                             </div>
                           )}
                         </td>
-                        {gstEnabled && bill.totalTax > 0 && (
+                        {showGST && (
                           <td className="p-1.5 text-center border-r border-black/10">
                             {item.hsnCode || "-"}
                           </td>
@@ -2429,7 +2429,7 @@ export function BillView({ bill }: BillViewProps) {
 
                     <tr className="border-t border-black bg-gray-50">
                       <td
-                        colSpan={gstEnabled && bill.totalTax > 0 ? 6 : 5}
+                        colSpan={showGST && bill.totalTax > 0 ? 6 : 5}
                         className="p-1.5 text-right font-bold"
                       >
                         Subtotal
@@ -2441,7 +2441,7 @@ export function BillView({ bill }: BillViewProps) {
                     {bill.discount !== undefined && bill.discount > 0 && (
                       <tr className="border-t border-black text-red-600">
                         <td
-                          colSpan={gstEnabled && bill.totalTax > 0 ? 6 : 5}
+                          colSpan={showGST && bill.totalTax > 0 ? 6 : 5}
                           className="p-1.5 text-right font-bold"
                         >
                           Discount{" "}
@@ -2458,7 +2458,7 @@ export function BillView({ bill }: BillViewProps) {
                       bill.otherCharges > 0 && (
                         <tr className="border-t border-black">
                           <td
-                            colSpan={gstEnabled && bill.totalTax > 0 ? 6 : 5}
+                            colSpan={showGST && bill.totalTax > 0 ? 6 : 5}
                             className="p-1.5 text-right font-bold"
                           >
                             Other Charges
@@ -2470,7 +2470,7 @@ export function BillView({ bill }: BillViewProps) {
                       )}
                     <tr className="border-t border-black bg-gray-200">
                       <td
-                        colSpan={gstEnabled && bill.totalTax > 0 ? 6 : 5}
+                        colSpan={showGST && bill.totalTax > 0 ? 6 : 5}
                         className="p-2 text-right font-bold"
                       >
                         TOTAL
@@ -2589,7 +2589,7 @@ export function BillView({ bill }: BillViewProps) {
                     <div className="text-[10px] leading-relaxed mt-1 text-black">
                       {formatAddress(company.address)}
                     </div>
-                    {gstEnabled && bill.totalTax > 0 && (
+                    {showGST && (
                       <div className="text-[10px] mt-1 text-black">
                         <p>
                           <strong>GSTIN/UIN:</strong> {company.gstin}
@@ -2737,7 +2737,7 @@ export function BillView({ bill }: BillViewProps) {
                       bill.client.shippingAddress || bill.client.billingAddress,
                     )}
                   </div>
-                  {gstEnabled && bill.totalTax > 0 && !isInternational && (
+                  {showGST && !isInternational && (
                     <div className="text-[10px] mt-1">
                       <p>
                         <strong>GSTIN/UIN:</strong> {bill.client.gstin}
@@ -2769,7 +2769,7 @@ export function BillView({ bill }: BillViewProps) {
                   <div className="text-[10px] leading-relaxed mt-1">
                     {formatAddress(bill.client.billingAddress)}
                   </div>
-                  {gstEnabled && bill.totalTax > 0 && !isInternational && (
+                  {showGST && !isInternational && (
                     <div className="text-[10px] mt-1">
                       <p>
                         <strong>GSTIN/UIN:</strong> {bill.client.gstin}
@@ -2807,7 +2807,7 @@ export function BillView({ bill }: BillViewProps) {
                       <th className="border border-black p-1.5 text-left">
                         Description of Goods
                       </th>
-                      {gstEnabled && bill.totalTax > 0 && (
+                      {showGST && (
                         <th
                           className="border border-black p-1.5 text-center"
                           style={{ width: "60px" }}
@@ -2815,7 +2815,7 @@ export function BillView({ bill }: BillViewProps) {
                           HSN/SAC
                         </th>
                       )}
-                      {gstEnabled && !isInternational && bill.totalTax > 0 && (
+                      {showGST && !isInternational && (
                         <th
                           className="border border-black p-1.5 text-center"
                           style={{ width: "40px" }}
@@ -2883,12 +2883,12 @@ export function BillView({ bill }: BillViewProps) {
                               </div>
                             )}
                         </td>
-                        {gstEnabled && bill.totalTax > 0 && (
+                        {showGST && (
                           <td className="border border-black p-1.5 text-center text-[9px]">
                             {item.hsnCode}
                           </td>
                         )}
-                        {gstEnabled && !isInternational && bill.totalTax > 0 && (
+                        {showGST && !isInternational && (
                           <td className="border border-black p-1.5 text-center">
                             {item.gstRate}%
                           </td>
@@ -2910,7 +2910,7 @@ export function BillView({ bill }: BillViewProps) {
                     {/* Subtotal */}
                     <tr className="font-semibold bg-gray-100">
                       <td
-                        colSpan={gstEnabled && bill.totalTax > 0 ? (isInternational ? 6 : 7) : 5}
+                        colSpan={showGST ? (isInternational ? 6 : 7) : 5}
                         className="border border-black p-1.5 text-right"
                       >
                         Subtotal
@@ -2922,7 +2922,7 @@ export function BillView({ bill }: BillViewProps) {
                     {bill.discount !== undefined && bill.discount > 0 && (
                       <tr>
                         <td
-                          colSpan={gstEnabled && bill.totalTax > 0 ? (isInternational ? 6 : 7) : 5}
+                          colSpan={showGST ? (isInternational ? 6 : 7) : 5}
                           className="border border-black p-1.5 text-right text-red-600"
                         >
                           Discount{" "}
@@ -2939,7 +2939,7 @@ export function BillView({ bill }: BillViewProps) {
                       bill.otherCharges > 0 && (
                         <tr>
                           <td
-                            colSpan={gstEnabled && bill.totalTax > 0 ? (isInternational ? 6 : 7) : 5}
+                            colSpan={showGST ? (isInternational ? 6 : 7) : 5}
                             className="border border-black p-1.5 text-right"
                           >
                             Other Charges
@@ -2949,7 +2949,7 @@ export function BillView({ bill }: BillViewProps) {
                           </td>
                         </tr>
                       )}
-                    {gstEnabled &&
+                    {showGST &&
                       !isInternational &&
                       bill.totalTax > 0 &&
                       (isInterState ? (
@@ -3009,7 +3009,7 @@ export function BillView({ bill }: BillViewProps) {
                       }}
                     >
                       <td
-                        colSpan={gstEnabled && bill.totalTax > 0 ? (isInternational ? 6 : 7) : 5}
+                        colSpan={showGST ? (isInternational ? 6 : 7) : 5}
                         className="border border-black p-1.5 text-right"
                       >
                         Total
