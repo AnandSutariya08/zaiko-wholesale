@@ -1352,7 +1352,7 @@ export const BillPDF = ({
                     </Text>
                   )}
               </View>
-            {gstEnabled && !isInternational && bill.totalTax > 0 && (
+            {gstEnabled && bill.totalTax > 0 && (
               <Text
                 style={{
                   width: hsnWidth,

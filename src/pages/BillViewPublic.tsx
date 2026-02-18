@@ -660,7 +660,7 @@ export default function BillViewPublic() {
                     </span>
                   ))}
                 </div>
-                {gstEnabled && (
+                {gstEnabled && bill.totalTax > 0 && (
                   <div className="text-[10px] mt-1 break-words">
                     <p>
                       <strong>GSTIN/UIN:</strong> {company.gstin}
@@ -809,7 +809,7 @@ export default function BillViewPublic() {
                   bill.client.shippingAddress || bill.client.billingAddress
                 )}
               </div>
-              {gstEnabled && !isInternational && (
+              {gstEnabled && bill.totalTax > 0 && (
                 <div className="text-[10px] mt-1 break-words">
                   <p>
                     <strong>GSTIN/UIN:</strong> {bill.client.gstin}
@@ -841,7 +841,7 @@ export default function BillViewPublic() {
               <div className="text-[10px] leading-relaxed mt-1 break-words">
                 {formatAddress(bill.client.billingAddress)}
               </div>
-              {gstEnabled && !isInternational && (
+              {gstEnabled && bill.totalTax > 0 && (
                 <div className="text-[10px] mt-1 break-words">
                   <p>
                     <strong>GSTIN/UIN:</strong> {bill.client.gstin}
@@ -879,7 +879,7 @@ export default function BillViewPublic() {
                   <th className="border border-black p-1.5 text-left">
                     Description of Goods
                   </th>
-                  {gstEnabled && (
+                  {gstEnabled && bill.totalTax > 0 && (
                     <th
                       className="border border-black p-1.5 text-center"
                       style={{ width: "60px" }}
@@ -887,7 +887,7 @@ export default function BillViewPublic() {
                       HSN/SAC
                     </th>
                   )}
-                  {gstEnabled && !isInternational && (
+                  {gstEnabled && !isInternational && bill.totalTax > 0 && (
                     <th
                       className="border border-black p-1.5 text-center"
                       style={{ width: "40px" }}
@@ -933,12 +933,12 @@ export default function BillViewPublic() {
                     <td className="border border-black p-1.5 break-words">
                       {item.productName}
                     </td>
-                    {gstEnabled && (
+                    {gstEnabled && bill.totalTax > 0 && (
                       <td className="border border-black p-1.5 text-center text-[9px]">
                         {item.hsnCode}
                       </td>
                     )}
-                    {gstEnabled && !isInternational && (
+                    {gstEnabled && !isInternational && bill.totalTax > 0 && (
                       <td className="border border-black p-1.5 text-center">
                         {item.gstRate}%
                       </td>
@@ -960,7 +960,7 @@ export default function BillViewPublic() {
                 {/* Subtotal Row */}
                 <tr className="font-semibold bg-gray-100">
                   <td
-                    colSpan={gstEnabled ? (isInternational ? 6 : 7) : 5}
+                    colSpan={gstEnabled && bill.totalTax > 0 ? (isInternational ? 6 : 7) : 5}
                     className="border border-black p-1.5 text-right"
                   >
                     Subtotal
@@ -1071,7 +1071,7 @@ export default function BillViewPublic() {
                   }}
                 >
                   <td
-                    colSpan={gstEnabled ? (isInternational ? 6 : 7) : 5}
+                    colSpan={gstEnabled && bill.totalTax > 0 ? (isInternational ? 6 : 7) : 5}
                     className="border border-black p-1.5 text-right"
                   >
                     {isInternational ? "Total C&F" : "Grand Total"}
