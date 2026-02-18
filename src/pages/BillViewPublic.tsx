@@ -25,7 +25,7 @@ setBill(foundBill || null);
 setCompany(companyData);
 setLoading(false);
 }
-};
+  };
 loadData();
 }, [id]);
 
@@ -84,7 +84,7 @@ return () => {
 if (document.head.contains(style)) {
 document.head.removeChild(style);
 }
-};
+  };
 }, []);
 
 if (loading) {
@@ -111,18 +111,18 @@ return (
   const isInterState = bill.gstType === 'igst' || (!bill.gstType && (company.stateCode ?? "") !== bill.client.stateCode);
   const isInternational = bill.billType === 'international';
 
-Generate QR data with public view URL
+  Generate QR data with public view URL
 const qrData = `${window.location.origin}/view/bill/${bill.id}`;
 
-Helper function to format address properly
-const formatAddress = (address: string) => {
+  Helper function to format address properly
+  const formatAddress = (address: string) => {
 return address.split(',').map((line, i, arr) => (
-<span key={i}>
-{line.trim()}
-{i < arr.length - 1 && <br />}
-</span>
-));
-};
+      <span key={i}>
+        {line.trim()}
+        {i < arr.length - 1 && <br />}
+      </span>
+    ));
+  };
 
 return (
 <div className="w-full max-w-full">
@@ -155,10 +155,10 @@ fontSize: '10px',
 </div>
 <div className="text-[10px] leading-relaxed mt-1 break-words">
 {company.address.split(',').map((line, i) => (
-<span key={i}>
-{line.trim()}
+      <span key={i}>
+        {line.trim()}
 {i < company.address.split(',').length - 1 && <br />}
-</span>
+      </span>
 ))}
 </div>
 {showGST && (
@@ -336,7 +336,7 @@ Grand Total
 <div className="border border-black p-2.5 mb-3 bg-gray-50">
 <p className="text-[10px] break-words">
 <strong>Amount Chargeable (in words):</strong>{' '}
-<span className="font-semibold">INR {numberToWords(bill.total)}</span>
+<span className="font-semibold">INR {numberToWords(bill.total)}      </span>
 </p>
 </div>
 
@@ -516,7 +516,7 @@ export default function BillViewPublic() {
         setCompany(companyData);
         setLoading(false);
       }
-    };
+      };
     loadData();
   }, [id]);
 
@@ -575,7 +575,7 @@ export default function BillViewPublic() {
       if (document.head.contains(style)) {
         document.head.removeChild(style);
       }
-    };
+      };
   }, []);
 
   if (loading) {
@@ -610,14 +610,14 @@ export default function BillViewPublic() {
 
   const qrData = `${window.location.origin}/view/bill/${bill.id}`;
 
-  const formatAddress = (address: string) => {
+    const formatAddress = (address: string) => {
     return address.split(",").map((line, i, arr) => (
-      <span key={i}>
-        {line.trim()}
-        {i < arr.length - 1 && <br />}
-      </span>
-    ));
-  };
+            <span key={i}>
+                {line.trim()}
+                {i < arr.length - 1 && <br />}
+            </span>
+        ));
+    };
 
   return (
     <div className="w-full max-w-full">
@@ -657,10 +657,10 @@ export default function BillViewPublic() {
                 </div>
                 <div className="text-[10px] leading-relaxed mt-1 break-words">
                   {company.address.split(",").map((line, i) => (
-                    <span key={i}>
-                      {line.trim()}
+                          <span key={i}>
+                              {line.trim()}
                       {i < company.address.split(",").length - 1 && <br />}
-                    </span>
+                          </span>
                   ))}
                 </div>
                 {showGST && (
@@ -890,7 +890,7 @@ export default function BillViewPublic() {
                       HSN/SAC
                     </th>
                   )}
-                  {gstEnabled && !isInternational && bill.totalTax > 0 && (
+                  {showGST && !isInternational && bill.totalTax > 0 && (
                     <th
                       className="border border-black p-1.5 text-center"
                       style={{ width: "40px" }}
@@ -941,7 +941,7 @@ export default function BillViewPublic() {
                         {item.hsnCode}
                       </td>
                     )}
-                    {gstEnabled && !isInternational && bill.totalTax > 0 && (
+                    {showGST && !isInternational && bill.totalTax > 0 && (
                       <td className="border border-black p-1.5 text-center">
                         {item.gstRate}%
                       </td>
@@ -963,7 +963,7 @@ export default function BillViewPublic() {
                 {/* Subtotal Row */}
                 <tr className="font-semibold bg-gray-100">
                   <td
-                    colSpan={gstEnabled && bill.totalTax > 0 ? (isInternational ? 6 : 7) : 5}
+                    colSpan={showGST && bill.totalTax > 0 ? (isInternational ? 6 : 7) : 5}
                     className="border border-black p-1.5 text-right"
                   >
                     Subtotal
@@ -973,7 +973,7 @@ export default function BillViewPublic() {
                   </td>
                 </tr>
                 {/* Tax Rows - Only for domestic GST-enabled bills */}
-                {gstEnabled &&
+                {showGST &&
                   !isInternational &&
                   (isInterState ? (
                     <tr>
@@ -1021,7 +1021,7 @@ export default function BillViewPublic() {
                 {bill.discount !== undefined && bill.discount > 0 && (
                   <tr>
                     <td
-                      colSpan={gstEnabled ? (isInternational ? 6 : 7) : 5}
+                      colSpan={showGST ? (isInternational ? 6 : 7) : 5}
                       className="border border-black p-1.5 text-right text-red-600"
                     >
                       Discount{" "}
@@ -1038,7 +1038,7 @@ export default function BillViewPublic() {
                 {bill.otherCharges !== undefined && bill.otherCharges > 0 && (
                   <tr>
                     <td
-                      colSpan={gstEnabled ? (isInternational ? 6 : 7) : 5}
+                      colSpan={showGST ? (isInternational ? 6 : 7) : 5}
                       className="border border-black p-1.5 text-right"
                     >
                       {isInternational
@@ -1054,7 +1054,7 @@ export default function BillViewPublic() {
                 {bill.roundOff !== undefined && bill.roundOff !== 0 && (
                   <tr>
                     <td
-                      colSpan={gstEnabled ? (isInternational ? 6 : 7) : 5}
+                      colSpan={showGST ? (isInternational ? 6 : 7) : 5}
                       className="border border-black p-1.5 text-right"
                     >
                       Round Off
@@ -1074,7 +1074,7 @@ export default function BillViewPublic() {
                   }}
                 >
                   <td
-                    colSpan={gstEnabled && bill.totalTax > 0 ? (isInternational ? 6 : 7) : 5}
+                    colSpan={showGST && bill.totalTax > 0 ? (isInternational ? 6 : 7) : 5}
                     className="border border-black p-1.5 text-right"
                   >
                     {isInternational ? "Total C&F" : "Grand Total"}
@@ -1094,12 +1094,12 @@ export default function BillViewPublic() {
               <span className="font-semibold">
                 {isInternational ? "US DOLLARS" : "INR"}{" "}
                 {numberToWords(bill.total)}
-              </span>
+                    </span>
             </p>
           </div>
 
           {/* Tax Summary - Only show for domestic GST-enabled bills */}
-          {gstEnabled && !isInternational && (
+          {showGST && !isInternational && (
             <div className="overflow-x-auto mb-3">
               <table className="w-full border-collapse text-[10px]">
                 <thead>

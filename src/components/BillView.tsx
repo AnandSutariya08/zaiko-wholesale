@@ -2429,7 +2429,7 @@ export function BillView({ bill }: BillViewProps) {
 
                     <tr className="border-t border-black bg-gray-50">
                       <td
-                        colSpan={showGST && bill.totalTax > 0 ? 6 : 5}
+                        colSpan={showGST ? 6 : 5}
                         className="p-1.5 text-right font-bold"
                       >
                         Subtotal
@@ -2441,7 +2441,7 @@ export function BillView({ bill }: BillViewProps) {
                     {bill.discount !== undefined && bill.discount > 0 && (
                       <tr className="border-t border-black text-red-600">
                         <td
-                          colSpan={showGST && bill.totalTax > 0 ? 6 : 5}
+                          colSpan={showGST ? 6 : 5}
                           className="p-1.5 text-right font-bold"
                         >
                           Discount{" "}
@@ -2458,7 +2458,7 @@ export function BillView({ bill }: BillViewProps) {
                       bill.otherCharges > 0 && (
                         <tr className="border-t border-black">
                           <td
-                            colSpan={showGST && bill.totalTax > 0 ? 6 : 5}
+                            colSpan={showGST ? 6 : 5}
                             className="p-1.5 text-right font-bold"
                           >
                             Other Charges
@@ -2470,7 +2470,7 @@ export function BillView({ bill }: BillViewProps) {
                       )}
                     <tr className="border-t border-black bg-gray-200">
                       <td
-                        colSpan={showGST && bill.totalTax > 0 ? 6 : 5}
+                        colSpan={showGST ? 6 : 5}
                         className="p-2 text-right font-bold"
                       >
                         TOTAL
