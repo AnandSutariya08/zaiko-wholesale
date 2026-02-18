@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Bill } from "@/types";
@@ -425,7 +426,7 @@ export default function BillViewPublic() {
                   </th>
                   <th
                     className="border border-black p-1.5 text-center"
-                    style={{ width: "60px" }}
+                    style={{ width: "70px" }}
                   >
                     Rate
                   </th>

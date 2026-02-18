@@ -163,8 +163,8 @@ export const BillPDF = ({
   const gstRateW = 30;
   const qtyW = 38;
   const unitW = 34;
-  const rateW = 46;
-  const amtW = 54;
+  const rateW = 62;
+  const amtW = 72;
 
   // ── INTERNATIONAL LAYOUT ─────────────────────────────────────────────────
   if (isInternational) {
@@ -1084,8 +1084,8 @@ export function BillView({ bill }: BillViewProps) {
                       {showGST && <th className="border border-black p-1.5 text-center" style={{ width: "40px" }}>GST%</th>}
                       <th className="border border-black p-1.5 text-center" style={{ width: "50px" }}>Qty</th>
                       <th className="border border-black p-1.5 text-center" style={{ width: "45px" }}>Unit</th>
-                      <th className="border border-black p-1.5 text-center" style={{ width: "60px" }}>Rate</th>
-                      <th className="border border-black p-1.5 text-right" style={{ width: "70px" }}>Amount</th>
+                      <th className="border border-black p-1.5 text-center" style={{ width: "90px" }}>Rate</th>
+                      <th className="border border-black p-1.5 text-right" style={{ width: "100px" }}>Amount</th>
                     </tr>
                   </thead>
                   <tbody>
