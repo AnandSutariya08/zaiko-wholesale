@@ -242,7 +242,8 @@ export const BillPDF = ({
   isSample?: boolean;
 }) => {
   const isSampleBill = isSample;
-  const gstEnabled = company.gstEnabled ?? true;
+  const gstEnabled = (company.gstEnabled ?? true) as boolean;
+  const showGST = gstEnabled && bill.totalTax > 0;
   const isInterState: boolean =
     bill.gstType === "igst" ||
     (!bill.gstType && (company?.stateCode ?? "") !== bill.client.stateCode);
@@ -2157,7 +2158,8 @@ export function BillView({ bill }: BillViewProps) {
     return <div>Please setup company profile first</div>;
   }
 
-  const gstEnabled = company.gstEnabled ?? true;
+  const gstEnabled = (company.gstEnabled ?? true) as boolean;
+  const showGST = gstEnabled && bill.totalTax > 0;
   const isInterState: boolean =
     bill.gstType === "igst" ||
     (!bill.gstType && (company?.stateCode ?? "") !== bill.client.stateCode);
@@ -2587,7 +2589,7 @@ export function BillView({ bill }: BillViewProps) {
                     <div className="text-[10px] leading-relaxed mt-1 text-black">
                       {formatAddress(company.address)}
                     </div>
-                    {gstEnabled && (
+                    {gstEnabled && bill.totalTax > 0 && (
                       <div className="text-[10px] mt-1 text-black">
                         <p>
                           <strong>GSTIN/UIN:</strong> {company.gstin}
@@ -2735,7 +2737,7 @@ export function BillView({ bill }: BillViewProps) {
                       bill.client.shippingAddress || bill.client.billingAddress,
                     )}
                   </div>
-                  {gstEnabled && !isInternational && (
+                  {gstEnabled && bill.totalTax > 0 && !isInternational && (
                     <div className="text-[10px] mt-1">
                       <p>
                         <strong>GSTIN/UIN:</strong> {bill.client.gstin}
@@ -2767,7 +2769,7 @@ export function BillView({ bill }: BillViewProps) {
                   <div className="text-[10px] leading-relaxed mt-1">
                     {formatAddress(bill.client.billingAddress)}
                   </div>
-                  {gstEnabled && !isInternational && (
+                  {gstEnabled && bill.totalTax > 0 && !isInternational && (
                     <div className="text-[10px] mt-1">
                       <p>
                         <strong>GSTIN/UIN:</strong> {bill.client.gstin}

@@ -106,7 +106,8 @@
 //     );
 //   }
 
-//   const gstEnabled = company.gstEnabled ?? true;
+//   const gstEnabled = (company.gstEnabled ?? true) as boolean;
+  const showGST = gstEnabled && bill.totalTax > 0;
 //   const isInterState = bill.gstType === 'igst' || (!bill.gstType && company.stateCode !== bill.client.stateCode);
 
 //   // Generate QR data with public view URL
@@ -599,7 +600,8 @@ export default function BillViewPublic() {
     );
   }
 
-  const gstEnabled = company.gstEnabled ?? true;
+  const gstEnabled = (company.gstEnabled ?? true) as boolean;
+  const showGST = gstEnabled && bill.totalTax > 0;
   const isInterState =
     bill.gstType === "igst" ||
     (!bill.gstType && company.stateCode !== bill.client.stateCode);
