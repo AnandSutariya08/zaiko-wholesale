@@ -94,11 +94,11 @@ export function ClientForm({ open, onOpenChange, onSuccess }: ClientFormProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="dialog-form-content sm:max-w-[600px]">
+        <DialogHeader className="dialog-form-header">
           <DialogTitle>Add New Client</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="dialog-form-body space-y-5">
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Client Name *</Label>
@@ -189,7 +189,7 @@ export function ClientForm({ open, onOpenChange, onSuccess }: ClientFormProps) {
             </div>
           </div>
 
-          <div className="flex gap-2 justify-end">
+          <div className="dialog-form-footer flex gap-2 justify-end">
             <Button
               type="button"
               variant="outline"
@@ -206,3 +206,7 @@ export function ClientForm({ open, onOpenChange, onSuccess }: ClientFormProps) {
     </Dialog>
   );
 }
+
+
+
+

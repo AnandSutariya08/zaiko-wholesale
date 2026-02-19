@@ -107,7 +107,7 @@ export default function InternationalBill() {
 
   return (
     <div className="space-y-4 md:space-y-6 pb-4">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+      <div className="page-header-controls">
         <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
           <Button
             variant="outline"
@@ -117,18 +117,24 @@ export default function InternationalBill() {
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div className="min-w-0 flex-1">
+          <div className="page-header-title min-w-0 flex-1">
+            <div className="page-header-icon">
+              <Globe className="h-5 w-5 md:h-6 md:w-6" />
+            </div>
+            <div>
             <h1 className="text-xl sm:text-2xl font-bold text-foreground truncate">
               International Bills
             </h1>
             <p className="text-sm text-muted-foreground">
               Manage your International invoices
             </p>
+            </div>
           </div>
         </div>
         <Button
+          size="sm"
           onClick={() => setShowForm(true)}
-          className="w-full sm:w-auto gap-2"
+          className="page-header-btn w-full sm:w-auto gap-2"
         >
           <Plus className="h-4 w-4" />
           Create International Bill
@@ -323,3 +329,4 @@ export default function InternationalBill() {
     </div>
   );
 }
+

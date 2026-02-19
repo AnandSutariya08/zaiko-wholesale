@@ -229,12 +229,17 @@ export default function Bills() {
 
   return (
     <div className="space-y-4 p-3 sm:p-4 w-full max-w-full overflow-x-hidden">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        <div className="min-w-0 flex-1">
+      <div className="page-header-controls">
+        <div className="page-header-title min-w-0 flex-1">
+          <div className="page-header-icon">
+            <Receipt className="h-5 w-5 md:h-6 md:w-6" />
+          </div>
+          <div>
           <h1 className="text-2xl font-bold text-foreground">Bills</h1>
           <p className="text-sm text-muted-foreground">
             Manage and track your invoices
           </p>
+          </div>
         </div>
         {/* <div className="flex items-center space-x-2 bg-card border px-3 py-2 rounded-md shadow-sm">
           <Switch
@@ -605,3 +610,4 @@ export default function Bills() {
     </div>
   );
 }
+

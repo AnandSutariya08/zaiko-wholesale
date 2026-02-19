@@ -300,18 +300,23 @@ export default function Vendors() {
 
   return (
     <div className="space-y-6 p-4">
-      <div className="flex justify-between items-center">
-        <div>
+      <div className="page-header-controls">
+        <div className="page-header-title">
+          <div className="page-header-icon">
+            <Store className="h-5 w-5 md:h-6 md:w-6" />
+          </div>
+          <div>
           <h1 className="page-title">Vendors</h1>
           <p className="page-subtitle">Manage your supply chain</p>
+          </div>
         </div>
         <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
-            <Button size="lg"><Plus className="h-5 w-5 mr-2" />Add Vendor</Button>
+            <Button size="sm" className="page-header-btn"><Plus className="h-5 w-5 mr-2" />Add Vendor</Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader><DialogTitle>{editingVendor ? "Edit Vendor" : "Add Vendor"}</DialogTitle></DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+          <DialogContent className="dialog-form-content sm:max-w-[500px]">
+            <DialogHeader className="dialog-form-header"><DialogTitle>{editingVendor ? "Edit Vendor" : "Add Vendor"}</DialogTitle></DialogHeader>
+            <form onSubmit={handleSubmit} className="dialog-form-body space-y-4">
               <div className="space-y-2">
                 <Label>Vendor Name *</Label>
                 <Input required value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
@@ -334,7 +339,7 @@ export default function Vendors() {
                   <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
                 </div>
               </div>
-              <div className="flex justify-end gap-2">
+              <div className="dialog-form-footer flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
                 <Button type="submit" loading={saving}>{editingVendor ? "Update" : "Add"} Vendor</Button>
               </div>
@@ -620,3 +625,7 @@ export default function Vendors() {
     </div>
   );
 }
+
+
+
+

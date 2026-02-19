@@ -334,15 +334,19 @@ export default function Settings() {
       </div>
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 sticky top-0 bg-background/95 backdrop-blur z-50 py-4 border-b">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground flex items-center gap-2 break-words">
-            <Settings2 className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 text-primary flex-shrink-0" />
-            Settings
-          </h1>
-          <p className="page-subtitle break-words">
-            Manage your company profile and preferences
-          </p>
+      <div className="page-header-controls sticky top-0 bg-background/95 backdrop-blur z-50">
+        <div className="page-header-title min-w-0 flex-1">
+          <div className="page-header-icon">
+            <Settings2 className="h-5 w-5 md:h-6 md:w-6" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground break-words">
+              Settings
+            </h1>
+            <p className="page-subtitle break-words">
+              Manage your company profile and preferences
+            </p>
+          </div>
         </div>
       </div>
 
@@ -1044,3 +1048,4 @@ export default function Settings() {
     </div>
   );
 }
+

@@ -207,10 +207,15 @@ export default function Clients() {
 
   return (
     <div className="space-y-6 p-4">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
+      <div className="page-header-controls">
+        <div className="page-header-title">
+          <div className="page-header-icon">
+            <Users className="h-5 w-5 md:h-6 md:w-6" />
+          </div>
+          <div>
           <h1 className="page-title">Clients</h1>
           <p className="page-subtitle">Manage your client information</p>
+          </div>
         </div>
         <Dialog
           open={isOpen}
@@ -220,18 +225,18 @@ export default function Clients() {
           }}
         >
           <DialogTrigger asChild>
-            <Button size="lg">
+            <Button size="sm" className="page-header-btn">
               <Plus className="h-5 w-5 mr-2" />
               Add Client
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="dialog-form-content sm:max-w-[600px]">
+            <DialogHeader className="dialog-form-header">
               <DialogTitle>
                 {editingClient ? "Edit Client" : "Add Client"}
               </DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="dialog-form-body space-y-5">
               {/* Client Details Section */}
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -359,7 +364,7 @@ export default function Clients() {
                 </div>
               </div>
 
-              <div className="flex gap-2 justify-end">
+              <div className="dialog-form-footer flex gap-2 justify-end">
                 <Button
                   type="button"
                   variant="outline"
@@ -558,3 +563,8 @@ export default function Clients() {
     </div>
   );
 }
+
+
+
+
+

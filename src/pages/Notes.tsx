@@ -158,26 +158,31 @@ export default function Notes() {
   return (
     <div className="space-y-6 p-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="page-header-controls">
+        <div className="page-header-title">
+          <div className="page-header-icon">
+            <StickyNote className="h-5 w-5 md:h-6 md:w-6" />
+          </div>
+          <div>
           <h1 className="page-title">Notes</h1>
           <p className="page-subtitle">Manage your daily notes and reminders</p>
+          </div>
         </div>
 
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => { setEditingNote(null); resetForm(); }}>
+            <Button size="sm" className="page-header-btn" onClick={() => { setEditingNote(null); resetForm(); }}>
               <Plus className="h-4 w-4 mr-2" />
               Add Note
             </Button>
           </DialogTrigger>
 
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
+          <DialogContent className="dialog-form-content sm:max-w-[500px]">
+            <DialogHeader className="dialog-form-header">
               <DialogTitle>{editingNote ? 'Edit Note' : 'Add New Note'}</DialogTitle>
             </DialogHeader>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="dialog-form-body space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="date">Date</Label>
                 <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
@@ -221,7 +226,7 @@ export default function Notes() {
                 />
               </div>
 
-              <div className="flex justify-end gap-2">
+              <div className="dialog-form-footer flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
                   Cancel
                 </Button>
@@ -420,4 +425,8 @@ export default function Notes() {
     </div>
   );
 }
+
+
+
+
 

@@ -4,7 +4,7 @@ import { getBills } from '@/lib/storage';
 import { Bill } from '@/types';
 import { BillForm } from '@/components/BillForm';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, FileText } from 'lucide-react';
 
 export default function EditBill() {
   const { id } = useParams();
@@ -32,14 +32,19 @@ export default function EditBill() {
 
   return (
     <div className="space-y-4 md:space-y-6 pb-4">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+      <div className="page-header-controls">
         <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
           <Button variant="outline" size="icon" onClick={() => navigate(`/bills/${bill.id}`)} className="flex-shrink-0">
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div className="min-w-0 flex-1">
+          <div className="page-header-title min-w-0 flex-1">
+            <div className="page-header-icon">
+              <FileText className="h-5 w-5 md:h-6 md:w-6" />
+            </div>
+            <div>
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground truncate">Edit Bill</h1>
             <p className="text-sm text-muted-foreground mt-1 truncate">{bill.billNumber}</p>
+            </div>
           </div>
         </div>
       </div>
@@ -48,3 +53,4 @@ export default function EditBill() {
     </div>
   );
 }
+

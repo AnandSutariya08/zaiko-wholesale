@@ -340,15 +340,17 @@ export default function Passbook() {
 
     return (
         <div className="space-y-6 p-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                    <h1 className="page-title flex items-center gap-2">
-                        <BookOpen className="h-6 w-6 md:h-8 md:w-8 text-primary" />
-                        Passbook
-                    </h1>
-                    <p className="page-subtitle">Complete financial transaction history</p>
+            <div className="page-header-controls">
+                <div className="page-header-title">
+                    <div className="page-header-icon">
+                        <BookOpen className="h-5 w-5 md:h-6 md:w-6" />
+                    </div>
+                    <div>
+                        <h1 className="page-title">Passbook</h1>
+                        <p className="page-subtitle">Complete financial transaction history</p>
+                    </div>
                 </div>
-                <Button variant="outline" onClick={exportToExcel} className="self-start sm:self-auto">
+                <Button variant="outline" size="sm" onClick={exportToExcel} className="page-header-btn self-start sm:self-auto">
                     <Download className="h-4 w-4 mr-2" />
                     Export to Excel
                 </Button>

@@ -229,12 +229,17 @@ export default function Expenses() {
     <div className="space-y-6 p-4">
 
       {/* ================= HEADER ================= */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="page-header-controls">
+        <div className="page-header-title">
+          <div className="page-header-icon">
+            <DollarSign className="h-5 w-5 md:h-6 md:w-6" />
+          </div>
+          <div>
           <h1 className="page-title">Expenses</h1>
           <p className="page-subtitle">
             Track and manage your business expenses
           </p>
+          </div>
         </div>
 
         {/* Your existing Dialog button remains unchanged */}
