@@ -1213,12 +1213,16 @@ function PurchaseBills() {
   return (
     <div className="space-y-6 p-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="page-title">Purchase Bills</h1>
-          <p className="page-subtitle">
-            AI-powered bill extraction with validation
-          </p>
+      <div className="page-header-controls">
+        <div className="page-header-title">
+          <div className="page-header-icon">
+            <FileText className="h-5 w-5 md:h-6 md:w-6" />
+          </div>
+          <div>
+            <h1 className="page-title">Purchase Bills</h1>
+            <p className="page-subtitle">
+              AI-powered bill extraction with validation
+            </p>
           </div>
         </div>
         <div className="page-header-actions">
@@ -1273,54 +1277,6 @@ function PurchaseBills() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search vendor, bill number, items..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-[140px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="paid">Paid</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="overdue">Overdue</SelectItem>
-            <SelectItem value="overpaid">Overpaid</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={gstFilter} onValueChange={setGstFilter}>
-          <SelectTrigger className="w-full sm:w-[140px]">
-            <SelectValue placeholder="GST Type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Bills</SelectItem>
-            <SelectItem value="gst">GST Bills</SelectItem>
-            <SelectItem value="non-gst">Non-GST Bills</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger className="w-full sm:w-[160px]">
-            <SelectValue placeholder="Sort by" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="date-desc">Newest First</SelectItem>
-            <SelectItem value="date-asc">Oldest First</SelectItem>
-            <SelectItem value="due-date">Due Date</SelectItem>
-            <SelectItem value="amount-desc">Amount (High)</SelectItem>
-            <SelectItem value="amount-asc">Amount (Low)</SelectItem>
-            <SelectItem value="vendor">Vendor Name</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
       {/* Summary Tiles */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card className="bg-primary/5 border-primary/20 shadow-sm hover:shadow-md transition-shadow">
@@ -1373,6 +1329,54 @@ function PurchaseBills() {
             </p>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search vendor, bill number, items..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-full sm:w-[140px]">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="paid">Paid</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="overdue">Overdue</SelectItem>
+            <SelectItem value="overpaid">Overpaid</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={gstFilter} onValueChange={setGstFilter}>
+          <SelectTrigger className="w-full sm:w-[140px]">
+            <SelectValue placeholder="GST Type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Bills</SelectItem>
+            <SelectItem value="gst">GST Bills</SelectItem>
+            <SelectItem value="non-gst">Non-GST Bills</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={sortBy} onValueChange={setSortBy}>
+          <SelectTrigger className="w-full sm:w-[160px]">
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="date-desc">Newest First</SelectItem>
+            <SelectItem value="date-asc">Oldest First</SelectItem>
+            <SelectItem value="due-date">Due Date</SelectItem>
+            <SelectItem value="amount-desc">Amount (High)</SelectItem>
+            <SelectItem value="amount-asc">Amount (Low)</SelectItem>
+            <SelectItem value="vendor">Vendor Name</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Loading State */}
@@ -3480,4 +3484,3 @@ function PurchaseBills() {
 }
 
 export default PurchaseBills;
-
