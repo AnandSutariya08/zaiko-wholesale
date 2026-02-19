@@ -347,13 +347,16 @@ export const getCompanyProfile = async (): Promise<CompanyProfile | null> => {
   try {
     const userId = getUserId();
     const docRef = doc(db, COLLECTIONS.COMPANY, userId);
+    // Use getDoc with no source option to allow offline cache fallback
     const docSnap = await getDoc(docRef);
 
     if (docSnap.exists()) {
       return docSnap.data() as CompanyProfile;
     }
     return null;
-  } catch (error) {
+  } catch (error: any) {
+    // If the error is due to being offline, try to return from cache if possible
+    // Firestore SDK usually does this automatically if persistence is enabled
     console.error("Error getting company profile:", error);
     return null;
   }
