@@ -183,7 +183,7 @@ export default function SampleBills() {
 
   if (loading) {
     return (
-      <LoadingSpinner size="xl" text="Loading sample bills..." fullScreen contentAreaOnly />
+      <LoadingSpinner size="xl" text="Loading Quotation Bill..." fullScreen contentAreaOnly />
     );
   }
 
@@ -197,7 +197,7 @@ export default function SampleBills() {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground break-words">
-                Sample Bills
+                Quotation Bill
               </h1>
               <Badge variant="outline" className="text-xs">
                 Demo
@@ -214,7 +214,7 @@ export default function SampleBills() {
             className="page-header-btn w-full sm:w-auto"
           >
             <Plus className="h-4 w-4 mr-2" />
-            Create Sample Bill
+            Create Quotation Bill
           </Button>
         </Link>
       </div>
@@ -245,7 +245,7 @@ export default function SampleBills() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search sample bills..."
+                placeholder="Search Quotation Bill..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 h-10 sm:h-11 border-2 text-sm"
@@ -301,7 +301,7 @@ export default function SampleBills() {
             <CardContent className="text-center py-12">
               <Receipt className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
               <p className="text-lg font-medium text-foreground mb-2">
-                No sample bills found
+                No Quotation Bill found
               </p>
               <p className="text-sm text-muted-foreground mb-4">
                 Create practice bills for testing and demonstration
@@ -309,7 +309,7 @@ export default function SampleBills() {
               <Link to="/sample-bills/new">
                 <Button className="gap-2">
                   <Plus className="h-4 w-4" />
-                  Create Your First Sample Bill
+                  Create Your First Quotation Bill
                 </Button>
               </Link>
             </CardContent>

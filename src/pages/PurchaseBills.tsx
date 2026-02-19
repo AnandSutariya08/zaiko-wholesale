@@ -1219,12 +1219,10 @@ function PurchaseBills() {
             <FileText className="h-5 w-5 md:h-6 md:w-6" />
           </div>
           <div>
-          <h1 className="page-title">
-            Purchase Bills
-          </h1>
-          <p className="page-subtitle">
-            AI-powered bill extraction with validation
-          </p>
+            <h1 className="page-title">Purchase Bills</h1>
+            <p className="page-subtitle">
+              AI-powered bill extraction with validation
+            </p>
           </div>
         </div>
         <div className="page-header-actions">
@@ -3486,4 +3484,3 @@ function PurchaseBills() {
 }
 
 export default PurchaseBills;
-
