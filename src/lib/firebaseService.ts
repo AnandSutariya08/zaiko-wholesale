@@ -623,6 +623,30 @@ export const saveBill = async (bill: Bill): Promise<void> => {
     const cleanedBillData = removeUndefined({ ...bill, userId });
     batch.set(billRef, cleanedBillData, { merge: true });
 
+    // Update Expo stats if expoId is present
+    if (bill.expoId) {
+      const expoRef = doc(db, COLLECTIONS.EXPOS, bill.expoId);
+      const expoSnap = await getDoc(expoRef);
+      if (expoSnap.exists()) {
+        const expoData = expoSnap.data() as Expo;
+        const soldStocks = { ...(expoData.soldStocks || {}) };
+        const remainingStocks = { ...(expoData.remainingStocks || {}) };
+        
+        for (const item of bill.items) {
+          soldStocks[item.productId] = (Number(soldStocks[item.productId]) || 0) + Number(item.quantity);
+          remainingStocks[item.productId] = (Number(remainingStocks[item.productId]) || 0) - Number(item.quantity);
+        }
+
+        batch.update(expoRef, {
+          soldStocks,
+          remainingStocks,
+          totalSales: (Number(expoData.totalSales) || 0) + Number(bill.total),
+          receivableAmount: (Number(expoData.receivableAmount) || 0) + (Number(bill.total) - Number(bill.paidAmount)),
+          receivedAmount: (Number(expoData.receivedAmount) || 0) + Number(bill.paidAmount),
+        });
+      }
+    }
+
     // Apply stock adjustments
     for (const [productId, adjustment] of stockAdjustments.entries()) {
       if (adjustment !== 0) {
@@ -823,12 +847,27 @@ export const updateBillPayment = async (
 
       const payments = Array.isArray(bill.payments) ? [...bill.payments, newPayment] : [newPayment];
 
-      await updateDoc(billRef, {
+      const updateData: any = {
         paidAmount: newPaidAmount,
         paymentStatus,
         paymentType: paymentType, // Update main payment type to last used
         payments: removeUndefined(payments),
-      });
+      };
+
+      await updateDoc(billRef, updateData);
+
+      // Update Expo stats if expoId is present
+      if (bill.expoId) {
+        const expoRef = doc(db, COLLECTIONS.EXPOS, bill.expoId);
+        const expoSnap = await getDoc(expoRef);
+        if (expoSnap.exists()) {
+          const expoData = expoSnap.data() as Expo;
+          await updateDoc(expoRef, {
+            receivedAmount: (Number(expoData.receivedAmount) || 0) + paidAmount,
+            receivableAmount: Math.max(0, (Number(expoData.receivableAmount) || 0) - paidAmount),
+          });
+        }
+      }
     }
   } catch (error) {
     console.error("Error updating bill payment:", error);
