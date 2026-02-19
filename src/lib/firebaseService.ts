@@ -108,7 +108,7 @@ export const getCreators = async (): Promise<any[]> => {
       id: doc.id,
       ...doc.data(),
     }));
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error getting creators:", error);
     return [];
   }
@@ -148,7 +148,7 @@ export const getBankAccounts = async (): Promise<BankAccount[]> => {
       id: doc.id,
       ...doc.data(),
     })) as BankAccount[];
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error getting bank accounts:", error);
     return [];
   }
@@ -188,7 +188,7 @@ export const getVendors = async (): Promise<Vendor[]> => {
       id: doc.id,
       ...doc.data(),
     })) as Vendor[];
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error getting vendors:", error);
     return [];
   }
@@ -228,7 +228,7 @@ export const getExpos = async (): Promise<Expo[]> => {
       id: doc.id,
       ...doc.data(),
     })) as Expo[];
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error getting expos:", error);
     return [];
   }
@@ -401,7 +401,7 @@ export const getClients = async (): Promise<Client[]> => {
       const dateB = new Date(b.createdAt || 0).getTime();
       return dateB - dateA;
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error getting clients:", error);
     return [];
   }
@@ -457,7 +457,7 @@ export const getProducts = async (): Promise<Product[]> => {
       const dateB = new Date(b.createdAt || 0).getTime();
       return dateB - dateA;
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error getting products:", error);
     return [];
   }
@@ -544,7 +544,7 @@ export const getBills = async (): Promise<Bill[]> => {
       const dateB = new Date(b.createdAt || 0).getTime();
       return dateB - dateA;
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error getting bills:", error);
     return [];
   }
