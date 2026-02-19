@@ -18,12 +18,24 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
   getBills,
   getExpenses,
   getProducts,
-  getCreators,
+  getExpos,
+  saveExpo,
+  transferStockToExpo,
+  endExpoAndReturnStock,
 } from "@/lib/storage";
-import { Bill, Expense, Product, BillCreator } from "@/types";
+import { Bill, Expense, Product, Expo } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/billUtils";
 import {
   LayoutDashboard,
@@ -33,41 +45,84 @@ import {
   Download,
   ArrowLeft,
   Loader2,
+  Plus,
+  Send,
+  CheckCircle2,
 } from "lucide-react";
-import { exportDashboardToExcel } from "@/lib/exportDashboardToExcel";
+import { toast } from "sonner";
 
 export default function ExpoDashboard() {
   const { expoId } = useParams<{ expoId: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [expo, setExpo] = useState<Expo | null>(null);
   const [bills, setBills] = useState<Bill[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [expoUser, setExpoUser] = useState<BillCreator | null>(null);
+  
+  const [isTransferOpen, setIsTransferOpen] = useState(false);
+  const [transferData, setTransferData] = useState({
+    productId: "",
+    quantity: 0,
+  });
 
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      const [allBills, allExpenses, allProducts, allCreators] = await Promise.all([
+  const loadData = async () => {
+    if (!expoId) return;
+    setLoading(true);
+    try {
+      const [allExpos, allBills, allExpenses, allProducts] = await Promise.all([
+        getExpos(),
         getBills(),
         getExpenses(),
         getProducts(),
-        getCreators(),
       ]);
 
-      const creator = allCreators.find(c => c.expoId === expoId || c.id === expoId);
-      setExpoUser(creator || null);
-
-      const filteredBills = allBills.filter(b => b.expoId === expoId || b.createdBy === creator?.name);
-      const filteredExpenses = allExpenses.filter(e => e.expoId === expoId);
-      
-      setBills(filteredBills);
-      setExpenses(filteredExpenses);
-      setProducts(allProducts);
+      const currentExpo = allExpos.find(e => e.id === expoId);
+      if (currentExpo) {
+        setExpo(currentExpo);
+        setBills(allBills.filter(b => b.expoId === expoId));
+        setExpenses(allExpenses.filter(e => e.expoId === expoId));
+        setProducts(allProducts);
+      }
+    } catch (error) {
+      toast.error("Failed to load expo data");
+    } finally {
       setLoading(false);
-    };
+    }
+  };
+
+  useEffect(() => {
     loadData();
   }, [expoId]);
+
+  const handleTransferStock = async () => {
+    if (!expoId || !transferData.productId || transferData.quantity <= 0) {
+      toast.error("Please select a product and valid quantity");
+      return;
+    }
+
+    try {
+      await transferStockToExpo(expoId, transferData.productId, transferData.quantity);
+      toast.success("Stock transferred successfully");
+      setIsTransferOpen(false);
+      loadData();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to transfer stock");
+    }
+  };
+
+  const handleEndExpo = async () => {
+    if (!expoId) return;
+    if (!confirm("Are you sure you want to end this expo? Remaining stock will be returned to main inventory.")) return;
+
+    try {
+      await endExpoAndReturnStock(expoId);
+      toast.success("Expo ended and stock returned");
+      loadData();
+    } catch (error) {
+      toast.error("Failed to end expo");
+    }
+  };
 
   if (loading) {
     return (
@@ -77,40 +132,15 @@ export default function ExpoDashboard() {
     );
   }
 
+  if (!expo) return <div>Expo not found</div>;
+
   const totalSales = bills.reduce((sum, b) => sum + b.total, 0);
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
   const totalCollected = bills.reduce((sum, b) => sum + (b.paidAmount || 0), 0);
-  const netProfit = totalSales - totalExpenses;
-
-  // Stock status for this expo
-  const expoStockStatus = products
-    .filter(p => p.expoStocks?.[expoId || ""] !== undefined)
-    .map(p => ({
-      name: p.name,
-      stock: p.expoStocks?.[expoId || ""] || 0,
-    }));
-
-  const handleDownloadReport = () => {
-    // Basic CSV download for now
-    const rows = [
-      ["Type", "Date", "Description", "Amount"],
-      ...bills.map(b => ["Sale", b.date, b.billNumber, b.total]),
-      ...expenses.map(e => ["Expense", e.date, e.description, e.amount]),
-    ];
-    
-    const csvContent = "data:text/csv;charset=utf-8," 
-      + rows.map(e => e.join(",")).join("\n");
-    
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `expo_report_${expoId}.csv`);
-    document.body.appendChild(link);
-    link.click();
-  };
+  const receivable = totalSales - totalCollected;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
@@ -119,54 +149,93 @@ export default function ExpoDashboard() {
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <LayoutDashboard className="h-6 w-6 text-primary" />
-              Expo Dashboard: {expoId}
+              {expo.name}
             </h1>
             <p className="text-muted-foreground">
-              Segmented view for {expoUser?.name || "Expo User"}
+              Status: <Badge variant={expo.status === "active" ? "default" : "secondary"}>{expo.status}</Badge>
             </p>
           </div>
         </div>
-        <Button onClick={handleDownloadReport} className="gap-2">
-          <Download className="h-4 w-4" />
-          Download Report
-        </Button>
+        <div className="flex gap-2">
+          {expo.status === "active" && (
+            <>
+              <Dialog open={isTransferOpen} onOpenChange={setIsTransferOpen}>
+                <DialogTrigger asChild>
+                  <Button className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Add Stock
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Transfer Stock to Expo</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label>Product</Label>
+                      <select 
+                        className="w-full p-2 border rounded"
+                        value={transferData.productId}
+                        onChange={(e) => setTransferData({ ...transferData, productId: e.target.value })}
+                      >
+                        <option value="">Select Product</option>
+                        {products.map(p => (
+                          <option key={p.id} value={p.id}>{p.name} (Available: {p.stock})</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Quantity</Label>
+                      <Input 
+                        type="number" 
+                        value={transferData.quantity}
+                        onChange={(e) => setTransferData({ ...transferData, quantity: Number(e.target.value) })}
+                      />
+                    </div>
+                    <Button onClick={handleTransferStock} className="w-full">Transfer</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              <Button variant="destructive" onClick={handleEndExpo} className="gap-2">
+                <CheckCircle2 className="h-4 w-4" />
+                End Expo
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Total Sales</CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{formatCurrency(totalSales)}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
-            <TrendingDown className="h-4 w-4 text-destructive" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Expenses</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-destructive">{formatCurrency(totalExpenses)}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Collected</CardTitle>
-            <TrendingUp className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{formatCurrency(totalCollected)}</div>
+            <div className="text-2xl font-bold text-blue-600">{formatCurrency(totalCollected)}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Net Value</CardTitle>
-            <LayoutDashboard className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Receivable</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(netProfit)}</div>
+            <div className="text-2xl font-bold text-orange-600">{formatCurrency(receivable)}</div>
           </CardContent>
         </Card>
       </div>
@@ -176,38 +245,39 @@ export default function ExpoDashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Package className="h-5 w-5" />
-              Expo Stock Status
+              Stock Tracking
             </CardTitle>
-            <CardDescription>Available stock at this location</CardDescription>
           </CardHeader>
           <CardContent>
-            {expoStockStatus.length === 0 ? (
-              <p className="text-center py-4 text-muted-foreground">No stock assigned to this expo.</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Product</TableHead>
-                    <TableHead className="text-right">Stock</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {expoStockStatus.map((item, i) => (
-                    <TableRow key={i}>
-                      <TableCell>{item.name}</TableCell>
-                      <TableCell className="text-right font-bold">{item.stock}</TableCell>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Product</TableHead>
+                  <TableHead className="text-right">Initial</TableHead>
+                  <TableHead className="text-right">Sold</TableHead>
+                  <TableHead className="text-right">Current</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Object.keys(expo.initialStocks || {}).map((pid) => {
+                  const product = products.find(p => p.id === pid);
+                  return (
+                    <TableRow key={pid}>
+                      <TableCell>{product?.name || pid}</TableCell>
+                      <TableCell className="text-right">{expo.initialStocks[pid]}</TableCell>
+                      <TableCell className="text-right">{expo.soldStocks?.[pid] || 0}</TableCell>
+                      <TableCell className="text-right font-bold">{expo.remainingStocks?.[pid] || 0}</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
+                  );
+                })}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Recent Expo Sales</CardTitle>
-            <CardDescription>Latest bills generated at this expo</CardDescription>
+            <CardTitle>Recent Sales</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
@@ -216,23 +286,18 @@ export default function ExpoDashboard() {
                   <TableHead>Bill #</TableHead>
                   <TableHead>Client</TableHead>
                   <TableHead className="text-right">Total</TableHead>
+                  <TableHead className="text-right">Paid</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {bills.slice(0, 5).map((bill) => (
+                {bills.map((bill) => (
                   <TableRow key={bill.id}>
                     <TableCell>{bill.billNumber}</TableCell>
                     <TableCell>{bill.client.name}</TableCell>
                     <TableCell className="text-right">{formatCurrency(bill.total)}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(bill.paidAmount)}</TableCell>
                   </TableRow>
                 ))}
-                {bills.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={3} className="text-center py-4 text-muted-foreground">
-                      No sales recorded yet.
-                    </TableCell>
-                  </TableRow>
-                )}
               </TableBody>
             </Table>
           </CardContent>

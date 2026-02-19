@@ -41,6 +41,7 @@ import {
   PurchaseReturnItem,
   BankAccount,
   Vendor,
+  Expo,
 } from "@/types";
 
 // Collection names
@@ -65,6 +66,7 @@ const COLLECTIONS = {
   CREATORS: "creators",
   BANK_ACCOUNTS: "bankAccounts",
   VENDORS: "vendors",
+  EXPOS: "expos",
 };
 
 // Helper function to get user ID (for multi-user support in future)
@@ -209,6 +211,133 @@ export const deleteVendor = async (id: string): Promise<void> => {
     await deleteDoc(docRef);
   } catch (error) {
     console.error("Error deleting vendor:", error);
+    throw error;
+  }
+};
+
+// Expos
+export const getExpos = async (): Promise<Expo[]> => {
+  try {
+    const userId = getUserId();
+    const q = query(
+      collection(db, COLLECTIONS.EXPOS),
+      where("userId", "==", userId)
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Expo[];
+  } catch (error) {
+    console.error("Error getting expos:", error);
+    return [];
+  }
+};
+
+export const saveExpo = async (expo: Expo): Promise<void> => {
+  try {
+    const userId = getUserId();
+    const docRef = doc(db, COLLECTIONS.EXPOS, expo.id);
+    await setDoc(docRef, removeUndefined({ ...expo, userId }), { merge: true });
+  } catch (error) {
+    console.error("Error saving expo:", error);
+    throw error;
+  }
+};
+
+export const deleteExpo = async (id: string): Promise<void> => {
+  try {
+    const docRef = doc(db, COLLECTIONS.EXPOS, id);
+    await deleteDoc(docRef);
+  } catch (error) {
+    console.error("Error deleting expo:", error);
+    throw error;
+  }
+};
+
+export const transferStockToExpo = async (
+  expoId: string,
+  productId: string,
+  quantity: number
+): Promise<void> => {
+  try {
+    const batch = writeBatch(db);
+    const productRef = doc(db, COLLECTIONS.PRODUCTS, productId);
+    const expoRef = doc(db, COLLECTIONS.EXPOS, expoId);
+
+    const [productSnap, expoSnap] = await Promise.all([
+      getDoc(productRef),
+      getDoc(expoRef),
+    ]);
+
+    if (!productSnap.exists() || !expoSnap.exists()) {
+      throw new Error("Product or Expo not found");
+    }
+
+    const product = productSnap.data() as Product;
+    const expo = expoSnap.data() as Expo;
+
+    if (product.stock < quantity) {
+      throw new Error(`Insufficient stock for ${product.name}`);
+    }
+
+    // Update product main stock and expo-specific stock
+    const newMainStock = product.stock - quantity;
+    const currentExpoStock = product.expoStocks?.[expoId] || 0;
+    const newExpoStock = currentExpoStock + quantity;
+
+    batch.update(productRef, {
+      stock: newMainStock,
+      [`expoStocks.${expoId}`]: newExpoStock,
+    });
+
+    // Update expo tracking
+    const initialStocks = { ...expo.initialStocks };
+    initialStocks[productId] = (initialStocks[productId] || 0) + quantity;
+    const remainingStocks = { ...expo.remainingStocks };
+    remainingStocks[productId] = (remainingStocks[productId] || 0) + quantity;
+
+    batch.update(expoRef, {
+      initialStocks,
+      remainingStocks,
+    });
+
+    await batch.commit();
+  } catch (error) {
+    console.error("Error transferring stock to expo:", error);
+    throw error;
+  }
+};
+
+export const endExpoAndReturnStock = async (expoId: string): Promise<void> => {
+  try {
+    const batch = writeBatch(db);
+    const expoRef = doc(db, COLLECTIONS.EXPOS, expoId);
+    const expoSnap = await getDoc(expoRef);
+
+    if (!expoSnap.exists()) throw new Error("Expo not found");
+    const expo = expoSnap.data() as Expo;
+
+    // Return remaining stocks to main inventory
+    for (const [productId, quantity] of Object.entries(expo.remainingStocks)) {
+      const qty = Number(quantity);
+      if (qty > 0) {
+        const productRef = doc(db, COLLECTIONS.PRODUCTS, productId);
+        const productSnap = await getDoc(productRef);
+        if (productSnap.exists()) {
+          const product = productSnap.data() as Product;
+          batch.update(productRef, {
+            stock: (Number(product.stock) || 0) + qty,
+            [`expoStocks.${expoId}`]: 0,
+          });
+        }
+      }
+    }
+
+    batch.update(expoRef, { status: "completed" });
+    await batch.commit();
+  } catch (error) {
+    console.error("Error ending expo:", error);
     throw error;
   }
 };
