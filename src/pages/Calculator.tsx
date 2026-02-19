@@ -1,186 +1,277 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calculator, Percent, TrendingUp, DollarSign, PieChart } from "lucide-react";
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { 
+  Calculator as CalcIcon, 
+  History, 
+  Trash2, 
+  Percent, 
+  TrendingUp, 
+  Receipt,
+  Delete,
+  Divide,
+  X,
+  Minus,
+  Plus,
+  Equal,
+  ChevronDown,
+  ChevronUp
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
-const BusinessCalculator = () => {
-  // Margin & Markup
-  const [cost, setCost] = useState<number>(0);
-  const [price, setPrice] = useState<number>(0);
-  
-  // GST
-  const [amount, setAmount] = useState<number>(0);
-  const [gstRate, setGstRate] = useState<number>(18);
+const CalculatorPage = () => {
+  const [display, setDisplay] = useState('0');
+  const [equation, setEquation] = useState('');
+  const [history, setHistory] = useState<{eq: string, res: string}[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [memory, setMemory] = useState(0);
 
-  // ROI
-  const [investment, setInvestment] = useState<number>(0);
-  const [returnVal, setReturnVal] = useState<number>(0);
+  // Business specific states
+  const [gstRate, setGstRate] = useState(18);
+  const [marginRate, setMarginRate] = useState(20);
 
-  const margin = price > 0 ? ((price - cost) / price) * 100 : 0;
-  const markup = cost > 0 ? ((price - cost) / cost) * 100 : 0;
-  const profit = price - cost;
+  const handleNumber = (num: string) => {
+    if (display === '0') {
+      setDisplay(num);
+    } else {
+      setDisplay(display + num);
+    }
+  };
 
-  const gstAmount = (amount * gstRate) / 100;
-  const totalWithGst = amount + gstAmount;
+  const handleOperator = (op: string) => {
+    setEquation(display + ' ' + op + ' ');
+    setDisplay('0');
+  };
 
-  const roi = investment > 0 ? ((returnVal - investment) / investment) * 100 : 0;
+  const calculate = () => {
+    try {
+      const fullEq = equation + display;
+      // Using Function constructor for a simple calculator evaluation 
+      // In a real production app, use a math library like mathjs
+      const result = new Function('return ' + fullEq.replace(/x/g, '*').replace(/÷/g, '/'))();
+      const formattedResult = Number(result.toFixed(4)).toString();
+      
+      setHistory([{ eq: fullEq, res: formattedResult }, ...history].slice(0, 10));
+      setDisplay(formattedResult);
+      setEquation('');
+    } catch (e) {
+      setDisplay('Error');
+    }
+  };
+
+  const clear = () => {
+    setDisplay('0');
+    setEquation('');
+  };
+
+  const backspace = () => {
+    if (display.length > 1) {
+      setDisplay(display.slice(0, -1));
+    } else {
+      setDisplay('0');
+    }
+  };
+
+  // Business Functions
+  const addGST = () => {
+    const val = parseFloat(display);
+    const gst = (val * gstRate) / 100;
+    const total = val + gst;
+    setEquation(`${val} + ${gstRate}% GST`);
+    setDisplay(total.toFixed(2));
+  };
+
+  const removeGST = () => {
+    const val = parseFloat(display);
+    const base = val / (1 + gstRate / 100);
+    setEquation(`${val} - ${gstRate}% GST`);
+    setDisplay(base.toFixed(2));
+  };
+
+  const applyMargin = () => {
+    const cost = parseFloat(display);
+    const price = cost / (1 - marginRate / 100);
+    setEquation(`${cost} @ ${marginRate}% Margin`);
+    setDisplay(price.toFixed(2));
+  };
+
+  const calcProfit = () => {
+    if (equation.includes('@')) {
+      const cost = parseFloat(equation.split(' ')[0]);
+      const price = parseFloat(display);
+      setDisplay((price - cost).toFixed(2));
+      setEquation(`Profit from ${cost} to ${price}`);
+    }
+  };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-2 mb-6">
-        <Calculator className="w-8 h-8 text-primary" />
-        <h1 className="text-3xl font-bold">Business Smart Calculator</h1>
+    <div className="container mx-auto p-4 max-w-4xl">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-2">
+          <div className="p-2 bg-primary rounded-lg">
+            <CalcIcon className="w-6 h-6 text-primary-foreground" />
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight">Business Smart Calculator</h1>
+        </div>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => setShowHistory(!showHistory)}
+          className="gap-2"
+        >
+          <History className="w-4 h-4" />
+          {showHistory ? 'Hide History' : 'Show History'}
+        </Button>
       </div>
 
-      <Tabs defaultValue="margin" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-8">
-          <TabsTrigger value="margin" className="flex gap-2">
-            <TrendingUp className="w-4 h-4" /> Margin & Profit
-          </TabsTrigger>
-          <TabsTrigger value="gst" className="flex gap-2">
-            <Percent className="w-4 h-4" /> GST Calculator
-          </TabsTrigger>
-          <TabsTrigger value="roi" className="flex gap-2">
-            <PieChart className="w-4 h-4" /> ROI Analysis
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="margin">
-          <Card>
-            <CardHeader>
-              <CardTitle>Profit Margin & Markup</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="cost">Cost Price</Label>
-                  <Input 
-                    id="cost" 
-                    type="number" 
-                    value={cost} 
-                    onChange={(e) => setCost(Number(e.target.value))} 
-                    placeholder="Enter cost price"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="price">Selling Price</Label>
-                  <Input 
-                    id="price" 
-                    type="number" 
-                    value={price} 
-                    onChange={(e) => setPrice(Number(e.target.value))} 
-                    placeholder="Enter selling price"
-                  />
-                </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Calculator */}
+        <Card className="lg:col-span-2 overflow-hidden border-2 shadow-xl bg-card">
+          <CardContent className="p-0">
+            {/* Display Area */}
+            <div className="bg-muted/30 p-6 text-right space-y-1 min-h-[120px] flex flex-col justify-end border-b">
+              <div className="text-sm text-muted-foreground font-mono h-6 overflow-hidden">
+                {equation}
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                <div className="p-4 bg-primary/10 rounded-lg text-center">
-                  <p className="text-sm text-muted-foreground uppercase font-semibold">Gross Profit</p>
-                  <p className="text-2xl font-bold text-primary">₹{profit.toFixed(2)}</p>
-                </div>
-                <div className="p-4 bg-green-500/10 rounded-lg text-center">
-                  <p className="text-sm text-muted-foreground uppercase font-semibold">Margin</p>
-                  <p className="text-2xl font-bold text-green-600">{margin.toFixed(2)}%</p>
-                </div>
-                <div className="p-4 bg-blue-500/10 rounded-lg text-center">
-                  <p className="text-sm text-muted-foreground uppercase font-semibold">Markup</p>
-                  <p className="text-2xl font-bold text-blue-600">{markup.toFixed(2)}%</p>
-                </div>
+              <div className="text-5xl font-bold tracking-tighter truncate font-mono">
+                {display}
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </div>
 
-        <TabsContent value="gst">
-          <Card>
-            <CardHeader>
-              <CardTitle>GST (Goods and Services Tax)</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="amount">Base Amount</Label>
-                  <Input 
-                    id="amount" 
-                    type="number" 
-                    value={amount} 
-                    onChange={(e) => setAmount(Number(e.target.value))} 
-                    placeholder="Enter base amount"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="gstRate">GST Rate (%)</Label>
-                  <Input 
-                    id="gstRate" 
-                    type="number" 
-                    value={gstRate} 
-                    onChange={(e) => setGstRate(Number(e.target.value))} 
-                    placeholder="e.g. 5, 12, 18, 28"
-                  />
-                </div>
-              </div>
+            {/* Business Quick Keys */}
+            <div className="grid grid-cols-4 gap-1 p-1 bg-muted/20 border-b">
+              <Button variant="ghost" className="h-12 text-xs font-bold gap-1" onClick={addGST}>
+                <Plus className="w-3 h-3" />GST
+              </Button>
+              <Button variant="ghost" className="h-12 text-xs font-bold gap-1" onClick={removeGST}>
+                <Minus className="w-3 h-3" />GST
+              </Button>
+              <Button variant="ghost" className="h-12 text-xs font-bold gap-1" onClick={applyMargin}>
+                MARGIN
+              </Button>
+              <Button variant="ghost" className="h-12 text-xs font-bold gap-1" onClick={calcProfit}>
+                PROFIT
+              </Button>
+            </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-                <div className="p-4 bg-primary/10 rounded-lg text-center">
-                  <p className="text-sm text-muted-foreground uppercase font-semibold">GST Amount</p>
-                  <p className="text-2xl font-bold text-primary">₹{gstAmount.toFixed(2)}</p>
-                </div>
-                <div className="p-4 bg-green-500/10 rounded-lg text-center">
-                  <p className="text-sm text-muted-foreground uppercase font-semibold">Total Amount</p>
-                  <p className="text-2xl font-bold text-green-600">₹{totalWithGst.toFixed(2)}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            {/* Standard Keys - Casio Style Layout */}
+            <div className="p-4 grid grid-cols-4 gap-3 bg-card">
+              {/* Row 1 */}
+              <Button variant="destructive" className="h-16 text-lg font-bold" onClick={clear}>AC</Button>
+              <Button variant="outline" className="h-16 text-lg font-bold" onClick={backspace}><Delete className="w-5 h-5" /></Button>
+              <Button variant="secondary" className="h-16 text-lg font-bold" onClick={() => handleOperator('%')}><Percent className="w-5 h-5" /></Button>
+              <Button variant="secondary" className="h-16 text-lg font-bold" onClick={() => handleOperator('÷')}><Divide className="w-5 h-5" /></Button>
 
-        <TabsContent value="roi">
-          <Card>
-            <CardHeader>
-              <CardTitle>Return on Investment (ROI)</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="investment">Investment Amount</Label>
-                  <Input 
-                    id="investment" 
-                    type="number" 
-                    value={investment} 
-                    onChange={(e) => setInvestment(Number(e.target.value))} 
-                    placeholder="Initial investment"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="return">Total Return</Label>
-                  <Input 
-                    id="return" 
-                    type="number" 
-                    value={returnVal} 
-                    onChange={(e) => setReturnVal(Number(e.target.value))} 
-                    placeholder="Final value"
-                  />
-                </div>
-              </div>
+              {/* Row 2 */}
+              <Button variant="ghost" className="h-16 text-2xl font-semibold hover:bg-muted" onClick={() => handleNumber('7')}>7</Button>
+              <Button variant="ghost" className="h-16 text-2xl font-semibold hover:bg-muted" onClick={() => handleNumber('8')}>8</Button>
+              <Button variant="ghost" className="h-16 text-2xl font-semibold hover:bg-muted" onClick={() => handleNumber('9')}>9</Button>
+              <Button variant="secondary" className="h-16 text-lg font-bold" onClick={() => handleOperator('x')}><X className="w-5 h-5" /></Button>
 
-              <div className="mt-6 p-6 bg-primary/10 rounded-xl text-center">
-                <p className="text-sm text-muted-foreground uppercase font-semibold mb-2">ROI Percentage</p>
-                <p className={`text-4xl font-black ${roi >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {roi.toFixed(2)}%
-                </p>
-                <p className="text-sm mt-2 text-muted-foreground">
-                  Profit: ₹{(returnVal - investment).toFixed(2)}
-                </p>
+              {/* Row 3 */}
+              <Button variant="ghost" className="h-16 text-2xl font-semibold hover:bg-muted" onClick={() => handleNumber('4')}>4</Button>
+              <Button variant="ghost" className="h-16 text-2xl font-semibold hover:bg-muted" onClick={() => handleNumber('5')}>5</Button>
+              <Button variant="ghost" className="h-16 text-2xl font-semibold hover:bg-muted" onClick={() => handleNumber('6')}>6</Button>
+              <Button variant="secondary" className="h-16 text-lg font-bold" onClick={() => handleOperator('-')}><Minus className="w-5 h-5" /></Button>
+
+              {/* Row 4 */}
+              <Button variant="ghost" className="h-16 text-2xl font-semibold hover:bg-muted" onClick={() => handleNumber('1')}>1</Button>
+              <Button variant="ghost" className="h-16 text-2xl font-semibold hover:bg-muted" onClick={() => handleNumber('2')}>2</Button>
+              <Button variant="ghost" className="h-16 text-2xl font-semibold hover:bg-muted" onClick={() => handleNumber('3')}>3</Button>
+              <Button variant="secondary" className="h-16 text-lg font-bold" onClick={() => handleOperator('+')}><Plus className="w-5 h-5" /></Button>
+
+              {/* Row 5 */}
+              <Button variant="ghost" className="h-16 text-2xl font-semibold hover:bg-muted" onClick={() => handleNumber('0')}>0</Button>
+              <Button variant="ghost" className="h-16 text-2xl font-semibold hover:bg-muted" onClick={() => handleNumber('00')}>00</Button>
+              <Button variant="ghost" className="h-16 text-2xl font-semibold hover:bg-muted" onClick={() => handleNumber('.')}>.</Button>
+              <Button variant="primary" className="h-16 text-lg font-bold bg-primary hover:bg-primary/90" onClick={calculate}><Equal className="w-6 h-6" /></Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Business Settings & History */}
+        <div className="space-y-6">
+          <Card className="border-2 shadow-lg">
+            <CardContent className="p-4 space-y-4">
+              <h3 className="font-bold flex items-center gap-2 text-sm uppercase tracking-wider text-muted-foreground">
+                <Receipt className="w-4 h-4" /> Business Config
+              </h3>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs font-medium">
+                    <span>Default GST Rate</span>
+                    <span className="text-primary">{gstRate}%</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1">
+                    {[5, 12, 18, 28].map(rate => (
+                      <Button 
+                        key={rate} 
+                        size="sm" 
+                        variant={gstRate === rate ? 'default' : 'outline'}
+                        className="h-8 text-[10px]"
+                        onClick={() => setGstRate(rate)}
+                      >
+                        {rate}%
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs font-medium">
+                    <span>Target Margin</span>
+                    <span className="text-primary">{marginRate}%</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1">
+                    {[10, 20, 30, 50].map(rate => (
+                      <Button 
+                        key={rate} 
+                        size="sm" 
+                        variant={marginRate === rate ? 'default' : 'outline'}
+                        className="h-8 text-[10px]"
+                        onClick={() => setMarginRate(rate)}
+                      >
+                        {rate}%
+                      </Button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+
+          {showHistory && (
+            <Card className="border-2 shadow-lg animate-in slide-in-from-right duration-300">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold flex items-center gap-2 text-sm uppercase tracking-wider text-muted-foreground">
+                    <History className="w-4 h-4" /> Recent Logs
+                  </h3>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setHistory([])}>
+                    <Trash2 className="w-3 h-3 text-destructive" />
+                  </Button>
+                </div>
+                <div className="space-y-2 max-h-[300px] overflow-auto pr-1">
+                  {history.length === 0 ? (
+                    <p className="text-xs text-center py-8 text-muted-foreground italic">No history yet</p>
+                  ) : (
+                    history.map((item, i) => (
+                      <div key={i} className="p-2 rounded bg-muted/50 border text-right space-y-1">
+                        <div className="text-[10px] text-muted-foreground font-mono">{item.eq}</div>
+                        <div className="text-sm font-bold font-mono text-primary cursor-pointer" onClick={() => setDisplay(item.res)}>
+                          {item.res}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
 
-export default BusinessCalculator;
+export default CalculatorPage;
