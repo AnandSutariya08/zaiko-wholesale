@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { 
   Calculator as CalcIcon, 
   History, 
@@ -19,7 +20,11 @@ import {
   DollarSign,
   Tag,
   ArrowRightLeft,
-  Info
+  Info,
+  Banknote,
+  Briefcase,
+  TrendingDown,
+  Scale
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +42,7 @@ const CalculatorPage = () => {
   const [gstRate, setGstRate] = useState(18);
   const [marginRate, setMarginRate] = useState(20);
   const [discountRate, setDiscountRate] = useState(10);
+  const [taxRate, setTaxRate] = useState(5);
 
   const handleNumber = (num: string) => {
     if (display === '0' || display === 'Error') {
@@ -123,132 +129,196 @@ const CalculatorPage = () => {
     setDisplay(res);
   };
 
+  const calculateMarkup = () => {
+    const cost = parseFloat(display);
+    if (isNaN(cost)) return;
+    const markup = (cost * marginRate) / 100;
+    const res = (cost + markup).toFixed(2);
+    setHistory([{ eq: `${cost} + ${marginRate}% Markup`, res, type: 'Markup' }, ...history].slice(0, 10));
+    setEquation(`${cost} cost + ${marginRate}% Markup`);
+    setDisplay(res);
+  };
+
+  const calculateTax = () => {
+    const val = parseFloat(display);
+    if (isNaN(val)) return;
+    const tax = (val * taxRate) / 100;
+    const res = (val + tax).toFixed(2);
+    setHistory([{ eq: `${val} + ${taxRate}% Tax`, res, type: 'Tax' }, ...history].slice(0, 10));
+    setEquation(`${val} + ${taxRate}% Tax`);
+    setDisplay(res);
+  };
+
+  const calculateProfit = () => {
+    const val = parseFloat(display);
+    if (isNaN(val)) return;
+    const profit = val * (marginRate / 100);
+    const res = profit.toFixed(2);
+    setHistory([{ eq: `Profit on ${val} (${marginRate}%)`, res, type: 'Profit' }, ...history].slice(0, 10));
+    setEquation(`Profit on ${val} @ ${marginRate}%`);
+    setDisplay(res);
+  };
+
   return (
-    <div className="flex flex-col gap-6">
-      {/* Header Section - Simulating Dashboard Box Look */}
-      <div className="bg-card rounded-xl border shadow-sm p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="flex flex-col gap-6 p-4 md:p-6 max-w-7xl mx-auto">
+      {/* Header Section */}
+      <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-2xl border border-slate-700 shadow-xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-primary/10 rounded-xl">
-            <CalcIcon className="w-8 h-8 text-primary" />
+          <div className="p-3 bg-blue-500/20 rounded-xl border border-blue-500/30">
+            <CalcIcon className="w-8 h-8 text-blue-400" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Smart Business Calculator</h1>
-            <p className="text-sm text-muted-foreground">Advanced financial tools for GST, Margins, and Discounts</p>
+            <h1 className="text-2xl font-bold tracking-tight text-white">Smart Business Calculator</h1>
+            <p className="text-sm text-slate-400 font-medium tracking-wide">Financial precision for your business growth</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Button 
             variant="outline" 
             size="sm" 
             onClick={() => setShowHistory(!showHistory)}
-            className={cn("gap-2 border-primary/20 hover:bg-primary/5 transition-all", showHistory && "bg-primary/5 border-primary")}
+            className={cn(
+              "gap-2 bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white transition-all", 
+              showHistory && "bg-blue-500/10 border-blue-500/50 text-blue-400"
+            )}
           >
             <History className="w-4 h-4" />
-            {showHistory ? 'Hide Logs' : 'View Logs'}
+            {showHistory ? 'Hide History' : 'View History'}
           </Button>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-9 w-9">
-                  <Info className="w-4 h-4 text-muted-foreground" />
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-white hover:bg-slate-800">
+                  <Info className="w-4 h-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>
-                <p>Use specialized keys for quick business calculations</p>
+              <TooltipContent className="bg-slate-900 border-slate-800 text-slate-200">
+                <p>Advanced calculation tools for professional business analysis</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Main Calculator Body */}
-        <div className="lg:col-span-8 flex flex-col gap-6">
-          <Card className="overflow-hidden border shadow-lg bg-card/50 backdrop-blur-sm">
+        <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-6">
+          <Card className="overflow-hidden border-2 border-slate-800 shadow-2xl bg-slate-900/90 backdrop-blur-xl rounded-2xl">
             <CardContent className="p-0">
-              {/* Display Area - High Precision Look */}
-              <div className="bg-slate-950 p-8 text-right space-y-2 min-h-[160px] flex flex-col justify-end border-b-4 border-primary/20">
-                <div className="text-sm text-primary/60 font-mono tracking-widest uppercase h-6 overflow-hidden">
-                  {equation || 'READY'}
+              {/* Display Area */}
+              <div className="bg-black/40 p-10 text-right space-y-3 min-h-[180px] flex flex-col justify-end border-b-2 border-slate-800">
+                <div className="text-sm font-mono tracking-widest text-blue-400/70 h-6 overflow-hidden animate-pulse">
+                  {equation || 'SYSTEM READY'}
                 </div>
-                <div className="text-6xl font-bold tracking-tighter text-white font-mono drop-shadow-sm">
+                <div className="text-7xl font-bold tracking-tighter text-white font-mono break-all leading-none drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]">
                   {display}
                 </div>
               </div>
 
-              {/* Advanced Business Control Strip */}
-              <div className="grid grid-cols-4 gap-2 p-3 bg-muted/40 border-b">
-                <Button variant="outline" className="h-14 text-xs font-bold gap-1 border-primary/20 hover:border-primary hover:text-primary transition-all group" onClick={addGST}>
-                  <Plus className="w-3 h-3 group-hover:scale-110 transition-transform" /> GST
+              {/* Enhanced Business Control Strip */}
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 p-4 bg-slate-900/50 border-b border-slate-800">
+                <Button variant="outline" className="h-14 text-xs font-bold gap-2 border-emerald-500/20 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50 transition-all group" onClick={addGST}>
+                  <Plus className="w-4 h-4" /> GST
                 </Button>
-                <Button variant="outline" className="h-14 text-xs font-bold gap-1 border-primary/20 hover:border-primary hover:text-primary transition-all group" onClick={removeGST}>
-                  <Minus className="w-3 h-3 group-hover:scale-110 transition-transform" /> GST
+                <Button variant="outline" className="h-14 text-xs font-bold gap-2 border-rose-500/20 bg-rose-500/5 text-rose-400 hover:bg-rose-500/20 hover:border-rose-500/50 transition-all group" onClick={removeGST}>
+                  <Minus className="w-4 h-4" /> GST
                 </Button>
-                <Button variant="outline" className="h-14 text-xs font-bold gap-1 border-primary/20 hover:border-primary hover:text-primary transition-all group" onClick={applyMargin}>
-                  <TrendingUp className="w-3 h-3 group-hover:scale-110 transition-transform" /> MARGIN
+                <Button variant="outline" className="h-14 text-xs font-bold gap-2 border-blue-500/20 bg-blue-500/5 text-blue-400 hover:bg-blue-500/20 hover:border-blue-500/50 transition-all group" onClick={applyMargin}>
+                  <TrendingUp className="w-4 h-4" /> MARGIN
                 </Button>
-                <Button variant="outline" className="h-14 text-xs font-bold gap-1 border-primary/20 hover:border-primary hover:text-primary transition-all group" onClick={applyDiscount}>
-                  <Tag className="w-3 h-3 group-hover:scale-110 transition-transform" /> DISC
+                <Button variant="outline" className="h-14 text-xs font-bold gap-2 border-amber-500/20 bg-amber-500/5 text-amber-400 hover:bg-amber-500/20 hover:border-amber-500/50 transition-all group" onClick={applyDiscount}>
+                  <Tag className="w-4 h-4" /> DISCOUNT
+                </Button>
+                <Button variant="outline" className="h-14 text-xs font-bold gap-2 border-indigo-500/20 bg-indigo-500/5 text-indigo-400 hover:bg-indigo-500/20 hover:border-indigo-500/50 transition-all group md:hidden lg:flex" onClick={calculateProfit}>
+                  <Banknote className="w-4 h-4" /> PROFIT
+                </Button>
+              </div>
+
+              {/* Business Helper Extra Row */}
+              <div className="grid grid-cols-3 gap-3 px-4 pb-4 bg-slate-900/50">
+                <Button variant="outline" size="sm" className="h-10 text-[10px] font-bold border-slate-700 bg-slate-800/50 text-slate-300 hover:bg-slate-700" onClick={calculateMarkup}>
+                  <TrendingUp className="w-3 h-3 mr-1" /> MARKUP
+                </Button>
+                <Button variant="outline" size="sm" className="h-10 text-[10px] font-bold border-slate-700 bg-slate-800/50 text-slate-300 hover:bg-slate-700" onClick={calculateTax}>
+                  <Scale className="w-3 h-3 mr-1" /> TAX+
+                </Button>
+                <Button variant="outline" size="sm" className="h-10 text-[10px] font-bold border-slate-700 bg-slate-800/50 text-slate-300 hover:bg-slate-700" onClick={() => {
+                  const val = parseFloat(display);
+                  if(!isNaN(val)) setMemory(val);
+                }}>
+                  <Briefcase className="w-3 h-3 mr-1" /> SAVE MEM
                 </Button>
               </div>
 
               {/* Professional Keypad */}
-              <div className="p-6 grid grid-cols-4 gap-4 bg-card/30">
+              <div className="p-8 grid grid-cols-4 gap-4 bg-slate-900/30">
                 {/* Row 1 */}
-                <Button variant="destructive" className="h-20 text-xl font-black shadow-sm" onClick={clear}>AC</Button>
-                <Button variant="secondary" className="h-20 text-xl font-bold shadow-sm" onClick={backspace}><Delete className="w-6 h-6" /></Button>
-                <Button variant="secondary" className="h-20 text-xl font-bold shadow-sm" onClick={() => handleOperator('%')}><Percent className="w-6 h-6" /></Button>
-                <Button variant="secondary" className="h-20 text-xl font-bold shadow-sm" onClick={() => handleOperator('÷')}><Divide className="w-6 h-6" /></Button>
+                <Button variant="destructive" className="h-20 text-xl font-black shadow-lg hover:bg-rose-600 active:scale-95 transition-all" onClick={clear}>AC</Button>
+                <Button variant="secondary" className="h-20 text-xl font-bold shadow-lg bg-slate-800 text-slate-200 hover:bg-slate-700 active:scale-95 transition-all" onClick={backspace}><Delete className="w-6 h-6" /></Button>
+                <Button variant="secondary" className="h-20 text-xl font-bold shadow-lg bg-slate-800 text-slate-200 hover:bg-slate-700 active:scale-95 transition-all" onClick={() => handleOperator('%')}><Percent className="w-6 h-6" /></Button>
+                <Button variant="secondary" className="h-20 text-xl font-bold shadow-lg bg-slate-700/50 text-blue-400 hover:bg-slate-700 active:scale-95 transition-all border border-blue-500/20" onClick={() => handleOperator('÷')}><Divide className="w-6 h-6" /></Button>
 
                 {/* Row 2 */}
-                <Button variant="ghost" className="h-20 text-3xl font-bold hover:bg-muted shadow-sm border" onClick={() => handleNumber('7')}>7</Button>
-                <Button variant="ghost" className="h-20 text-3xl font-bold hover:bg-muted shadow-sm border" onClick={() => handleNumber('8')}>8</Button>
-                <Button variant="ghost" className="h-20 text-3xl font-bold hover:bg-muted shadow-sm border" onClick={() => handleNumber('9')}>9</Button>
-                <Button variant="secondary" className="h-20 text-xl font-bold shadow-sm" onClick={() => handleOperator('x')}><X className="w-6 h-6" /></Button>
+                <Button variant="ghost" className="h-20 text-3xl font-bold bg-slate-800/40 text-white hover:bg-slate-800 border border-slate-700/50 active:scale-95 transition-all" onClick={() => handleNumber('7')}>7</Button>
+                <Button variant="ghost" className="h-20 text-3xl font-bold bg-slate-800/40 text-white hover:bg-slate-800 border border-slate-700/50 active:scale-95 transition-all" onClick={() => handleNumber('8')}>8</Button>
+                <Button variant="ghost" className="h-20 text-3xl font-bold bg-slate-800/40 text-white hover:bg-slate-800 border border-slate-700/50 active:scale-95 transition-all" onClick={() => handleNumber('9')}>9</Button>
+                <Button variant="secondary" className="h-20 text-xl font-bold shadow-lg bg-slate-700/50 text-blue-400 hover:bg-slate-700 active:scale-95 transition-all border border-blue-500/20" onClick={() => handleOperator('x')}><X className="w-6 h-6" /></Button>
 
                 {/* Row 3 */}
-                <Button variant="ghost" className="h-20 text-3xl font-bold hover:bg-muted shadow-sm border" onClick={() => handleNumber('4')}>4</Button>
-                <Button variant="ghost" className="h-20 text-3xl font-bold hover:bg-muted shadow-sm border" onClick={() => handleNumber('5')}>5</Button>
-                <Button variant="ghost" className="h-20 text-3xl font-bold hover:bg-muted shadow-sm border" onClick={() => handleNumber('6')}>6</Button>
-                <Button variant="secondary" className="h-20 text-xl font-bold shadow-sm" onClick={() => handleOperator('-')}><Minus className="w-6 h-6" /></Button>
+                <Button variant="ghost" className="h-20 text-3xl font-bold bg-slate-800/40 text-white hover:bg-slate-800 border border-slate-700/50 active:scale-95 transition-all" onClick={() => handleNumber('4')}>4</Button>
+                <Button variant="ghost" className="h-20 text-3xl font-bold bg-slate-800/40 text-white hover:bg-slate-800 border border-slate-700/50 active:scale-95 transition-all" onClick={() => handleNumber('5')}>5</Button>
+                <Button variant="ghost" className="h-20 text-3xl font-bold bg-slate-800/40 text-white hover:bg-slate-800 border border-slate-700/50 active:scale-95 transition-all" onClick={() => handleNumber('6')}>6</Button>
+                <Button variant="secondary" className="h-20 text-xl font-bold shadow-lg bg-slate-700/50 text-blue-400 hover:bg-slate-700 active:scale-95 transition-all border border-blue-500/20" onClick={() => handleOperator('-')}><Minus className="w-6 h-6" /></Button>
 
                 {/* Row 4 */}
-                <Button variant="ghost" className="h-20 text-3xl font-bold hover:bg-muted shadow-sm border" onClick={() => handleNumber('1')}>1</Button>
-                <Button variant="ghost" className="h-20 text-3xl font-bold hover:bg-muted shadow-sm border" onClick={() => handleNumber('2')}>2</Button>
-                <Button variant="ghost" className="h-20 text-3xl font-bold hover:bg-muted shadow-sm border" onClick={() => handleNumber('3')}>3</Button>
-                <Button variant="secondary" className="h-20 text-xl font-bold shadow-sm" onClick={() => handleOperator('+')}><Plus className="w-6 h-6" /></Button>
+                <Button variant="ghost" className="h-20 text-3xl font-bold bg-slate-800/40 text-white hover:bg-slate-800 border border-slate-700/50 active:scale-95 transition-all" onClick={() => handleNumber('1')}>1</Button>
+                <Button variant="ghost" className="h-20 text-3xl font-bold bg-slate-800/40 text-white hover:bg-slate-800 border border-slate-700/50 active:scale-95 transition-all" onClick={() => handleNumber('2')}>2</Button>
+                <Button variant="ghost" className="h-20 text-3xl font-bold bg-slate-800/40 text-white hover:bg-slate-800 border border-slate-700/50 active:scale-95 transition-all" onClick={() => handleNumber('3')}>3</Button>
+                <Button variant="secondary" className="h-20 text-xl font-bold shadow-lg bg-slate-700/50 text-blue-400 hover:bg-slate-700 active:scale-95 transition-all border border-blue-500/20" onClick={() => handleOperator('+')}><Plus className="w-6 h-6" /></Button>
 
                 {/* Row 5 */}
-                <Button variant="ghost" className="h-20 text-3xl font-bold hover:bg-muted shadow-sm border" onClick={() => handleNumber('0')}>0</Button>
-                <Button variant="ghost" className="h-20 text-3xl font-bold hover:bg-muted shadow-sm border" onClick={() => handleNumber('00')}>00</Button>
-                <Button variant="ghost" className="h-20 text-3xl font-bold hover:bg-muted shadow-sm border" onClick={() => handleNumber('.')}>.</Button>
-                <Button variant="default" className="h-20 text-xl font-black bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20" onClick={calculate}><Equal className="w-8 h-8" /></Button>
+                <Button variant="ghost" className="h-20 text-3xl font-bold bg-slate-800/40 text-white hover:bg-slate-800 border border-slate-700/50 active:scale-95 transition-all" onClick={() => handleNumber('0')}>0</Button>
+                <Button variant="ghost" className="h-20 text-3xl font-bold bg-slate-800/40 text-white hover:bg-slate-800 border border-slate-700/50 active:scale-95 transition-all" onClick={() => handleNumber('00')}>00</Button>
+                <Button variant="ghost" className="h-20 text-3xl font-bold bg-slate-800/40 text-white hover:bg-slate-800 border border-slate-700/50 active:scale-95 transition-all" onClick={() => handleNumber('.')}>.</Button>
+                <Button variant="default" className="h-20 text-xl font-black bg-blue-600 hover:bg-blue-500 shadow-xl shadow-blue-500/20 active:scale-95 transition-all" onClick={calculate}><Equal className="w-8 h-8" /></Button>
               </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Right Panel - Settings & Logs */}
-        <div className="lg:col-span-4 space-y-6">
-          <Card className="border shadow-md">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-tighter text-primary">
+        <div className="lg:col-span-5 xl:col-span-4 space-y-6">
+          <Card className="border-2 border-slate-800 shadow-xl bg-slate-900/50 backdrop-blur-md">
+            <CardHeader className="pb-4 border-b border-slate-800">
+              <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-widest text-blue-400">
                 <Receipt className="w-4 h-4" /> Calculator Config
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-3">
+            <CardContent className="pt-6 space-y-8">
+              {/* Dynamic Rates Configuration */}
+              <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <Label className="text-xs font-semibold text-muted-foreground">GST RATE</Label>
-                  <Badge variant="secondary" className="font-mono">{gstRate}%</Badge>
+                  <Label className="text-xs font-bold text-slate-400 uppercase tracking-wider">GST RATE (%)</Label>
+                  <div className="flex items-center gap-2">
+                    <Input 
+                      type="number" 
+                      value={gstRate} 
+                      onChange={(e) => setGstRate(parseFloat(e.target.value) || 0)}
+                      className="w-20 h-8 bg-slate-800 border-slate-700 text-center font-mono font-bold text-blue-400"
+                    />
+                    <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20">{gstRate}%</Badge>
+                  </div>
                 </div>
-                <div className="grid grid-cols-4 gap-1">
+                <div className="grid grid-cols-4 gap-2">
                   {[5, 12, 18, 28].map(rate => (
                     <Button 
                       key={rate} 
                       size="sm" 
                       variant={gstRate === rate ? 'default' : 'outline'}
-                      className="h-9 text-[10px] font-bold"
+                      className={cn(
+                        "h-9 text-[11px] font-bold transition-all",
+                        gstRate === rate ? "bg-blue-600 hover:bg-blue-500" : "bg-slate-800/50 border-slate-700 text-slate-400 hover:text-white"
+                      )}
                       onClick={() => setGstRate(rate)}
                     >
                       {rate}%
@@ -257,18 +327,29 @@ const CalculatorPage = () => {
                 </div>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <Label className="text-xs font-semibold text-muted-foreground">TARGET MARGIN</Label>
-                  <Badge variant="secondary" className="font-mono">{marginRate}%</Badge>
+                  <Label className="text-xs font-bold text-slate-400 uppercase tracking-wider">MARGIN/MARKUP (%)</Label>
+                  <div className="flex items-center gap-2">
+                    <Input 
+                      type="number" 
+                      value={marginRate} 
+                      onChange={(e) => setMarginRate(parseFloat(e.target.value) || 0)}
+                      className="w-20 h-8 bg-slate-800 border-slate-700 text-center font-mono font-bold text-emerald-400"
+                    />
+                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20">{marginRate}%</Badge>
+                  </div>
                 </div>
-                <div className="grid grid-cols-4 gap-1">
+                <div className="grid grid-cols-4 gap-2">
                   {[10, 20, 30, 50].map(rate => (
                     <Button 
                       key={rate} 
                       size="sm" 
                       variant={marginRate === rate ? 'default' : 'outline'}
-                      className="h-9 text-[10px] font-bold"
+                      className={cn(
+                        "h-9 text-[11px] font-bold transition-all",
+                        marginRate === rate ? "bg-emerald-600 hover:bg-emerald-500" : "bg-slate-800/50 border-slate-700 text-slate-400 hover:text-white"
+                      )}
                       onClick={() => setMarginRate(rate)}
                     >
                       {rate}%
@@ -277,18 +358,29 @@ const CalculatorPage = () => {
                 </div>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <Label className="text-xs font-semibold text-muted-foreground">QUICK DISCOUNT</Label>
-                  <Badge variant="secondary" className="font-mono">{discountRate}%</Badge>
+                  <Label className="text-xs font-bold text-slate-400 uppercase tracking-wider">QUICK DISCOUNT (%)</Label>
+                  <div className="flex items-center gap-2">
+                    <Input 
+                      type="number" 
+                      value={discountRate} 
+                      onChange={(e) => setDiscountRate(parseFloat(e.target.value) || 0)}
+                      className="w-20 h-8 bg-slate-800 border-slate-700 text-center font-mono font-bold text-amber-400"
+                    />
+                    <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/20">{discountRate}%</Badge>
+                  </div>
                 </div>
-                <div className="grid grid-cols-4 gap-1">
+                <div className="grid grid-cols-4 gap-2">
                   {[5, 10, 15, 25].map(rate => (
                     <Button 
                       key={rate} 
                       size="sm" 
                       variant={discountRate === rate ? 'default' : 'outline'}
-                      className="h-9 text-[10px] font-bold"
+                      className={cn(
+                        "h-9 text-[11px] font-bold transition-all",
+                        discountRate === rate ? "bg-amber-600 hover:bg-amber-500" : "bg-slate-800/50 border-slate-700 text-slate-400 hover:text-white"
+                      )}
                       onClick={() => setDiscountRate(rate)}
                     >
                       {rate}%
@@ -296,34 +388,49 @@ const CalculatorPage = () => {
                   ))}
                 </div>
               </div>
+
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <Label className="text-xs font-bold text-slate-400 uppercase tracking-wider">CUSTOM TAX (%)</Label>
+                  <div className="flex items-center gap-2">
+                    <Input 
+                      type="number" 
+                      value={taxRate} 
+                      onChange={(e) => setTaxRate(parseFloat(e.target.value) || 0)}
+                      className="w-20 h-8 bg-slate-800 border-slate-700 text-center font-mono font-bold text-indigo-400"
+                    />
+                    <Badge variant="outline" className="bg-indigo-500/10 text-indigo-400 border-indigo-500/20">{taxRate}%</Badge>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
           {showHistory && (
-            <Card className="border shadow-md animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-tighter text-muted-foreground">
+            <Card className="border-2 border-slate-800 shadow-xl bg-slate-900/50 backdrop-blur-md animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <CardHeader className="pb-4 border-b border-slate-800 flex flex-row items-center justify-between">
+                <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-widest text-slate-400">
                   <History className="w-4 h-4" /> Audit Logs
                 </CardTitle>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => setHistory([])}>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-500 hover:bg-rose-500/10" onClick={() => setHistory([])}>
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+              <CardContent className="pt-6">
+                <div className="space-y-4 max-h-[450px] overflow-y-auto pr-2 custom-scrollbar">
                   {history.length === 0 ? (
-                    <div className="text-center py-10 opacity-40">
-                      <ArrowRightLeft className="w-8 h-8 mx-auto mb-2" />
-                      <p className="text-xs italic">No activity logs recorded</p>
+                    <div className="text-center py-16 opacity-30">
+                      <ArrowRightLeft className="w-10 h-10 mx-auto mb-3 text-slate-500" />
+                      <p className="text-xs font-bold tracking-widest uppercase">No Records Found</p>
                     </div>
                   ) : (
                     history.map((item, i) => (
-                      <div key={i} className="group p-3 rounded-lg bg-muted/30 border hover:border-primary/50 transition-all cursor-pointer text-right" onClick={() => setDisplay(item.res)}>
-                        <div className="flex justify-between items-center mb-1">
-                          {item.type && <Badge variant="outline" className="text-[8px] h-4 uppercase">{item.type}</Badge>}
-                          <div className="text-[10px] text-muted-foreground font-mono flex-1">{item.eq}</div>
+                      <div key={i} className="group p-4 rounded-xl bg-slate-800/30 border border-slate-700/50 hover:border-blue-500/50 hover:bg-slate-800/50 transition-all cursor-pointer text-right shadow-sm" onClick={() => setDisplay(item.res)}>
+                        <div className="flex justify-between items-center mb-2">
+                          {item.type && <Badge variant="outline" className="text-[9px] font-black h-5 uppercase bg-blue-500/10 text-blue-400 border-blue-500/20">{item.type}</Badge>}
+                          <div className="text-xs text-slate-500 font-mono flex-1 font-medium">{item.eq}</div>
                         </div>
-                        <div className="text-base font-bold font-mono text-primary">
+                        <div className="text-xl font-bold font-mono text-white group-hover:text-blue-400 transition-colors">
                           {item.res}
                         </div>
                       </div>
@@ -336,6 +443,11 @@ const CalculatorPage = () => {
         </div>
       </div>
     </div>
+  );
+};
+
+export default CalculatorPage;
+
   );
 };
 
