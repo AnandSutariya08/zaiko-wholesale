@@ -24,6 +24,7 @@ import {
   UserCheck,
   LogOut,
   Sparkles,
+  Calculator,
   X,
   CreditCard,
 } from "lucide-react";
@@ -187,7 +188,7 @@ function AppSidebarContent({
                             <SidebarMenuSubItem>
                               <SidebarMenuSubButton asChild isActive={location.pathname === "/sample-bill"} className="h-8 rounded-sm">
                                 <Link to="/sample-bill" onClick={handleNavClick}>
-                                  <span className="text-sm">Sample Bill</span>
+                                  <span className="text-sm">Quotation Bill</span>
                                 </Link>
                               </SidebarMenuSubButton>
                             </SidebarMenuSubItem>
@@ -296,6 +297,7 @@ export function Layout({ children }: LayoutProps) {
     { path: "/vendors", icon: Store, label: "Vendors" },
     { path: "/files", icon: FolderOpen, label: "Files" },
     { path: "/notes", icon: StickyNote, label: "Notes" },
+    { path: "/calculator", icon: Calculator, label: "Calculator" },
     { path: "/ai-agent", icon: Sparkles, label: "AI" },
     { path: "/bank-accounts", icon: CreditCard, label: "Banks" },
     { path: "/bill-creators", icon: UserCheck, label: "Users" },
