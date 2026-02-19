@@ -145,7 +145,7 @@ function PurchaseBills() {
           id: `payment-${payment.id}`,
           date: payment.date,
           type: isReturnPayment ? "return_payment" : "purchase_payment",
-          description: isReturnPayment 
+          description: isReturnPayment
             ? `Return Payment from Vendor (${payment.method})${payment.note ? ` - ${payment.note}` : ""}`
             : `Purchase Payment to Vendor (${payment.method})${payment.note ? ` - ${payment.note}` : ""}`,
           amount: Math.abs(payment.amount),
@@ -278,7 +278,9 @@ function PurchaseBills() {
   const [loading, setLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [isUpdatingTransaction, setIsUpdatingTransaction] = useState<string | null>(null);
+  const [isUpdatingTransaction, setIsUpdatingTransaction] = useState<
+    string | null
+  >(null);
   const [pendingInventoryBill, setPendingInventoryBill] =
     useState<PurchaseBill | null>(null);
   const [pendingInventoryItems, setPendingInventoryItems] = useState<
@@ -393,8 +395,7 @@ function PurchaseBills() {
 
     const totalReturns = bills.reduce(
       (sum, b) =>
-        sum +
-        (b.returns?.reduce((s, r) => s + r.totalReturnValue, 0) || 0),
+        sum + (b.returns?.reduce((s, r) => s + r.totalReturnValue, 0) || 0),
       0,
     );
 
@@ -424,7 +425,6 @@ function PurchaseBills() {
       totalReturnCollected,
     };
   })();
-
 
   const filterAndSortBills = () => {
     let filtered = [...bills];
@@ -595,12 +595,18 @@ function PurchaseBills() {
       const newBill: PurchaseBill = {
         id: crypto.randomUUID(),
         billImage: imageBase64,
-        vendorId: vendors.find(v => v.name.toLowerCase().trim() === extracted.vendorName.toLowerCase().trim())?.id,
+        vendorId: vendors.find(
+          (v) =>
+            v.name.toLowerCase().trim() ===
+            extracted.vendorName.toLowerCase().trim(),
+        )?.id,
         vendorName: extracted.vendorName,
         vendorAddress: extracted.vendorAddress,
         vendorGstin: extracted.vendorGstin,
         billNumber: extracted.billNumber,
-        billDate: extracted.billDate ? new Date(extracted.billDate).toISOString() : new Date().toISOString(),
+        billDate: extracted.billDate
+          ? new Date(extracted.billDate).toISOString()
+          : new Date().toISOString(),
         dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
         paymentTerms: extracted.paymentTerms,
         items: extracted.items,
@@ -679,7 +685,7 @@ function PurchaseBills() {
       try {
         // Handle negative amount for overpayment collection
         const actualAmount = amount;
-        
+
         await updatePurchaseBillPayment(
           selectedBillForPayment.id,
           actualAmount,
@@ -689,7 +695,8 @@ function PurchaseBills() {
         );
         await loadBills();
         toast({
-          title: actualAmount < 0 ? "Overpayment Collected" : "Payment Recorded",
+          title:
+            actualAmount < 0 ? "Overpayment Collected" : "Payment Recorded",
           description: `${actualAmount < 0 ? "Collected" : "Recorded"} ${formatCurrency(Math.abs(actualAmount))} via ${type}.`,
         });
       } catch (error) {
@@ -762,18 +769,18 @@ function PurchaseBills() {
 
     setInventoryItems(items);
     setInventoryDialogBill(bill);
-    
+
     // Update the bill object itself if vendor is selected in the inventory items
     // This ensures that when confirmAddToInventory is called, the bill already has the vendor
     if (items.length > 0 && items[0].vendorId) {
-      const vendor = vendors.find(v => v.id === items[0].vendorId);
+      const vendor = vendors.find((v) => v.id === items[0].vendorId);
       if (vendor) {
         setSelectedBill({
           ...bill,
           vendorId: vendor.id,
           vendorName: vendor.name,
           vendorGstin: vendor.gstin || "",
-          vendorAddress: vendor.address || ""
+          vendorAddress: vendor.address || "",
         });
       }
     }
@@ -790,18 +797,20 @@ function PurchaseBills() {
       // Use the vendor from the first inventory item as they should be consistent
       const firstItemVendorId = inventoryItems[0]?.vendorId;
       if (firstItemVendorId) {
-        const vendor = vendors.find(v => v.id === firstItemVendorId);
+        const vendor = vendors.find((v) => v.id === firstItemVendorId);
         if (vendor) {
           const updatedBill = {
             ...inventoryDialogBill,
             vendorId: vendor.id,
             vendorName: vendor.name,
             vendorGstin: vendor.gstin || "",
-            vendorAddress: vendor.address || ""
+            vendorAddress: vendor.address || "",
           };
           await updatePurchaseBill(updatedBill);
           // Update the local bills state
-          setBills(prev => prev.map(b => b.id === updatedBill.id ? updatedBill : b));
+          setBills((prev) =>
+            prev.map((b) => (b.id === updatedBill.id ? updatedBill : b)),
+          );
           // If this bill is currently selected, update that too
           if (selectedBill && selectedBill.id === updatedBill.id) {
             setSelectedBill(updatedBill);
@@ -834,7 +843,9 @@ function PurchaseBills() {
         gstRate: item.gstRate,
         productId: item.productId,
         isNewProduct: item.isNewProduct,
-        whereToBuy: item.isNewProduct ? (inventoryDialogBill as any).vendorName : undefined,
+        whereToBuy: item.isNewProduct
+          ? (inventoryDialogBill as any).vendorName
+          : undefined,
         weight: item.weight,
         weightUnit: item.weightUnit,
       }));
@@ -1082,20 +1093,20 @@ function PurchaseBills() {
 
     item.description = product.name; // Update description
     if (product.hsnCode) item.hsnCode = product.hsnCode; // Update HSN if available
-    
+
     // Update rate if available (assuming purchasePrice is the buying rate)
     if (product.purchasePrice) item.rate = product.purchasePrice;
-    
+
     // Update GST rate
     if (product.gstRate !== undefined) item.gstRate = product.gstRate;
-    
+
     // Update Unit
     if (product.unit) item.unit = product.unit;
 
     // Recalculate amounts
     item.amount = item.quantity * item.rate;
     item.gstAmount = (item.amount * (item.gstRate || 0)) / 100;
-    
+
     // Clear error flag after edit
     item.hasError = false;
     item.errorMessage = undefined;
@@ -1189,7 +1200,12 @@ function PurchaseBills() {
   if (loading) {
     return (
       <div className="min-h-screen">
-        <LoadingSpinner size="xl" text="Loading products..." fullScreen contentAreaOnly />
+        <LoadingSpinner
+          size="xl"
+          text="Loading products..."
+          fullScreen
+          contentAreaOnly
+        />
       </div>
     );
   }
@@ -1197,15 +1213,9 @@ function PurchaseBills() {
   return (
     <div className="space-y-6 p-4">
       {/* Header */}
-      <div className="page-header-controls">
-        <div className="page-header-title">
-          <div className="page-header-icon">
-            <FileText className="h-5 w-5 md:h-6 md:w-6" />
-          </div>
-          <div>
-          <h1 className="page-title">
-            Purchase Bills
-          </h1>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="page-title">Purchase Bills</h1>
           <p className="page-subtitle">
             AI-powered bill extraction with validation
           </p>
@@ -1263,6 +1273,54 @@ function PurchaseBills() {
         </div>
       </div>
 
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search vendor, bill number, items..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-full sm:w-[140px]">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="paid">Paid</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="overdue">Overdue</SelectItem>
+            <SelectItem value="overpaid">Overpaid</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={gstFilter} onValueChange={setGstFilter}>
+          <SelectTrigger className="w-full sm:w-[140px]">
+            <SelectValue placeholder="GST Type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Bills</SelectItem>
+            <SelectItem value="gst">GST Bills</SelectItem>
+            <SelectItem value="non-gst">Non-GST Bills</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={sortBy} onValueChange={setSortBy}>
+          <SelectTrigger className="w-full sm:w-[160px]">
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="date-desc">Newest First</SelectItem>
+            <SelectItem value="date-asc">Oldest First</SelectItem>
+            <SelectItem value="due-date">Due Date</SelectItem>
+            <SelectItem value="amount-desc">Amount (High)</SelectItem>
+            <SelectItem value="amount-asc">Amount (Low)</SelectItem>
+            <SelectItem value="vendor">Vendor Name</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       {/* Summary Tiles */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card className="bg-primary/5 border-primary/20 shadow-sm hover:shadow-md transition-shadow">
@@ -1315,54 +1373,6 @@ function PurchaseBills() {
             </p>
           </CardContent>
         </Card>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search vendor, bill number, items..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-[140px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="paid">Paid</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="overdue">Overdue</SelectItem>
-            <SelectItem value="overpaid">Overpaid</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={gstFilter} onValueChange={setGstFilter}>
-          <SelectTrigger className="w-full sm:w-[140px]">
-            <SelectValue placeholder="GST Type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Bills</SelectItem>
-            <SelectItem value="gst">GST Bills</SelectItem>
-            <SelectItem value="non-gst">Non-GST Bills</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger className="w-full sm:w-[160px]">
-            <SelectValue placeholder="Sort by" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="date-desc">Newest First</SelectItem>
-            <SelectItem value="date-asc">Oldest First</SelectItem>
-            <SelectItem value="due-date">Due Date</SelectItem>
-            <SelectItem value="amount-desc">Amount (High)</SelectItem>
-            <SelectItem value="amount-asc">Amount (Low)</SelectItem>
-            <SelectItem value="vendor">Vendor Name</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       {/* Loading State */}
@@ -1506,90 +1516,92 @@ function PurchaseBills() {
                       )}
                     </div>
 
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t mt-4 pt-4">
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-wider font-bold">
-                              Total:
-                            </span>
-                            <p className="text-[10px] sm:text-base font-black text-foreground">
-                              {formatCurrency(
-                                bill.total -
-                                  (bill.returns?.reduce(
-                                    (sum, r) => sum + r.totalReturnValue,
-                                    0,
-                                  ) || 0),
-                              )}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-wider font-bold">
-                              Remaining:
-                            </span>
-                            <p
-                              className={`text-sm sm:text-base font-black text-foreground ${
-                                bill.total -
-                                  (bill.returns?.reduce(
-                                    (sum, r) => sum + r.totalReturnValue,
-                                    0,
-                                  ) || 0) -
-                                  (bill.paidAmount || 0) <
-                                0
-                                  ? "text-red-600"
-                                  : "text-black-600"
-                              }`}
-                            >
-                              {formatCurrency(
-                                bill.total -
-                                  (bill.returns?.reduce(
-                                    (sum, r) => sum + r.totalReturnValue,
-                                    0,
-                                  ) || 0) -
-                                  (bill.paidAmount || 0),
-                              )}
-                            </p>
-                          </div>
-                          {bill.returns && bill.returns.length > 0 && (
-                            <p className="text-[11px] sm:text-xs text-orange-600 font-bold">
-                              Ret:{" "}
-                              {formatCurrency(
-                                bill.returns.reduce(
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t mt-4 pt-4">
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-wider font-bold">
+                            Total:
+                          </span>
+                          <p className="text-[10px] sm:text-base font-black text-foreground">
+                            {formatCurrency(
+                              bill.total -
+                                (bill.returns?.reduce(
                                   (sum, r) => sum + r.totalReturnValue,
                                   0,
-                                ),
-                              )}
-                            </p>
-                          )}
-                          {bill.paidAmount > 0 &&
-                            bill.payments &&
-                            bill.payments.length > 0 && (
-                              <div className="flex flex-wrap gap-1.5">
-                                {Object.entries(
-                                  bill.payments.reduce(
-                                    (acc, p) => {
-                                      acc[p.method] =
-                                        (acc[p.method] || 0) + p.amount;
-                                      return acc;
-                                    },
-                                    {} as Record<string, number>,
-                                  ),
-                                ).map(([method, amount]) => (
-                                  <Badge
-                                    key={method}
-                                    variant="outline"
-                                    className={`text-[10px] sm:text-[11px] px-2 py-0 h-5 flex items-center gap-1 font-bold ${
-                                      amount < 0 
-                                        ? "bg-green-50 border-green-200 text-green-700" 
-                                        : "bg-red-50 border-red-200 text-red-700"
-                                    }`}
-                                  >
-                                    <span>{method}:</span>
-                                    <span>{formatCurrency(Math.abs(amount))}</span>
-                                  </Badge>
-                                ))}
-                              </div>
+                                ) || 0),
                             )}
+                          </p>
                         </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-wider font-bold">
+                            Remaining:
+                          </span>
+                          <p
+                            className={`text-sm sm:text-base font-black text-foreground ${
+                              bill.total -
+                                (bill.returns?.reduce(
+                                  (sum, r) => sum + r.totalReturnValue,
+                                  0,
+                                ) || 0) -
+                                (bill.paidAmount || 0) <
+                              0
+                                ? "text-red-600"
+                                : "text-black-600"
+                            }`}
+                          >
+                            {formatCurrency(
+                              bill.total -
+                                (bill.returns?.reduce(
+                                  (sum, r) => sum + r.totalReturnValue,
+                                  0,
+                                ) || 0) -
+                                (bill.paidAmount || 0),
+                            )}
+                          </p>
+                        </div>
+                        {bill.returns && bill.returns.length > 0 && (
+                          <p className="text-[11px] sm:text-xs text-orange-600 font-bold">
+                            Ret:{" "}
+                            {formatCurrency(
+                              bill.returns.reduce(
+                                (sum, r) => sum + r.totalReturnValue,
+                                0,
+                              ),
+                            )}
+                          </p>
+                        )}
+                        {bill.paidAmount > 0 &&
+                          bill.payments &&
+                          bill.payments.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {Object.entries(
+                                bill.payments.reduce(
+                                  (acc, p) => {
+                                    acc[p.method] =
+                                      (acc[p.method] || 0) + p.amount;
+                                    return acc;
+                                  },
+                                  {} as Record<string, number>,
+                                ),
+                              ).map(([method, amount]) => (
+                                <Badge
+                                  key={method}
+                                  variant="outline"
+                                  className={`text-[10px] sm:text-[11px] px-2 py-0 h-5 flex items-center gap-1 font-bold ${
+                                    amount < 0
+                                      ? "bg-green-50 border-green-200 text-green-700"
+                                      : "bg-red-50 border-red-200 text-red-700"
+                                  }`}
+                                >
+                                  <span>{method}:</span>
+                                  <span>
+                                    {formatCurrency(Math.abs(amount))}
+                                  </span>
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                      </div>
 
                       <div className="flex items-center justify-end gap-2">
                         <Button
@@ -1616,10 +1628,18 @@ function PurchaseBills() {
                             <DropdownMenuItem
                               onClick={() => openPaymentDialog(bill)}
                               disabled={(() => {
-                                const totalReturns = (bill.returns || []).reduce((sum, r) => sum + r.totalReturnValue, 0);
+                                const totalReturns = (
+                                  bill.returns || []
+                                ).reduce(
+                                  (sum, r) => sum + r.totalReturnValue,
+                                  0,
+                                );
                                 const netTotal = bill.total - totalReturns;
-                                const isOverpaid = (bill.paidAmount || 0) > netTotal;
-                                return bill.paymentStatus === "paid" && !isOverpaid;
+                                const isOverpaid =
+                                  (bill.paidAmount || 0) > netTotal;
+                                return (
+                                  bill.paymentStatus === "paid" && !isOverpaid
+                                );
                               })()}
                               className="gap-2"
                             >
@@ -1704,7 +1724,9 @@ function PurchaseBills() {
                                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                     disabled={!!isDeleting}
                                   >
-                                    {isDeleting === bill.id ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                                    {isDeleting === bill.id ? (
+                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    ) : null}
                                     Delete
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
@@ -1928,14 +1950,21 @@ function PurchaseBills() {
                           <Select
                             value={editedBill?.vendorId || ""}
                             onValueChange={(val) => {
-                              const vendor = vendors.find(v => v.id === val);
-                              setEditedBill(prev => prev ? {
-                                ...prev,
-                                vendorId: val,
-                                vendorName: vendor?.name || prev.vendorName,
-                                vendorAddress: vendor?.address || prev.vendorAddress,
-                                vendorGstin: vendor?.gstin || prev.vendorGstin
-                              } : null);
+                              const vendor = vendors.find((v) => v.id === val);
+                              setEditedBill((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      vendorId: val,
+                                      vendorName:
+                                        vendor?.name || prev.vendorName,
+                                      vendorAddress:
+                                        vendor?.address || prev.vendorAddress,
+                                      vendorGstin:
+                                        vendor?.gstin || prev.vendorGstin,
+                                    }
+                                  : null,
+                              );
                             }}
                           >
                             <SelectTrigger>
@@ -2009,7 +2038,12 @@ function PurchaseBills() {
                             onChange={(e) => {
                               const newDate = new Date(e.target.value);
                               const now = new Date();
-                              newDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+                              newDate.setHours(
+                                now.getHours(),
+                                now.getMinutes(),
+                                now.getSeconds(),
+                                now.getMilliseconds(),
+                              );
                               setEditedBill((prev) =>
                                 prev
                                   ? { ...prev, billDate: newDate.toISOString() }
@@ -2029,7 +2063,12 @@ function PurchaseBills() {
                             onChange={(e) => {
                               const newDate = new Date(e.target.value);
                               const now = new Date();
-                              newDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+                              newDate.setHours(
+                                now.getHours(),
+                                now.getMinutes(),
+                                now.getSeconds(),
+                                now.getMilliseconds(),
+                              );
                               setEditedBill((prev) =>
                                 prev
                                   ? { ...prev, dueDate: newDate.toISOString() }
@@ -2368,9 +2407,15 @@ function PurchaseBills() {
                                       products={products}
                                       value={item.description}
                                       onChange={(val) =>
-                                        updateEditedItem(index, "description", val)
+                                        updateEditedItem(
+                                          index,
+                                          "description",
+                                          val,
+                                        )
                                       }
-                                      onSelect={(product) => handleProductSelect(index, product)}
+                                      onSelect={(product) =>
+                                        handleProductSelect(index, product)
+                                      }
                                       placeholder="Item / Product name"
                                       type="name"
                                       className="h-9 text-sm"
@@ -2433,7 +2478,9 @@ function PurchaseBills() {
                                     onChange={(val) =>
                                       updateEditedItem(index, "hsnCode", val)
                                     }
-                                    onSelect={(product) => handleProductSelect(index, product)}
+                                    onSelect={(product) =>
+                                      handleProductSelect(index, product)
+                                    }
                                     placeholder="HSN"
                                     type="hsn"
                                     className="h-9 w-28 mx-auto text-sm"
@@ -2963,7 +3010,9 @@ function PurchaseBills() {
                       </Select>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs font-semibold">Weight (optional)</Label>
+                      <Label className="text-xs font-semibold">
+                        Weight (optional)
+                      </Label>
                       <div className="flex gap-1">
                         <Input
                           type="number"
@@ -3067,7 +3116,11 @@ function PurchaseBills() {
                 className="bg-emerald-600 hover:bg-emerald-700"
                 disabled={!!loadingInventory}
               >
-                {loadingInventory ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <PackagePlus className="h-4 w-4 mr-2" />}
+                {loadingInventory ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <PackagePlus className="h-4 w-4 mr-2" />
+                )}
                 Add to Inventory
               </Button>
             </div>
@@ -3250,7 +3303,9 @@ function PurchaseBills() {
                                     : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
                                 }`}
                               >
-                                {entry.type === "purchase_payment" ? "Payment" : "Return"}
+                                {entry.type === "purchase_payment"
+                                  ? "Payment"
+                                  : "Return"}
                               </Badge>
                             </td>
                             <td className="p-4">
@@ -3266,8 +3321,8 @@ function PurchaseBills() {
                             <td className="p-4 text-right">
                               <span
                                 className={`font-black tabular-nums text-sm ${
-                                  entry.type === "purchase_payment" 
-                                    ? "text-red-600 dark:text-red-400" 
+                                  entry.type === "purchase_payment"
+                                    ? "text-red-600 dark:text-red-400"
                                     : "text-green-600 dark:text-green-400"
                                 }`}
                               >
@@ -3283,7 +3338,9 @@ function PurchaseBills() {
                                     size="sm"
                                     className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-muted"
                                     onClick={() => handleEditTransaction(entry)}
-                                    disabled={isUpdatingTransaction === entry.id}
+                                    disabled={
+                                      isUpdatingTransaction === entry.id
+                                    }
                                   >
                                     {isUpdatingTransaction === entry.id ? (
                                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -3297,7 +3354,9 @@ function PurchaseBills() {
                                         variant="ghost"
                                         size="sm"
                                         className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                        disabled={isUpdatingTransaction === entry.id}
+                                        disabled={
+                                          isUpdatingTransaction === entry.id
+                                        }
                                       >
                                         {isUpdatingTransaction === entry.id ? (
                                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -3318,9 +3377,11 @@ function PurchaseBills() {
                                         </AlertDialogDescription>
                                       </AlertDialogHeader>
                                       <AlertDialogFooter>
-                                        <AlertDialogCancel 
+                                        <AlertDialogCancel
                                           className="rounded-xl"
-                                          disabled={isUpdatingTransaction === entry.id}
+                                          disabled={
+                                            isUpdatingTransaction === entry.id
+                                          }
                                         >
                                           Cancel
                                         </AlertDialogCancel>
@@ -3329,9 +3390,12 @@ function PurchaseBills() {
                                             handleDeleteTransaction(entry)
                                           }
                                           className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                          disabled={isUpdatingTransaction === entry.id}
+                                          disabled={
+                                            isUpdatingTransaction === entry.id
+                                          }
                                         >
-                                          {isUpdatingTransaction === entry.id ? (
+                                          {isUpdatingTransaction ===
+                                          entry.id ? (
                                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                                           ) : null}
                                           Delete Forever
