@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore, Firestore } from "firebase/firestore";
+import { getFirestore, Firestore, enableIndexedDbPersistence } from "firebase/firestore";
 import { getStorage, FirebaseStorage } from "firebase/storage";
 
 // Firebase configuration
@@ -21,6 +21,21 @@ const app = initializeApp(firebaseConfig);
 // Note: Firebase Auth is not initialized since we're using static login (admin/123)
 // This helps avoid CORS issues related to credential-based authentication
 export const db: Firestore = getFirestore(app);
+
+// Enable offline persistence
+if (typeof window !== "undefined") {
+  enableIndexedDbPersistence(db).catch((err) => {
+    if (err.code === "failed-precondition") {
+      // Multiple tabs open, persistence can only be enabled
+      // in one tab at a a time.
+      console.warn("Firestore persistence failed: Multiple tabs open");
+    } else if (err.code === "unimplemented") {
+      // The current browser does not support all of the
+      // features required to enable persistence
+      console.warn("Firestore persistence failed: Browser not supported");
+    }
+  });
+}
 
 // Initialize Storage
 export const storage: FirebaseStorage = getStorage(app);

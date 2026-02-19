@@ -1,3 +1,20 @@
+export interface Expo {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  location?: string;
+  status: "active" | "completed" | "upcoming";
+  initialStocks: Record<string, number>; // productId -> quantity
+  remainingStocks: Record<string, number>; // productId -> quantity
+  soldStocks: Record<string, number>; // productId -> quantity
+  expenses: number;
+  receivableAmount: number;
+  receivedAmount: number;
+  totalSales: number;
+  createdAt: string;
+}
+
 export type UserRole = "Admin" | "Employee" | "CA" | "Expo";
 
 export interface BillCreator {

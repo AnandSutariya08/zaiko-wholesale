@@ -79,5 +79,11 @@ export {
   getVendors,
   saveVendor,
   deleteVendor,
+  getExpos,
+  saveExpo,
+  deleteExpo,
+  transferStockToExpo,
+  endExpoAndReturnStock,
   type InventoryItemInput,
 } from "./firebaseService";
+export type { Expo } from "@/types";

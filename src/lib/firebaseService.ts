@@ -41,6 +41,7 @@ import {
   PurchaseReturnItem,
   BankAccount,
   Vendor,
+  Expo,
 } from "@/types";
 
 // Collection names
@@ -65,6 +66,7 @@ const COLLECTIONS = {
   CREATORS: "creators",
   BANK_ACCOUNTS: "bankAccounts",
   VENDORS: "vendors",
+  EXPOS: "expos",
 };
 
 // Helper function to get user ID (for multi-user support in future)
@@ -106,7 +108,7 @@ export const getCreators = async (): Promise<any[]> => {
       id: doc.id,
       ...doc.data(),
     }));
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error getting creators:", error);
     return [];
   }
@@ -146,7 +148,7 @@ export const getBankAccounts = async (): Promise<BankAccount[]> => {
       id: doc.id,
       ...doc.data(),
     })) as BankAccount[];
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error getting bank accounts:", error);
     return [];
   }
@@ -186,7 +188,7 @@ export const getVendors = async (): Promise<Vendor[]> => {
       id: doc.id,
       ...doc.data(),
     })) as Vendor[];
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error getting vendors:", error);
     return [];
   }
@@ -213,18 +215,148 @@ export const deleteVendor = async (id: string): Promise<void> => {
   }
 };
 
+// Expos
+export const getExpos = async (): Promise<Expo[]> => {
+  try {
+    const userId = getUserId();
+    const q = query(
+      collection(db, COLLECTIONS.EXPOS),
+      where("userId", "==", userId)
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Expo[];
+  } catch (error: any) {
+    console.error("Error getting expos:", error);
+    return [];
+  }
+};
+
+export const saveExpo = async (expo: Expo): Promise<void> => {
+  try {
+    const userId = getUserId();
+    const docRef = doc(db, COLLECTIONS.EXPOS, expo.id);
+    await setDoc(docRef, removeUndefined({ ...expo, userId }), { merge: true });
+  } catch (error) {
+    console.error("Error saving expo:", error);
+    throw error;
+  }
+};
+
+export const deleteExpo = async (id: string): Promise<void> => {
+  try {
+    const docRef = doc(db, COLLECTIONS.EXPOS, id);
+    await deleteDoc(docRef);
+  } catch (error) {
+    console.error("Error deleting expo:", error);
+    throw error;
+  }
+};
+
+export const transferStockToExpo = async (
+  expoId: string,
+  productId: string,
+  quantity: number
+): Promise<void> => {
+  try {
+    const batch = writeBatch(db);
+    const productRef = doc(db, COLLECTIONS.PRODUCTS, productId);
+    const expoRef = doc(db, COLLECTIONS.EXPOS, expoId);
+
+    const [productSnap, expoSnap] = await Promise.all([
+      getDoc(productRef),
+      getDoc(expoRef),
+    ]);
+
+    if (!productSnap.exists() || !expoSnap.exists()) {
+      throw new Error("Product or Expo not found");
+    }
+
+    const product = productSnap.data() as Product;
+    const expo = expoSnap.data() as Expo;
+
+    if (product.stock < quantity) {
+      throw new Error(`Insufficient stock for ${product.name}`);
+    }
+
+    // Update product main stock and expo-specific stock
+    const newMainStock = product.stock - quantity;
+    const currentExpoStock = product.expoStocks?.[expoId] || 0;
+    const newExpoStock = currentExpoStock + quantity;
+
+    batch.update(productRef, {
+      stock: newMainStock,
+      [`expoStocks.${expoId}`]: newExpoStock,
+    });
+
+    // Update expo tracking
+    const initialStocks = { ...expo.initialStocks };
+    initialStocks[productId] = (initialStocks[productId] || 0) + quantity;
+    const remainingStocks = { ...expo.remainingStocks };
+    remainingStocks[productId] = (remainingStocks[productId] || 0) + quantity;
+
+    batch.update(expoRef, {
+      initialStocks,
+      remainingStocks,
+    });
+
+    await batch.commit();
+  } catch (error) {
+    console.error("Error transferring stock to expo:", error);
+    throw error;
+  }
+};
+
+export const endExpoAndReturnStock = async (expoId: string): Promise<void> => {
+  try {
+    const batch = writeBatch(db);
+    const expoRef = doc(db, COLLECTIONS.EXPOS, expoId);
+    const expoSnap = await getDoc(expoRef);
+
+    if (!expoSnap.exists()) throw new Error("Expo not found");
+    const expo = expoSnap.data() as Expo;
+
+    // Return remaining stocks to main inventory
+    for (const [productId, quantity] of Object.entries(expo.remainingStocks)) {
+      const qty = Number(quantity);
+      if (qty > 0) {
+        const productRef = doc(db, COLLECTIONS.PRODUCTS, productId);
+        const productSnap = await getDoc(productRef);
+        if (productSnap.exists()) {
+          const product = productSnap.data() as Product;
+          batch.update(productRef, {
+            stock: (Number(product.stock) || 0) + qty,
+            [`expoStocks.${expoId}`]: 0,
+          });
+        }
+      }
+    }
+
+    batch.update(expoRef, { status: "completed" });
+    await batch.commit();
+  } catch (error) {
+    console.error("Error ending expo:", error);
+    throw error;
+  }
+};
+
 // Company Profile
 export const getCompanyProfile = async (): Promise<CompanyProfile | null> => {
   try {
     const userId = getUserId();
     const docRef = doc(db, COLLECTIONS.COMPANY, userId);
+    // Use getDoc with no source option to allow offline cache fallback
     const docSnap = await getDoc(docRef);
 
     if (docSnap.exists()) {
       return docSnap.data() as CompanyProfile;
     }
     return null;
-  } catch (error) {
+  } catch (error: any) {
+    // If the error is due to being offline, try to return from cache if possible
+    // Firestore SDK usually does this automatically if persistence is enabled
     console.error("Error getting company profile:", error);
     return null;
   }
@@ -269,7 +401,7 @@ export const getClients = async (): Promise<Client[]> => {
       const dateB = new Date(b.createdAt || 0).getTime();
       return dateB - dateA;
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error getting clients:", error);
     return [];
   }
@@ -325,7 +457,7 @@ export const getProducts = async (): Promise<Product[]> => {
       const dateB = new Date(b.createdAt || 0).getTime();
       return dateB - dateA;
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error getting products:", error);
     return [];
   }
@@ -412,7 +544,7 @@ export const getBills = async (): Promise<Bill[]> => {
       const dateB = new Date(b.createdAt || 0).getTime();
       return dateB - dateA;
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error getting bills:", error);
     return [];
   }
@@ -493,6 +625,30 @@ export const saveBill = async (bill: Bill): Promise<void> => {
     // Save bill
     const cleanedBillData = removeUndefined({ ...bill, userId });
     batch.set(billRef, cleanedBillData, { merge: true });
+
+    // Update Expo stats if expoId is present
+    if (bill.expoId) {
+      const expoRef = doc(db, COLLECTIONS.EXPOS, bill.expoId);
+      const expoSnap = await getDoc(expoRef);
+      if (expoSnap.exists()) {
+        const expoData = expoSnap.data() as Expo;
+        const soldStocks = { ...(expoData.soldStocks || {}) };
+        const remainingStocks = { ...(expoData.remainingStocks || {}) };
+        
+        for (const item of bill.items) {
+          soldStocks[item.productId] = (Number(soldStocks[item.productId]) || 0) + Number(item.quantity);
+          remainingStocks[item.productId] = (Number(remainingStocks[item.productId]) || 0) - Number(item.quantity);
+        }
+
+        batch.update(expoRef, {
+          soldStocks,
+          remainingStocks,
+          totalSales: (Number(expoData.totalSales) || 0) + Number(bill.total),
+          receivableAmount: (Number(expoData.receivableAmount) || 0) + (Number(bill.total) - Number(bill.paidAmount)),
+          receivedAmount: (Number(expoData.receivedAmount) || 0) + Number(bill.paidAmount),
+        });
+      }
+    }
 
     // Apply stock adjustments
     for (const [productId, adjustment] of stockAdjustments.entries()) {
@@ -694,12 +850,27 @@ export const updateBillPayment = async (
 
       const payments = Array.isArray(bill.payments) ? [...bill.payments, newPayment] : [newPayment];
 
-      await updateDoc(billRef, {
+      const updateData: any = {
         paidAmount: newPaidAmount,
         paymentStatus,
         paymentType: paymentType, // Update main payment type to last used
         payments: removeUndefined(payments),
-      });
+      };
+
+      await updateDoc(billRef, updateData);
+
+      // Update Expo stats if expoId is present
+      if (bill.expoId) {
+        const expoRef = doc(db, COLLECTIONS.EXPOS, bill.expoId);
+        const expoSnap = await getDoc(expoRef);
+        if (expoSnap.exists()) {
+          const expoData = expoSnap.data() as Expo;
+          await updateDoc(expoRef, {
+            receivedAmount: (Number(expoData.receivedAmount) || 0) + paidAmount,
+            receivableAmount: Math.max(0, (Number(expoData.receivableAmount) || 0) - paidAmount),
+          });
+        }
+      }
     }
   } catch (error) {
     console.error("Error updating bill payment:", error);
@@ -1947,6 +2118,18 @@ export const saveExpense = async (expense: Expense): Promise<void> => {
     };
     const cleanedData = removeUndefined(expenseData);
     await setDoc(docRef, cleanedData, { merge: true });
+
+    // Update Expo expenses if expoId is present
+    if (expense.expoId) {
+      const expoRef = doc(db, COLLECTIONS.EXPOS, expense.expoId);
+      const expoSnap = await getDoc(expoRef);
+      if (expoSnap.exists()) {
+        const expoData = expoSnap.data() as Expo;
+        await updateDoc(expoRef, {
+          expenses: (Number(expoData.expenses) || 0) + Number(expense.amount),
+        });
+      }
+    }
   } catch (error) {
     console.error("Error saving expense:", error);
     throw error;
