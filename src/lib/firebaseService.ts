@@ -2115,6 +2115,18 @@ export const saveExpense = async (expense: Expense): Promise<void> => {
     };
     const cleanedData = removeUndefined(expenseData);
     await setDoc(docRef, cleanedData, { merge: true });
+
+    // Update Expo expenses if expoId is present
+    if (expense.expoId) {
+      const expoRef = doc(db, COLLECTIONS.EXPOS, expense.expoId);
+      const expoSnap = await getDoc(expoRef);
+      if (expoSnap.exists()) {
+        const expoData = expoSnap.data() as Expo;
+        await updateDoc(expoRef, {
+          expenses: (Number(expoData.expenses) || 0) + Number(expense.amount),
+        });
+      }
+    }
   } catch (error) {
     console.error("Error saving expense:", error);
     throw error;
