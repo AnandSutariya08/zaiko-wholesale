@@ -297,7 +297,7 @@ export function Layout({ children }: LayoutProps) {
     { path: "/vendors", icon: Store, label: "Vendors" },
     { path: "/files", icon: FolderOpen, label: "Files" },
     { path: "/notes", icon: StickyNote, label: "Notes" },
-    { path: "/calculator", icon: Calculator, label: "Calc" },
+    { path: "/calculator", icon: Calculator, label: "Calculator" },
     { path: "/ai-agent", icon: Sparkles, label: "AI" },
     { path: "/bank-accounts", icon: CreditCard, label: "Banks" },
     { path: "/bill-creators", icon: UserCheck, label: "Users" },
