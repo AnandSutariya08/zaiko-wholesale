@@ -28,6 +28,7 @@ import Passbook from "@/pages/Passbook";
 import Files from "@/pages/Files";
 import Notes from "@/pages/Notes";
 import Vendors from "@/pages/Vendors";
+import Calculator from "@/pages/Calculator";
 import SampleBill from "@/pages/SampleBill";
 import BillCreators from "@/pages/BillCreators";
 import BankAccounts from "@/pages/BankAccounts";
@@ -80,6 +81,7 @@ const App = () => (
                       <Route path="/settings" element={<Settings />} />
                       <Route path="/files" element={<Files />} />
                       <Route path="/notes" element={<Notes />} />
+                      <Route path="/calculator" element={<Calculator />} />
                       <Route path="/bank-accounts" element={<BankAccounts />} />
                       <Route path="/bill-creators" element={<BillCreators />} />
                       <Route path="/expo-dashboard/:expoId" element={<ExpoDashboard />} />
