@@ -447,8 +447,3 @@ const CalculatorPage = () => {
 };
 
 export default CalculatorPage;
-
-  );
-};
-
-export default CalculatorPage;
