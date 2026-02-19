@@ -76,8 +76,8 @@ export function PaymentDialog({ bill, open, onOpenChange, onPaymentCollected }: 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] sm:max-w-md">
-        <DialogHeader>
+      <DialogContent className="dialog-form-content max-w-[95vw] sm:max-w-md">
+        <DialogHeader className="dialog-form-header">
           <DialogTitle className="text-base sm:text-lg">
             {isOverpaid && isPurchase ? 'Collect Overpayment' : isPurchase ? 'Pay Vendor' : 'Collect Payment'}
           </DialogTitle>
@@ -85,7 +85,7 @@ export function PaymentDialog({ bill, open, onOpenChange, onPaymentCollected }: 
             Bill: {bill.billNumber || 'N/A'} • {isPurchase ? 'Vendor' : 'Client'}: {clientName}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+        <form onSubmit={handleSubmit} className="dialog-form-body space-y-3 sm:space-y-4">
           {isOverpaid && isPurchase && (
             <div className="bg-orange-50 p-3 rounded-md border border-orange-200 mb-2">
               <p className="text-sm text-orange-800 font-medium">
@@ -231,7 +231,7 @@ export function PaymentDialog({ bill, open, onOpenChange, onPaymentCollected }: 
             />
           </div>
 
-          <DialogFooter className="gap-2 flex-col sm:flex-row">
+          <DialogFooter className="dialog-form-footer gap-2 flex-col sm:flex-row">
             <Button
               type="button"
               variant="outline"
@@ -250,3 +250,7 @@ export function PaymentDialog({ bill, open, onOpenChange, onPaymentCollected }: 
     </Dialog>
   );
 }
+
+
+
+

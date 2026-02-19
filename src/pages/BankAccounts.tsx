@@ -140,17 +140,21 @@ export default function BankAccounts() {
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground flex items-center gap-2">
-            <CreditCard className="h-8 w-8 text-primary" />
-            Bank Accounts
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Manage your bank accounts and UPI IDs for payments
-          </p>
+      <div className="page-header-controls">
+        <div className="page-header-title">
+          <div className="page-header-icon">
+            <CreditCard className="h-5 w-5 md:h-6 md:w-6" />
+          </div>
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">
+              Bank Accounts
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Manage your bank accounts and UPI IDs for payments
+            </p>
+          </div>
         </div>
-        <Button onClick={() => handleOpenDialog()} className="gap-2">
+        <Button size="sm" onClick={() => handleOpenDialog()} className="page-header-btn gap-2">
           <Plus className="h-4 w-4" />
           Add Account
         </Button>
@@ -250,9 +254,9 @@ export default function BankAccounts() {
       </Card>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <form onSubmit={handleSubmit}>
-            <DialogHeader>
+        <DialogContent className="dialog-form-content sm:max-w-[500px]">
+          <form onSubmit={handleSubmit} className="dialog-form-body">
+            <DialogHeader className="dialog-form-header">
               <DialogTitle>{editingAccount ? "Edit Bank Account" : "Add Bank Account"}</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -338,7 +342,7 @@ export default function BankAccounts() {
                 </Label>
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="dialog-form-footer">
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancel
               </Button>
@@ -361,3 +365,8 @@ export default function BankAccounts() {
     </div>
   );
 }
+
+
+
+
+

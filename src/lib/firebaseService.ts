@@ -2248,12 +2248,12 @@ export const saveSampleBill = async (bill: SampleBill): Promise<void> => {
   try {
     const userId = getUserId();
     const billRef = doc(db, SAMPLE_BILLS_COLLECTION, bill.id);
-
-    await setDoc(billRef, {
+    const cleanedBillData = removeUndefined({
       ...bill,
       userId,
       isSample: true,
     });
+    await setDoc(billRef, cleanedBillData, { merge: true });
   } catch (error) {
     console.error("Error saving sample bill:", error);
     throw error;

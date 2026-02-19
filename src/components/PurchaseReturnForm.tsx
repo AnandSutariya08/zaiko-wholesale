@@ -169,15 +169,15 @@ export function PurchaseReturnForm({ open, onOpenChange, bill, onSuccess, editRe
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="dialog-form-content sm:max-w-[800px]">
+        <DialogHeader className="dialog-form-header">
           <DialogTitle>Return Items - Bill #{bill.billNumber}</DialogTitle>
           <div className="text-sm text-muted-foreground space-y-1">
             <p>Select items from this bill to return.</p>
             <p className="text-orange-600 font-medium">Note: Return quantity cannot exceed original purchase OR current available stock.</p>
           </div>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="dialog-form-body space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="returnDate">Return Date</Label>
@@ -268,7 +268,7 @@ export function PurchaseReturnForm({ open, onOpenChange, bill, onSuccess, editRe
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="dialog-form-footer">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
@@ -281,3 +281,5 @@ export function PurchaseReturnForm({ open, onOpenChange, bill, onSuccess, editRe
     </Dialog>
   );
 }
+
+

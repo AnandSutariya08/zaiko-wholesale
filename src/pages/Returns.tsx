@@ -334,13 +334,20 @@ export default function Returns() {
 
   return (
     <div className="space-y-4 sm:space-y-6 p-4">
-      <div>
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">
-          Returns Management
-        </h1>
-        <p className="text-muted-foreground text-xs sm:text-sm mt-1">
-          Process returns and manage deadstock
-        </p>
+      <div className="page-header-controls">
+        <div className="page-header-title">
+          <div className="page-header-icon">
+            <RotateCcw className="h-5 w-5 md:h-6 md:w-6" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">
+              Returns Management
+            </h1>
+            <p className="text-muted-foreground text-xs sm:text-sm mt-1">
+              Process returns and manage deadstock
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -669,14 +676,14 @@ export default function Returns() {
 
       {/* Return Dialog */}
       <Dialog open={showReturnDialog} onOpenChange={setShowReturnDialog}>
-        <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[80vh] overflow-y-auto p-3 sm:p-4 md:p-6">
-          <DialogHeader className="px-0">
+        <DialogContent className="dialog-form-content max-w-[95vw] sm:max-w-2xl">
+          <DialogHeader className="dialog-form-header">
             <DialogTitle className="text-base sm:text-lg md:text-xl pr-6 sm:pr-8 break-words">
               Process Return - {selectedBill?.billNumber}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-3 sm:space-y-4 py-3 sm:py-4">
+          <div className="dialog-form-body space-y-3 sm:space-y-4">
             <div className="text-xs sm:text-sm text-muted-foreground">
               Client:{" "}
               <span className="font-medium text-foreground break-words">
@@ -800,7 +807,7 @@ export default function Returns() {
             )}
           </div>
 
-          <DialogFooter className="flex-col sm:flex-row gap-2">
+          <DialogFooter className="dialog-form-footer flex-col sm:flex-row gap-2">
             <Button
               variant="outline"
               onClick={() => setShowReturnDialog(false)}
@@ -834,3 +841,6 @@ export default function Returns() {
     </div>
   );
 }
+
+
+

@@ -1213,14 +1213,21 @@ function PurchaseBills() {
   return (
     <div className="space-y-6 p-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="page-title">Purchase Bills</h1>
+      <div className="page-header-controls">
+        <div className="page-header-title">
+          <div className="page-header-icon">
+            <FileText className="h-5 w-5 md:h-6 md:w-6" />
+          </div>
+          <div>
+          <h1 className="page-title">
+            Purchase Bills
+          </h1>
           <p className="page-subtitle">
             AI-powered bill extraction with validation
           </p>
+          </div>
         </div>
-        <div className="flex gap-2">
+        <div className="page-header-actions">
           <input
             ref={fileInputRef}
             type="file"
@@ -1237,6 +1244,8 @@ function PurchaseBills() {
             onChange={handleFileSelect}
           />
           <Button
+            size="sm"
+            className="page-header-btn"
             variant="outline"
             onClick={() => cameraInputRef.current?.click()}
             disabled={isExtracting || isCompressing || loading}
@@ -1249,6 +1258,8 @@ function PurchaseBills() {
             {isCompressing ? "Processing..." : "Camera"}
           </Button>
           <Button
+            size="sm"
+            className="page-header-btn"
             onClick={() => fileInputRef.current?.click()}
             disabled={isExtracting || isCompressing || loading}
           >
@@ -2825,15 +2836,15 @@ function PurchaseBills() {
         open={!!inventoryDialogBill}
         onOpenChange={(open) => !open && setInventoryDialogBill(null)}
       >
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="dialog-form-content max-w-2xl">
+          <DialogHeader className="dialog-form-header">
             <DialogTitle className="flex items-center gap-2">
               <PackagePlus className="h-5 w-5 text-emerald-600" />
               Add to Inventory - Set Selling Prices
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="dialog-form-body space-y-4">
             {lastInventoryError && (
               <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
                 <div className="flex items-center justify-between gap-3">
@@ -3098,7 +3109,7 @@ function PurchaseBills() {
               ))}
             </div>
 
-            <div className="flex gap-2 justify-end pt-2">
+            <div className="dialog-form-footer flex gap-2 justify-end pt-2">
               <Button
                 variant="outline"
                 onClick={() => setInventoryDialogBill(null)}
@@ -3475,3 +3486,4 @@ function PurchaseBills() {
 }
 
 export default PurchaseBills;
+

@@ -1128,14 +1128,19 @@ export default function Dashboard() {
 
       {/* Header Section */}
       <div className="flex flex-col gap-3 sm:gap-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
-          <div className="min-w-0 flex-1">
+        <div className="page-header-controls">
+          <div className="page-header-title min-w-0 flex-1">
+            <div className="page-header-icon">
+              <BarChart3 className="h-5 w-5 md:h-6 md:w-6" />
+            </div>
+            <div>
             <h1 className="page-title break-words">
               Dashboard
             </h1>
             <p className="page-subtitle break-words">
               Comprehensive business analytics and insights
             </p>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             {/* Excel Export Button */}
@@ -3294,3 +3299,4 @@ export default function Dashboard() {
     </div>
   );
 }
+

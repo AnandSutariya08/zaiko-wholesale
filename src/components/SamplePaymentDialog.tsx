@@ -55,8 +55,8 @@ export function SamplePaymentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] sm:max-w-md">
-        <DialogHeader>
+      <DialogContent className="dialog-form-content max-w-[95vw] sm:max-w-md">
+        <DialogHeader className="dialog-form-header">
           <DialogTitle className="text-base sm:text-lg">
             Collect Payment (Sample)
           </DialogTitle>
@@ -64,7 +64,7 @@ export function SamplePaymentDialog({
             Bill: {bill.billNumber} • Client: {bill.client.name}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+        <form onSubmit={handleSubmit} className="dialog-form-body space-y-3 sm:space-y-4">
           <div className="space-y-2">
             <div className="flex justify-between text-xs sm:text-sm">
               <span className="text-muted-foreground">Total Amount:</span>
@@ -152,7 +152,7 @@ export function SamplePaymentDialog({
             />
           </div>
 
-          <DialogFooter className="gap-2 flex-col sm:flex-row">
+          <DialogFooter className="dialog-form-footer gap-2 flex-col sm:flex-row">
             <Button
               type="button"
               variant="outline"
@@ -175,3 +175,7 @@ export function SamplePaymentDialog({
     </Dialog>
   );
 }
+
+
+
+

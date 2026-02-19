@@ -736,14 +736,19 @@ export default function Products() {
 
   return (
     <div className="space-y-6 p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
+      <div className="page-header-controls">
+        <div className="page-header-title">
+          <div className="page-header-icon">
+            <Package className="h-5 w-5 md:h-6 md:w-6" />
+          </div>
+          <div>
           <h1 className="page-title">Products</h1>
           <p className="page-subtitle">Manage your product inventory</p>
+          </div>
         </div>
 
         {/* Desktop only: primary CTA buttons */}
-        <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
+        <div className="hidden sm:flex page-header-actions">
           {/* Create Product */}
           <ProductForm
             open={isOpen}
@@ -756,7 +761,7 @@ export default function Products() {
             }}
             product={editingProduct}
           />
-          <Button size="default" onClick={() => setIsOpen(true)}>
+          <Button size="sm" className="page-header-btn" onClick={() => setIsOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Create Product
           </Button>
@@ -770,16 +775,16 @@ export default function Products() {
             }}
           >
             <DialogTrigger asChild>
-              <Button size="default" variant="outline">
+              <Button size="sm" variant="outline" className="page-header-btn">
                 <PlusCircle className="h-4 w-4 mr-2" />
                 Add Stock
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
+            <DialogContent className="dialog-form-content sm:max-w-[500px]">
+              <DialogHeader className="dialog-form-header">
                 <DialogTitle>Add Stock</DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleAddStock} className="space-y-4">
+              <form onSubmit={handleAddStock} className="dialog-form-body space-y-4">
                 <div className="space-y-2">
                   <Label>Select Product *</Label>
                   <Select
@@ -863,7 +868,7 @@ export default function Products() {
                   </Button>
                 </div>
 
-                <div className="flex gap-2 justify-end">
+                <div className="dialog-form-footer flex gap-2 justify-end">
                   <Button
                     type="button"
                     variant="outline"
@@ -1069,11 +1074,11 @@ export default function Products() {
                 Add Stock
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
+            <DialogContent className="dialog-form-content sm:max-w-[500px]">
+              <DialogHeader className="dialog-form-header">
                 <DialogTitle>Add Stock</DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleAddStock} className="space-y-4">
+              <form onSubmit={handleAddStock} className="dialog-form-body space-y-4">
                 <div className="space-y-2">
                   <Label>Select Product *</Label>
                   <Select
@@ -1157,7 +1162,7 @@ export default function Products() {
                   </Button>
                 </div>
 
-                <div className="flex gap-2 justify-end">
+                <div className="dialog-form-footer flex gap-2 justify-end">
                   <Button
                     type="button"
                     variant="outline"
@@ -1528,3 +1533,8 @@ export default function Products() {
     </div>
   );
 }
+
+
+
+
+

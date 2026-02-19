@@ -222,17 +222,23 @@ export default function BillCreators() {
   };
 
   const PERMISSION_OPTIONS = [
-    { path: "/", label: "Dashboard" },
+    { path: "/", label: "Home" },
+    { path: "/business-health", label: "Health" },
     { path: "/bills", label: "Bills" },
-    { path: "/sample-bill", label: "Sample Bills" },
-    { path: "/purchases", label: "Purchases (Buy)" },
+    { path: "/sample-bill", label: "Sample" },
+    { path: "/purchases", label: "Buy" },
     { path: "/returns", label: "Returns" },
     { path: "/passbook", label: "Passbook" },
     { path: "/expenses", label: "Expenses" },
     { path: "/products", label: "Stock" },
     { path: "/clients", label: "Clients" },
+    { path: "/vendors", label: "Vendors" },
     { path: "/files", label: "Files" },
     { path: "/notes", label: "Notes" },
+    { path: "/ai-agent", label: "AI" },
+    { path: "/bank-accounts", label: "Banks" },
+    { path: "/bill-creators", label: "Users" },
+    { path: "/settings", label: "Settings" },
   ];
 
   const openDeleteDialog = (creator: BillCreator, e: React.MouseEvent) => {
@@ -463,17 +469,19 @@ export default function BillCreators() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="page-title flex items-center gap-2">
-            <User className="h-8 w-8 text-primary" />
-            Bill Creators
-          </h1>
-          <p className="page-subtitle">
-            Manage and view performance of bill creators
-          </p>
+      <div className="page-header-controls">
+        <div className="page-header-title">
+          <div className="page-header-icon">
+            <User className="h-5 w-5 md:h-6 md:w-6" />
+          </div>
+          <div>
+            <h1 className="page-title">Bill Creators</h1>
+            <p className="page-subtitle">
+              Manage and view performance of bill creators
+            </p>
+          </div>
         </div>
-        <Button onClick={() => setIsAddDialogOpen(true)}>
+        <Button size="sm" className="page-header-btn" onClick={() => setIsAddDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Add Creator
         </Button>
@@ -563,14 +571,14 @@ export default function BillCreators() {
       </div>
 
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        <DialogContent className="dialog-form-content max-w-md">
+          <DialogHeader className="dialog-form-header">
             <DialogTitle>Add New Creator</DialogTitle>
             <DialogDescription>
               Enter the name and password of the new bill creator.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="dialog-form-body space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">Creator Name</Label>
               <Input
@@ -653,7 +661,7 @@ export default function BillCreators() {
               </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="dialog-form-footer">
             <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
               Cancel
             </Button>
@@ -663,12 +671,12 @@ export default function BillCreators() {
       </Dialog>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        <DialogContent className="dialog-form-content max-w-md">
+          <DialogHeader className="dialog-form-header">
             <DialogTitle>Edit Creator</DialogTitle>
             <DialogDescription>Update the creator's details.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="dialog-form-body space-y-4">
             <div className="space-y-2">
               <Label htmlFor="edit-name">Creator Name</Label>
               <Input
@@ -751,7 +759,7 @@ export default function BillCreators() {
               </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="dialog-form-footer">
             <Button
               variant="outline"
               onClick={() => setIsEditDialogOpen(false)}
@@ -786,3 +794,6 @@ export default function BillCreators() {
     </div>
   );
 }
+
+
+

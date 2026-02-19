@@ -189,24 +189,29 @@ export default function SampleBills() {
 
   return (
     <div className="space-y-3 sm:space-y-4 md:space-y-6 p-3 sm:p-4 w-full max-w-full overflow-x-hidden">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground break-words">
-              Sample Bills
-            </h1>
-            <Badge variant="outline" className="text-xs">
-              Demo
-            </Badge>
+      <div className="page-header-controls">
+        <div className="page-header-title min-w-0 flex-1">
+          <div className="page-header-icon">
+            <Receipt className="h-5 w-5 md:h-6 md:w-6" />
           </div>
-          <p className="text-xs sm:text-sm text-muted-foreground break-words">
-            Practice bills that don't affect inventory or finances
-          </p>
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground break-words">
+                Sample Bills
+              </h1>
+              <Badge variant="outline" className="text-xs">
+                Demo
+              </Badge>
+            </div>
+            <p className="text-xs sm:text-sm text-muted-foreground break-words">
+              Practice bills that don't affect inventory or finances
+            </p>
+          </div>
         </div>
         <Link to="/sample-bills/new" className="w-full sm:w-auto flex-shrink-0">
           <Button
-            size="default"
-            className="w-full sm:w-auto text-xs sm:text-sm touch-manipulation"
+            size="sm"
+            className="page-header-btn w-full sm:w-auto"
           >
             <Plus className="h-4 w-4 mr-2" />
             Create Sample Bill
@@ -537,3 +542,4 @@ export default function SampleBills() {
     </div>
   );
 }
+

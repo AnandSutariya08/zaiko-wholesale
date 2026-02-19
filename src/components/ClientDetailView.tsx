@@ -724,14 +724,14 @@ export function ClientDetailView({ client, open, onOpenChange }: ClientDetailVie
 
         {/* Payment Collection Dialog */}
         <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-          <DialogContent className="max-w-[95vw] sm:max-w-md">
-            <DialogHeader>
+          <DialogContent className="dialog-form-content max-w-[95vw] sm:max-w-md">
+            <DialogHeader className="dialog-form-header">
               <DialogTitle className="text-base sm:text-lg">Collect Payment</DialogTitle>
               <CardDescription className="text-xs sm:text-sm break-words">
                 Bill: {selectedBillForPayment?.billNumber} • Client: {client.name}
               </CardDescription>
             </DialogHeader>
-            <form onSubmit={handlePaymentSubmit} className="space-y-3 sm:space-y-4">
+            <form onSubmit={handlePaymentSubmit} className="dialog-form-body space-y-3 sm:space-y-4">
               <div className="space-y-2">
                 <div className="flex justify-between text-xs sm:text-sm">
                   <span className="text-muted-foreground">Total Amount:</span>
@@ -796,7 +796,7 @@ export function ClientDetailView({ client, open, onOpenChange }: ClientDetailVie
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-2 justify-end">
+              <div className="dialog-form-footer flex flex-col sm:flex-row gap-2 justify-end">
                 <Button
                   type="button"
                   variant="outline"
@@ -831,4 +831,7 @@ export function ClientDetailView({ client, open, onOpenChange }: ClientDetailVie
     </Dialog>
   );
 }
+
+
+
 

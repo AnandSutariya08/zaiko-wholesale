@@ -189,7 +189,7 @@ const HealthPDF = ({ data, dateRange }: any) => (
         <View style={pdfStyles.headerMain}>
           <Text style={pdfStyles.title}>Business Health Report</Text>
           <Text style={{ fontSize: 12, fontWeight: "bold", color: "#3b82f6" }}>
-            Zaiko Enterprise
+            InoiceMitra
           </Text>
         </View>
         <Text style={pdfStyles.dateRange}>

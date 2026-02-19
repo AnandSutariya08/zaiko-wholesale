@@ -201,14 +201,14 @@ export function ProductForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="dialog-form-content sm:max-w-[500px]">
+        <DialogHeader className="dialog-form-header">
           <DialogTitle>
             {editingProduct ? "Edit Product" : "Create Product"}
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="dialog-form-body space-y-4">
           <div className="flex justify-center mb-4">
             <div className="relative group">
               <div className="w-32 h-32 border-2 border-dashed border-muted-foreground/25 rounded-lg flex items-center justify-center overflow-hidden bg-muted">
@@ -473,7 +473,7 @@ export function ProductForm({
             )}
           </div>
 
-          <div className="flex justify-end gap-2">
+          <div className="dialog-form-footer flex justify-end gap-2">
             <Button
               type="button"
               variant="outline"
@@ -527,3 +527,7 @@ export function ProductForm({
     </Dialog>
   );
 }
+
+
+
+
