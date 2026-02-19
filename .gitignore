@@ -28,3 +28,4 @@ src/lib/firebase.ts
 .firebaserc
 firebase-debug.log
 .env
+fireabase.json

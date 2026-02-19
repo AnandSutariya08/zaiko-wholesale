@@ -104,7 +104,6 @@ export default function Products() {
   const [currentAveragePrices, setCurrentAveragePrices] = useState<
     Record<string, number>
   >({});
-  const [stockValues, setStockValues] = useState<Record<string, number>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [avgPriceFilter, setAvgPriceFilter] = useState<string>("all");
 
@@ -125,7 +124,6 @@ export default function Products() {
     quantity: "",
     purchasePrice: "",
   });
-  // Change state type
   const [stockSortOrder, setStockSortOrder] = useState<
     | "none"
     | "stock-low-to-high"
@@ -135,6 +133,14 @@ export default function Products() {
     | "name-asc"
     | "name-desc"
   >("none");
+
+  // Helper: get effective purchase price for a product (avg if available, else product price)
+  const getEffectivePrice = (product: Product) =>
+    currentAveragePrices[product.id] || product.purchasePrice || 0;
+
+  // Helper: compute stock value inline — no extra state needed
+  const getStockValue = (product: Product) =>
+    product.stock * getEffectivePrice(product);
 
   useEffect(() => {
     loadProducts();
@@ -150,24 +156,22 @@ export default function Products() {
   const loadAveragePrices = async () => {
     const prices: Record<string, number> = {};
     const currentPrices: Record<string, number> = {};
-    const stockValues: Record<string, number> = {};
 
     const now = new Date();
 
-    for (const product of products) {
-      // Get all data needed for calculations
-      const [bills, transactions] = await Promise.all([
-        getBills(),
-        getProductTransactions(product.id),
-      ]);
+    // Fetch all transactions in parallel — avoids N sequential DB calls
+    const allTransactions = await Promise.all(
+      products.map((p) => getProductTransactions(p.id)),
+    );
 
-      if (transactions && transactions.length > 0) {
-        // Sort transactions by date descending to handle "last X bills"
+    products.forEach((product, index) => {
+      const transactions = allTransactions[index] || [];
+
+      if (transactions.length > 0) {
         let filteredTransactions = [...transactions].sort(
           (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
         );
 
-        // Apply time/count filter
         if (avgPriceFilter === "last3") {
           filteredTransactions = filteredTransactions.slice(0, 3);
         } else if (avgPriceFilter === "last5") {
@@ -192,7 +196,6 @@ export default function Products() {
           );
         }
 
-        // Calculate total purchase value and quantity
         const totalPurchaseValue = filteredTransactions.reduce(
           (sum, t) => sum + t.quantity * (t.purchasePrice || 0),
           0,
@@ -202,29 +205,21 @@ export default function Products() {
           0,
         );
 
-        // Overall weighted average purchase price for filtered period
         const filteredAvgPurchasePrice =
           totalPurchaseQuantity > 0
             ? totalPurchaseValue / totalPurchaseQuantity
             : product.purchasePrice || 0;
 
         prices[product.id] = filteredAvgPurchasePrice;
-
-        // Current Average Price (Avg Buy) - this part should probably stay as product latest price or global avg
-        // but user specifically asked for "Avg Purchase Price" calculation filter
         currentPrices[product.id] = filteredAvgPurchasePrice;
-        stockValues[product.id] = product.stock * filteredAvgPurchasePrice;
       } else {
-        // No purchase history, use product's purchase price
         prices[product.id] = product.purchasePrice || 0;
         currentPrices[product.id] = product.purchasePrice || 0;
-        stockValues[product.id] = product.stock * (product.purchasePrice || 0);
       }
-    }
+    });
 
     setAveragePrices(prices);
     setCurrentAveragePrices(currentPrices);
-    setStockValues(stockValues);
   };
 
   const loadCompanyProfile = async () => {
@@ -255,7 +250,6 @@ export default function Products() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Check for duplicate HSN code (case-insensitive)
     const hsnCodeLower = formData.hsnCode.trim().toLowerCase();
     const duplicateProduct = products.find(
       (p) =>
@@ -284,10 +278,10 @@ export default function Products() {
         hsnCode: formData.hsnCode.trim(),
         gstRate: gstRateNum,
         unit: formData.unit,
-        price: sellingPriceNum || purchasePriceNum, // Legacy support
+        price: sellingPriceNum || purchasePriceNum,
         purchasePrice: purchasePriceNum,
         sellingPrice: sellingPriceNum,
-        stock: editingProduct?.stock || 0, // Keep existing stock or default to 0
+        stock: editingProduct?.stock || 0,
         whereToBuy: formData.whereToBuy,
         weight: weightNum,
         createdAt: editingProduct?.createdAt || new Date().toISOString(),
@@ -328,7 +322,7 @@ export default function Products() {
 
   const handleEdit = (product: Product) => {
     setEditingProduct(product);
-    setAddInitialStock(false); // No initial stock for edit
+    setAddInitialStock(false);
     setFormData({
       name: product.name,
       hsnCode: product.hsnCode,
@@ -429,7 +423,6 @@ export default function Products() {
       return;
     }
 
-    // Check for duplicate HSN code (case-insensitive)
     const hsnCodeLower = formData.hsnCode.trim().toLowerCase();
     const duplicateProduct = products.find(
       (p) => p.hsnCode.trim().toLowerCase() === hsnCodeLower,
@@ -461,7 +454,7 @@ export default function Products() {
           parseFloat(formData.sellingPrice) ||
           parseFloat(formData.price) ||
           purchasePriceNum,
-        stock: 0, // Will be updated by addStockToProduct
+        stock: 0,
         whereToBuy: formData.whereToBuy,
         weight: weightNum,
         createdAt: new Date().toISOString(),
@@ -484,7 +477,6 @@ export default function Products() {
     }
   };
 
-  // Filter products based on search query and apply sorting
   const filteredProducts = products
     .filter((product) => {
       if (!searchQuery.trim()) return true;
@@ -500,20 +492,10 @@ export default function Products() {
       if (stockSortOrder === "stock-high-to-low") return b.stock - a.stock;
       if (stockSortOrder === "name-asc") return a.name.localeCompare(b.name);
       if (stockSortOrder === "name-desc") return b.name.localeCompare(a.name);
-      if (stockSortOrder === "value-high-to-low") {
-        const aVal =
-          a.stock * (currentAveragePrices[a.id] || a.purchasePrice || 0);
-        const bVal =
-          b.stock * (currentAveragePrices[b.id] || b.purchasePrice || 0);
-        return bVal - aVal;
-      }
-      if (stockSortOrder === "value-low-to-high") {
-        const aVal =
-          a.stock * (currentAveragePrices[a.id] || a.purchasePrice || 0);
-        const bVal =
-          b.stock * (currentAveragePrices[b.id] || b.purchasePrice || 0);
-        return aVal - bVal;
-      }
+      if (stockSortOrder === "value-high-to-low")
+        return getStockValue(b) - getStockValue(a);
+      if (stockSortOrder === "value-low-to-high")
+        return getStockValue(a) - getStockValue(b);
       return 0;
     });
 
@@ -524,12 +506,10 @@ export default function Products() {
     currentPage * pageSize,
   );
 
-  // Reset to page 1 when search query changes
   useEffect(() => {
     setPage(1);
   }, [searchQuery]);
 
-  // Calculate overall statistics
   const calculateStatistics = () => {
     if (products.length === 0) {
       return {
@@ -548,46 +528,37 @@ export default function Products() {
 
     const totalStock = products.reduce((sum, p) => sum + p.stock, 0);
 
-    // Use current average prices (remaining stock valued at latest cost basis)
-    const totalPurchaseValue = products.reduce((sum, p) => {
-      const currentAvgPrice =
-        currentAveragePrices[p.id] || p.purchasePrice || 0;
-      return sum + p.stock * currentAvgPrice;
-    }, 0);
+    const totalPurchaseValue = products.reduce(
+      (sum, p) => sum + getStockValue(p),
+      0,
+    );
 
     const totalSellingValue = products.reduce(
       (sum, p) => sum + p.stock * (p.sellingPrice || p.price || 0),
       0,
     );
 
-    // Weighted averages based on current stock
     const averagePurchasePrice =
       totalStock > 0 ? totalPurchaseValue / totalStock : 0;
 
     const averageSellingPrice =
       totalStock > 0 ? totalSellingValue / totalStock : 0;
 
-    // Average with Commission — now based on current average purchase price
     const averageWithCommission = calculateSellingPriceFromCommission(
       averagePurchasePrice,
       companyProfile?.commissionSettings,
     );
 
-    // Total inventory value at current average cost
     const totalInventoryValue = totalPurchaseValue;
 
-    // Total Value with Commission — using current average price per product
     const totalValueWithCommission = products.reduce((sum, p) => {
-      const currentAvgPrice =
-        currentAveragePrices[p.id] || p.purchasePrice || 0;
       const commissionPrice = calculateSellingPriceFromCommission(
-        currentAvgPrice,
+        getEffectivePrice(p),
         companyProfile?.commissionSettings,
       );
       return sum + p.stock * commissionPrice;
     }, 0);
 
-    // Profit potential based on current cost basis
     const totalProfitPotential = totalValueWithCommission - totalInventoryValue;
 
     const averageMargin = averageSellingPrice - averagePurchasePrice;
@@ -616,7 +587,6 @@ export default function Products() {
     const formatCurr = (amount: number) => `₹${amount.toFixed(2)}`;
     const workbook = XLSX.utils.book_new();
 
-    // SHEET 1: Summary
     const summaryData = [
       ["INVENTORY SUMMARY"],
       ["Company:", companyProfile?.name || "Company Name"],
@@ -632,7 +602,6 @@ export default function Products() {
     summarySheet["!cols"] = [{ wch: 30 }, { wch: 20 }];
     XLSX.utils.book_append_sheet(workbook, summarySheet, "Summary");
 
-    // SHEET 2: All Products
     const productsData = [
       [
         "Product Name",
@@ -647,7 +616,7 @@ export default function Products() {
       ],
     ];
     products.forEach((p) => {
-      const currentAvg = currentAveragePrices[p.id] || p.purchasePrice || 0;
+      const currentAvg = getEffectivePrice(p);
       const selling = p.sellingPrice || p.price || 0;
       const margin =
         currentAvg > 0 ? ((selling - currentAvg) / currentAvg) * 100 : 0;
@@ -659,7 +628,7 @@ export default function Products() {
         String(p.stock),
         String(currentAvg),
         String(selling),
-        String(stockValues[p.id] || 0),
+        String(getStockValue(p)),
         margin.toFixed(2),
       ]);
     });
@@ -677,17 +646,16 @@ export default function Products() {
     ];
     XLSX.utils.book_append_sheet(workbook, productsSheet, "All Products");
 
-    // SHEET 3: Top by Value
     const topValueData = [["Rank", "Product", "Stock", "Value"]];
     [...products]
-      .sort((a, b) => (stockValues[b.id] || 0) - (stockValues[a.id] || 0))
+      .sort((a, b) => getStockValue(b) - getStockValue(a))
       .slice(0, 20)
       .forEach((p, i) => {
         topValueData.push([
           String(i + 1),
           p.name,
           String(p.stock),
-          String(stockValues[p.id] || 0),
+          String(getStockValue(p)),
         ]);
       });
     const topValueSheet = XLSX.utils.aoa_to_sheet(topValueData);
@@ -699,7 +667,6 @@ export default function Products() {
     ];
     XLSX.utils.book_append_sheet(workbook, topValueSheet, "Top by Value");
 
-    // Write file
     XLSX.writeFile(
       workbook,
       `Inventory_${format(new Date(), "dd-MM-yyyy")}.xlsx`,
@@ -742,14 +709,12 @@ export default function Products() {
             <Package className="h-5 w-5 md:h-6 md:w-6" />
           </div>
           <div>
-          <h1 className="page-title">Products</h1>
-          <p className="page-subtitle">Manage your product inventory</p>
+            <h1 className="page-title">Products</h1>
+            <p className="page-subtitle">Manage your product inventory</p>
           </div>
         </div>
 
-        {/* Desktop only: primary CTA buttons */}
         <div className="hidden sm:flex page-header-actions">
-          {/* Create Product */}
           <ProductForm
             open={isOpen}
             onOpenChange={(open) => {
@@ -761,12 +726,15 @@ export default function Products() {
             }}
             product={editingProduct}
           />
-          <Button size="sm" className="page-header-btn" onClick={() => setIsOpen(true)}>
+          <Button
+            size="sm"
+            className="page-header-btn"
+            onClick={() => setIsOpen(true)}
+          >
             <Plus className="h-4 w-4 mr-2" />
             Create Product
           </Button>
 
-          {/* Add Stock */}
           <Dialog
             open={isAddStockOpen}
             onOpenChange={(open) => {
@@ -784,7 +752,10 @@ export default function Products() {
               <DialogHeader className="dialog-form-header">
                 <DialogTitle>Add Stock</DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleAddStock} className="dialog-form-body space-y-4">
+              <form
+                onSubmit={handleAddStock}
+                className="dialog-form-body space-y-4"
+              >
                 <div className="space-y-2">
                   <Label>Select Product *</Label>
                   <Select
@@ -897,7 +868,6 @@ export default function Products() {
             </DialogContent>
           </Dialog>
 
-          {/* Export */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="default">
@@ -918,7 +888,9 @@ export default function Products() {
                       stats={stats}
                       averagePrices={averagePrices}
                       currentAveragePrices={currentAveragePrices}
-                      stockValues={stockValues}
+                      stockValues={Object.fromEntries(
+                        products.map((p) => [p.id, getStockValue(p)]),
+                      )}
                       companyProfile={companyProfile}
                     />
                   }
@@ -938,11 +910,7 @@ export default function Products() {
         </div>
       </div>
 
-      {/* ══════════════════════════════════════════
-          ROW 2 — Search + Filters + Mobile Actions
-      ══════════════════════════════════════════ */}
       <div className="flex flex-col gap-2">
-        {/* Search bar — always full width */}
         <div className="relative w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
           <Input
@@ -954,9 +922,7 @@ export default function Products() {
           />
         </div>
 
-        {/* Filter row */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Sort */}
           <Select
             value={stockSortOrder}
             onValueChange={(value: any) => setStockSortOrder(value)}
@@ -983,7 +949,6 @@ export default function Products() {
             </SelectContent>
           </Select>
 
-          {/* Avg Price Filter */}
           <Select value={avgPriceFilter} onValueChange={setAvgPriceFilter}>
             <SelectTrigger className="h-9 flex-1 min-w-[130px] text-sm">
               <SelectValue placeholder="Avg Price" />
@@ -998,7 +963,6 @@ export default function Products() {
             </SelectContent>
           </Select>
 
-          {/* Mobile-only: Export icon button */}
           <div className="flex sm:hidden items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -1019,7 +983,9 @@ export default function Products() {
                         stats={stats}
                         averagePrices={averagePrices}
                         currentAveragePrices={currentAveragePrices}
-                        stockValues={stockValues}
+                        stockValues={Object.fromEntries(
+                          products.map((p) => [p.id, getStockValue(p)]),
+                        )}
                         companyProfile={companyProfile}
                       />
                     }
@@ -1039,7 +1005,6 @@ export default function Products() {
           </div>
         </div>
 
-        {/* Mobile-only: primary CTA buttons row */}
         <div className="flex sm:hidden items-center gap-2">
           <ProductForm
             open={isOpen}
@@ -1078,7 +1043,10 @@ export default function Products() {
               <DialogHeader className="dialog-form-header">
                 <DialogTitle>Add Stock</DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleAddStock} className="dialog-form-body space-y-4">
+              <form
+                onSubmit={handleAddStock}
+                className="dialog-form-body space-y-4"
+              >
                 <div className="space-y-2">
                   <Label>Select Product *</Label>
                   <Select
@@ -1192,7 +1160,6 @@ export default function Products() {
           </Dialog>
         </div>
 
-        {/* Search result count */}
         {searchQuery && (
           <p className="text-xs text-muted-foreground">
             {filteredProducts.length}{" "}
@@ -1201,7 +1168,6 @@ export default function Products() {
         )}
       </div>
 
-      {/* Search Bar */}
       {products.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-200 dark:border-blue-800">
@@ -1293,8 +1259,6 @@ export default function Products() {
         </div>
       )}
 
-      
-
       {products.length === 0 ? (
         <Card>
           <CardContent className="text-center py-12">
@@ -1327,7 +1291,7 @@ export default function Products() {
               product.purchasePrice || 0,
             );
             const currentAvgPurchasePrice = roundToTwoDecimals(
-              currentAveragePrices[product.id] || purchasePrice,
+              getEffectivePrice(product),
             );
             const margin = roundToTwoDecimals(
               sellingPrice - currentAvgPurchasePrice,
@@ -1336,9 +1300,8 @@ export default function Products() {
               currentAvgPurchasePrice > 0
                 ? roundToTwoDecimals((margin / currentAvgPurchasePrice) * 100)
                 : 0;
-            const stockValue = roundToTwoDecimals(
-              product.stock * currentAvgPurchasePrice,
-            );
+            // Computed inline — no state lookup needed
+            const stockValue = roundToTwoDecimals(getStockValue(product));
             const stockValueWithCommission = roundToTwoDecimals(
               product.stock *
                 calculateSellingPriceFromCommission(
@@ -1355,7 +1318,6 @@ export default function Products() {
                 key={product.id}
                 className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-primary overflow-hidden"
               >
-                {/* TOP: Image left + Name/HSN/Buttons right */}
                 <div className="flex gap-3 p-4 pb-2">
                   <div className="w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-muted border">
                     {product.imageUrl ? (
@@ -1426,7 +1388,6 @@ export default function Products() {
                   </div>
                 </div>
 
-                {/* BOTTOM: Stock + Pricing details */}
                 <CardContent className="pt-2 space-y-3">
                   <div className="bg-muted/50 p-3 rounded-lg">
                     <div className="flex justify-between items-center mb-2">
@@ -1474,9 +1435,7 @@ export default function Products() {
                       <div className="flex justify-between items-center text-sm">
                         <span className="font-medium">Current Avg Price</span>
                         <span className="font-medium">
-                          {formatCurrency(
-                            currentAveragePrices[product.id] || purchasePrice,
-                          )}
+                          {formatCurrency(currentAvgPurchasePrice)}
                         </span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
@@ -1484,7 +1443,7 @@ export default function Products() {
                           Stock Value
                         </span>
                         <span className="font-medium">
-                          {formatCurrency(stockValues[product.id])}
+                          {formatCurrency(stockValue)}
                         </span>
                       </div>
                       {companyProfile?.commissionSettings && (
@@ -1493,7 +1452,7 @@ export default function Products() {
                             Selling Price
                           </span>
                           <span className="font-medium text-purple-600">
-                            {formatCurrency(stockValueWithCommission)}
+                            {formatCurrency(sellingPrice)}
                           </span>
                         </div>
                       )}
@@ -1518,6 +1477,30 @@ export default function Products() {
           })}
         </div>
       )}
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+          >
+            Next
+          </Button>
+        </div>
+      )}
       {historyProduct && (
         <ProductHistory
           product={historyProduct}
@@ -1533,8 +1516,3 @@ export default function Products() {
     </div>
   );
 }
-
-
-
-
-
