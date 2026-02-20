@@ -67,7 +67,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ProductHistory } from "@/components/ProductHistory";
+import { ProductHistoryScreen } from "@/components/ProductHistoryScreen";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import {
   calculateSellingPriceFromCommission,
@@ -88,7 +88,6 @@ export default function Products() {
   const [isOpen, setIsOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [historyProduct, setHistoryProduct] = useState<Product | null>(null);
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [companyProfile, setCompanyProfile] = useState<any>(null);
   const [isAddStockOpen, setIsAddStockOpen] = useState(false);
@@ -701,214 +700,228 @@ export default function Products() {
     );
   }
 
+  if (historyProduct) {
+    return (
+      <ProductHistoryScreen
+        product={historyProduct}
+        onBack={() => setHistoryProduct(null)}
+      />
+    );
+  }
+
   return (
-    <div className="space-y-6 p-4">
-      <div className="page-header-controls">
-        <div className="page-header-title">
-          <div className="page-header-icon">
-            <Package className="h-5 w-5 md:h-6 md:w-6" />
-          </div>
-          <div>
-            <h1 className="page-title">Products</h1>
-            <p className="page-subtitle">Manage your product inventory</p>
-          </div>
-        </div>
+    <div className="-mx-3 h-[calc(100dvh-8.5rem)] overflow-hidden px-2 sm:-mx-4 sm:h-[calc(100dvh-9.5rem)] sm:px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
+      <div className="relative flex h-full min-h-0 flex-col rounded-[28px] border border-border/70 bg-background p-3 shadow-sm sm:p-5 lg:p-6">
+        <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background/95 p-3 backdrop-blur sm:p-4">
+          <div className="page-header-controls">
+            <div className="page-header-title">
+              <div className="page-header-icon">
+                <Package className="h-5 w-5 md:h-6 md:w-6" />
+              </div>
+              <div>
+                <h1 className="page-title">Products</h1>
+                <p className="page-subtitle">Manage your product inventory</p>
+              </div>
+            </div>
 
-        <div className="hidden sm:flex page-header-actions">
-          <ProductForm
-            open={isOpen}
-            onOpenChange={(open) => {
-              setIsOpen(open);
-              if (!open) resetForm();
-            }}
-            onSuccess={() => {
-              loadProducts();
-            }}
-            product={editingProduct}
-          />
-          <Button
-            size="sm"
-            className="page-header-btn"
-            onClick={() => setIsOpen(true)}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Create Product
-          </Button>
-
-          <Dialog
-            open={isAddStockOpen}
-            onOpenChange={(open) => {
-              setIsAddStockOpen(open);
-              if (!open) resetStockForm();
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button size="sm" variant="outline" className="page-header-btn">
-                <PlusCircle className="h-4 w-4 mr-2" />
-                Add Stock
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="dialog-form-content sm:max-w-[500px]">
-              <DialogHeader className="dialog-form-header">
-                <DialogTitle>Add Stock</DialogTitle>
-              </DialogHeader>
-              <form
-                onSubmit={handleAddStock}
-                className="dialog-form-body space-y-4"
+            <div className="hidden sm:flex page-header-actions">
+              <ProductForm
+                open={isOpen}
+                onOpenChange={(open) => {
+                  setIsOpen(open);
+                  if (!open) resetForm();
+                }}
+                onSuccess={() => {
+                  loadProducts();
+                }}
+                product={editingProduct}
+              />
+              <Button
+                size="sm"
+                className="page-header-btn"
+                onClick={() => setIsOpen(true)}
               >
-                <div className="space-y-2">
-                  <Label>Select Product *</Label>
-                  <Select
-                    value={selectedProductId}
-                    onValueChange={setSelectedProductId}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose a product" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {products.map((product) => (
-                        <SelectItem key={product.id} value={product.id}>
-                          {product.name} ({product.hsnCode})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {selectedProductId && (
-                    <p className="text-xs text-muted-foreground">
-                      Current stock:{" "}
-                      {products.find((p) => p.id === selectedProductId)
-                        ?.stock || 0}{" "}
-                      {products.find((p) => p.id === selectedProductId)?.unit ||
-                        ""}
-                    </p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Quantity *</Label>
-                    <Input
-                      required
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      value={stockFormData.quantity}
-                      onChange={(e) =>
-                        setStockFormData({
-                          ...stockFormData,
-                          quantity: e.target.value,
-                        })
-                      }
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Purchase Price *</Label>
-                    <Input
-                      required
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      value={stockFormData.purchasePrice}
-                      onChange={(e) =>
-                        setStockFormData({
-                          ...stockFormData,
-                          purchasePrice: e.target.value,
-                        })
-                      }
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-
-                <div className="border-t pt-4">
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Product not found?
-                  </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => {
-                      setIsAddStockOpen(false);
-                      setIsOpen(true);
-                    }}
-                  >
-                    Create New Product
-                  </Button>
-                </div>
-
-                <div className="dialog-form-footer flex gap-2 justify-end">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setIsAddStockOpen(false);
-                      resetStockForm();
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={addingStock || !selectedProductId}
-                  >
-                    {addingStock ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Adding...
-                      </>
-                    ) : (
-                      "Add Stock"
-                    )}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="default">
-                <Download className="h-4 w-4 mr-2" />
-                Export
+                <Plus className="h-4 w-4 mr-2" />
+                Create Product
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleDownloadExcel}>
-                <FileSpreadsheet className="h-4 w-4 mr-2" />
-                Excel
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <PDFDownloadLink
-                  document={
-                    <ProductsPDF
-                      products={products}
-                      stats={stats}
-                      averagePrices={averagePrices}
-                      currentAveragePrices={currentAveragePrices}
-                      stockValues={Object.fromEntries(
-                        products.map((p) => [p.id, getStockValue(p)]),
+
+              <Dialog
+                open={isAddStockOpen}
+                onOpenChange={(open) => {
+                  setIsAddStockOpen(open);
+                  if (!open) resetStockForm();
+                }}
+              >
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="outline" className="page-header-btn">
+                    <PlusCircle className="h-4 w-4 mr-2" />
+                    Add Stock
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="dialog-form-content sm:max-w-[500px]">
+                  <DialogHeader className="dialog-form-header">
+                    <DialogTitle>Add Stock</DialogTitle>
+                  </DialogHeader>
+                  <form
+                    onSubmit={handleAddStock}
+                    className="dialog-form-body space-y-4"
+                  >
+                    <div className="space-y-2">
+                      <Label>Select Product *</Label>
+                      <Select
+                        value={selectedProductId}
+                        onValueChange={setSelectedProductId}
+                        required
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose a product" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {products.map((product) => (
+                            <SelectItem key={product.id} value={product.id}>
+                              {product.name} ({product.hsnCode})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {selectedProductId && (
+                        <p className="text-xs text-muted-foreground">
+                          Current stock:{" "}
+                          {products.find((p) => p.id === selectedProductId)
+                            ?.stock || 0}{" "}
+                          {products.find((p) => p.id === selectedProductId)?.unit ||
+                            ""}
+                        </p>
                       )}
-                      companyProfile={companyProfile}
-                    />
-                  }
-                  fileName={`Inventory_Report_${new Date().toISOString().split("T")[0]}.pdf`}
-                  className="flex items-center w-full px-2 py-1.5 text-sm cursor-pointer"
-                >
-                  {({ loading }: { loading: boolean }) => (
-                    <>
-                      <FilePdf className="h-4 w-4 mr-2" />
-                      {loading ? "Preparing..." : "PDF"}
-                    </>
-                  )}
-                </PDFDownloadLink>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Quantity *</Label>
+                        <Input
+                          required
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          value={stockFormData.quantity}
+                          onChange={(e) =>
+                            setStockFormData({
+                              ...stockFormData,
+                              quantity: e.target.value,
+                            })
+                          }
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Purchase Price *</Label>
+                        <Input
+                          required
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          value={stockFormData.purchasePrice}
+                          onChange={(e) =>
+                            setStockFormData({
+                              ...stockFormData,
+                              purchasePrice: e.target.value,
+                            })
+                          }
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="border-t pt-4">
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Product not found?
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => {
+                          setIsAddStockOpen(false);
+                          setIsOpen(true);
+                        }}
+                      >
+                        Create New Product
+                      </Button>
+                    </div>
+
+                    <div className="dialog-form-footer flex gap-2 justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setIsAddStockOpen(false);
+                          resetStockForm();
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={addingStock || !selectedProductId}
+                      >
+                        {addingStock ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Adding...
+                          </>
+                        ) : (
+                          "Add Stock"
+                        )}
+                      </Button>
+                    </div>
+                  </form>
+                </DialogContent>
+              </Dialog>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="default">
+                    <Download className="h-4 w-4 mr-2" />
+                    Export
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleDownloadExcel}>
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Excel
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <PDFDownloadLink
+                      document={
+                        <ProductsPDF
+                          products={products}
+                          stats={stats}
+                          averagePrices={averagePrices}
+                          currentAveragePrices={currentAveragePrices}
+                          stockValues={Object.fromEntries(
+                            products.map((p) => [p.id, getStockValue(p)]),
+                          )}
+                          companyProfile={companyProfile}
+                        />
+                      }
+                      fileName={`Inventory_Report_${new Date().toISOString().split("T")[0]}.pdf`}
+                      className="flex items-center w-full px-2 py-1.5 text-sm cursor-pointer"
+                    >
+                      {({ loading }: { loading: boolean }) => (
+                        <>
+                          <FilePdf className="h-4 w-4 mr-2" />
+                          {loading ? "Preparing..." : "PDF"}
+                        </>
+                      )}
+                    </PDFDownloadLink>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
         </div>
-      </div>
+        <div className="mt-4 flex-1 min-h-0 rounded-2xl border border-border/70 bg-background/60 p-2 sm:p-3">
+          <div className="h-full overflow-y-auto space-y-6 pr-1 sm:pr-2">
 
       <div className="flex flex-col gap-2">
         <div className="relative w-full">
@@ -1463,10 +1476,9 @@ export default function Products() {
                     variant="outline"
                     size="sm"
                     className="w-full"
-                    onClick={() => {
-                      setHistoryProduct(product);
-                      setIsHistoryOpen(true);
-                    }}
+                  onClick={() => {
+                    setHistoryProduct(product);
+                  }}
                   >
                     <History className="h-4 w-4 mr-2" />
                     View Detailed History
@@ -1501,18 +1513,9 @@ export default function Products() {
           </Button>
         </div>
       )}
-      {historyProduct && (
-        <ProductHistory
-          product={historyProduct}
-          open={isHistoryOpen}
-          onOpenChange={(open) => {
-            setIsHistoryOpen(open);
-            if (!open) {
-              setHistoryProduct(null);
-            }
-          }}
-        />
-      )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

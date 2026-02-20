@@ -320,7 +320,8 @@ export default function Settings() {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-5xl mx-auto pb-24 sm:pb-32 px-3 sm:px-4 md:px-0 w-full max-w-full overflow-x-hidden relative">
+    <div className="-mx-3 h-[calc(100dvh-8.5rem)] overflow-hidden px-2 sm:-mx-4 sm:h-[calc(100dvh-9.5rem)] sm:px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
+      <div className="relative flex h-full min-h-0 flex-col rounded-[28px] border border-border/70 bg-background p-3 shadow-sm sm:p-5 lg:p-6">
       <div className="fixed bottom-6 right-6 z-[100] flex items-center justify-center">
         <Button
           onClick={() => handleSubmit()}
@@ -334,7 +335,8 @@ export default function Settings() {
       </div>
 
       {/* Header */}
-      <div className="page-header-controls sticky top-0 bg-background/95 backdrop-blur z-50">
+      <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background/95 p-3 backdrop-blur sm:p-4">
+      <div className="page-header-controls">
         <div className="page-header-title min-w-0 flex-1">
           <div className="page-header-icon">
             <Settings2 className="h-5 w-5 md:h-6 md:w-6" />
@@ -349,6 +351,10 @@ export default function Settings() {
           </div>
         </div>
       </div>
+      </div>
+
+      <div className="mt-4 flex-1 min-h-0 rounded-2xl border border-border/70 bg-background/60 p-2 sm:p-3">
+      <div className="h-full overflow-y-auto space-y-4 sm:space-y-6 max-w-5xl mx-auto pb-24 sm:pb-32 px-3 sm:px-4 md:px-0 w-full max-w-full overflow-x-hidden">
 
       {/* Profile Card - Enhanced */}
       <Card className="border-2 shadow-lg w-full max-w-full overflow-hidden">
@@ -1045,6 +1051,9 @@ export default function Settings() {
           </CardContent>
         </Card>
       </form>
+      </div>
+      </div>
+      </div>
     </div>
   );
 }

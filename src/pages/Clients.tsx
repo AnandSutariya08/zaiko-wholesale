@@ -24,9 +24,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { getClients, saveClient, deleteClient } from "@/lib/storage";
 import { Client } from "@/types";
-import { Plus, Edit, Trash2, Users, Eye, Loader2, Search } from "lucide-react";
+import { Plus, Edit, Trash2, Users, Eye, Search, MapPin, Phone, Mail, BadgeCheck } from "lucide-react";
 import { toast } from "sonner";
-import { ClientDetailView } from "@/components/ClientDetailView";
+import { ClientDetailScreen } from "@/components/ClientDetailScreen";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 export default function Clients() {
@@ -37,7 +37,6 @@ export default function Clients() {
   const [isOpen, setIsOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [viewingClient, setViewingClient] = useState<Client | null>(null);
-  const [isViewOpen, setIsViewOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [formData, setFormData] = useState({
@@ -205,8 +204,19 @@ export default function Clients() {
     );
   }
 
+  if (viewingClient) {
+    return (
+      <ClientDetailScreen
+        client={viewingClient}
+        onBack={() => setViewingClient(null)}
+      />
+    );
+  }
+
   return (
-    <div className="space-y-6 p-4">
+    <div className="-mx-3 h-[calc(100dvh-8.5rem)] overflow-hidden px-2 sm:-mx-4 sm:h-[calc(100dvh-9.5rem)] sm:px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
+      <div className="relative flex h-full min-h-0 flex-col rounded-[28px] border border-border/70 bg-background p-3 shadow-sm sm:p-5 lg:p-6">
+      <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background/95 p-3 backdrop-blur sm:p-4">
       <div className="page-header-controls">
         <div className="page-header-title">
           <div className="page-header-icon">
@@ -383,6 +393,10 @@ export default function Clients() {
           </DialogContent>
         </Dialog>
       </div>
+      </div>
+
+      <div className="mt-4 flex-1 min-h-0 rounded-2xl border border-border/70 bg-background/60 p-2 sm:p-3">
+      <div className="h-full overflow-y-auto space-y-6 pr-1 sm:pr-2">
 
       {/* Search Bar */}
       {clients.length > 0 && (
@@ -433,17 +447,35 @@ export default function Clients() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {pagedClients.map((client) => (
-            <Card key={client.id} className="hover:shadow-md transition-shadow">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span className="truncate">{client.name}</span>
-                  <div className="flex gap-1">
+            <Card
+              key={client.id}
+              className="group relative overflow-hidden border-border/70 bg-gradient-to-br from-background via-background to-primary/5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+            >
+              <div className="pointer-events-none absolute -right-14 -top-14 h-32 w-32 rounded-full bg-primary/10 blur-2xl" />
+              <div className="pointer-events-none absolute -bottom-16 -left-16 h-36 w-36 rounded-full bg-cyan-500/10 blur-2xl" />
+              <CardHeader className="relative pb-3">
+                <CardTitle className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex items-start gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-primary ring-1 ring-primary/20">
+                      <span className="text-base font-semibold">
+                        {client.name?.charAt(0).toUpperCase() || "C"}
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-base font-semibold leading-tight">{client.name}</p>
+                      <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                        <BadgeCheck className="h-3.5 w-3.5" />
+                        Client Profile
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-1 rounded-xl border border-border/60 bg-background/85 p-1 backdrop-blur">
                     <Button
                       variant="ghost"
                       size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:bg-primary/10 hover:text-primary"
                       onClick={() => {
                         setViewingClient(client);
-                        setIsViewOpen(true);
                       }}
                       title="View Details"
                     >
@@ -452,6 +484,7 @@ export default function Clients() {
                     <Button
                       variant="ghost"
                       size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:bg-primary/10 hover:text-primary"
                       onClick={() => handleEdit(client)}
                       title="Edit"
                     >
@@ -459,7 +492,12 @@ export default function Clients() {
                     </Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" title="Delete">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                          title="Delete"
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </AlertDialogTrigger>
@@ -483,40 +521,55 @@ export default function Clients() {
                   </div>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <p className="text-muted-foreground">{client.billingAddress}</p>
+              <CardContent className="relative space-y-3 pt-0 text-sm">
+                <div className="rounded-xl border border-border/60 bg-muted/30 p-3">
+                  <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <MapPin className="h-3.5 w-3.5" />
+                    Billing Address
+                  </p>
+                  <p className="text-sm leading-relaxed text-foreground/90">{client.billingAddress}</p>
+                </div>
                 {client.shippingAddress && (
-                  <p className="text-muted-foreground text-xs">
-                    <span className="font-medium">Ship to:</span>{" "}
-                    {client.shippingAddress}
+                  <p className="rounded-lg border border-dashed border-border/70 bg-background/70 px-2.5 py-2 text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground/90">Ship to:</span> {client.shippingAddress}
                   </p>
                 )}
-                {client.gstin && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">GSTIN:</span>
-                    <span>{client.gstin}</span>
-                  </div>
-                )}
-                {client.state && client.stateCode && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">State:</span>
-                    <span>
-                      {client.state} ({client.stateCode})
-                    </span>
-                  </div>
-                )}
-                {client.phone && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Phone:</span>
-                    <span>{client.phone}</span>
-                  </div>
-                )}
-                {client.email && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Email:</span>
-                    <span className="truncate">{client.email}</span>
-                  </div>
-                )}
+                <div className="space-y-2 rounded-xl border border-border/60 bg-background/70 p-3">
+                  {client.gstin && (
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">GSTIN</span>
+                      <span className="max-w-[60%] truncate rounded-md bg-primary/10 px-2 py-0.5 font-mono text-xs text-primary">
+                        {client.gstin}
+                      </span>
+                    </div>
+                  )}
+                  {client.state && client.stateCode && (
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">State</span>
+                      <span className="truncate text-xs font-medium">
+                        {client.state} ({client.stateCode})
+                      </span>
+                    </div>
+                  )}
+                  {client.phone && (
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="inline-flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        <Phone className="h-3 w-3" />
+                        Phone
+                      </span>
+                      <span className="truncate text-xs font-medium">{client.phone}</span>
+                    </div>
+                  )}
+                  {client.email && (
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="inline-flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        <Mail className="h-3 w-3" />
+                        Email
+                      </span>
+                      <span className="max-w-[65%] truncate text-xs font-medium">{client.email}</span>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -547,19 +600,9 @@ export default function Clients() {
           </div>
         </div>
       )}
-
-      {viewingClient && (
-        <ClientDetailView
-          client={viewingClient}
-          open={isViewOpen}
-          onOpenChange={(open) => {
-            setIsViewOpen(open);
-            if (!open) {
-              setViewingClient(null);
-            }
-          }}
-        />
-      )}
+      </div>
+      </div>
+      </div>
     </div>
   );
 }

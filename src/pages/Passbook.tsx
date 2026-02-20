@@ -339,367 +339,296 @@ export default function Passbook() {
     }
 
     return (
-        <div className="space-y-6 p-4">
-            <div className="page-header-controls">
-                <div className="page-header-title">
-                    <div className="page-header-icon">
-                        <BookOpen className="h-5 w-5 md:h-6 md:w-6" />
-                    </div>
-                    <div>
-                        <h1 className="page-title">Passbook</h1>
-                        <p className="page-subtitle">Complete financial transaction history</p>
+        <div className="-mx-3 h-[calc(100dvh-8.5rem)] overflow-hidden px-2 sm:-mx-4 sm:h-[calc(100dvh-9.5rem)] sm:px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
+            <div className="relative flex h-full min-h-0 flex-col rounded-[28px] border border-border/70 bg-background p-3 shadow-sm sm:p-5 lg:p-6">
+                <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background/95 p-3 backdrop-blur sm:p-4">
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                                <BookOpen className="h-5 w-5" />
+                            </div>
+                            <div className="min-w-0">
+                                <h1 className="truncate text-lg font-semibold leading-tight sm:text-2xl">Passbook</h1>
+                                <p className="text-xs text-muted-foreground sm:text-sm">Complete financial transaction history</p>
+                            </div>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={exportToExcel} className="self-start sm:self-auto">
+                            <Download className="h-4 w-4 mr-2" />
+                            Export Excel
+                        </Button>
                     </div>
                 </div>
-                <Button variant="outline" size="sm" onClick={exportToExcel} className="page-header-btn self-start sm:self-auto">
-                    <Download className="h-4 w-4 mr-2" />
-                    Export to Excel
-                </Button>
-            </div>
 
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4 items-stretch">
-                <Card className={`border shadow-md hover:shadow-lg transition-shadow ${netBalance >= 0 ? 'border-primary/20 bg-primary/5' : 'border-destructive/20 bg-destructive/5'}`}>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className={`text-xs sm:text-sm font-medium tracking-wide uppercase ${netBalance >= 0 ? 'text-primary' : 'text-destructive'}`}>
-                            Net Balance
-                        </CardTitle>
-                        <div className={`h-10 w-10 rounded-full flex items-center justify-center ${netBalance >= 0 ? 'bg-primary/10' : 'bg-destructive/10'}`}>
-                            <BookOpen className={`h-5 w-5 ${netBalance >= 0 ? 'text-primary' : 'text-destructive'}`} />
+                <div className="mt-4 flex-1 min-h-0 rounded-2xl border border-border/70 bg-background/60 p-2 sm:p-3">
+                    <div className="h-full overflow-y-auto space-y-4 pr-1 sm:pr-2">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                            <Card className={`${netBalance >= 0 ? 'border-primary/20 bg-primary/5' : 'border-destructive/20 bg-destructive/5'}`}>
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                    <CardTitle className={`text-xs font-medium tracking-wide uppercase ${netBalance >= 0 ? 'text-primary' : 'text-destructive'}`}>Net Balance</CardTitle>
+                                    <div className={`h-9 w-9 rounded-full flex items-center justify-center ${netBalance >= 0 ? 'bg-primary/10' : 'bg-destructive/10'}`}>
+                                        <BookOpen className={`h-4 w-4 ${netBalance >= 0 ? 'text-primary' : 'text-destructive'}`} />
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="pt-1">
+                                    <div className={`text-xl font-bold mb-1 ${netBalance >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{formatCurrency(netBalance)}</div>
+                                    <p className="text-xs text-muted-foreground">Current account balance</p>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="border-emerald-200 bg-emerald-50/70">
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                    <CardTitle className="text-xs font-medium tracking-wide uppercase text-emerald-600">Total Income</CardTitle>
+                                    <div className="h-9 w-9 rounded-full bg-emerald-100 flex items-center justify-center">
+                                        <Plus className="h-4 w-4 text-emerald-600" />
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="pt-1">
+                                    <div className="text-xl font-bold text-emerald-600 mb-1">{formatCurrency(totalIncome)}</div>
+                                    <p className="text-xs text-muted-foreground">Actual cash received</p>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="border-rose-200 bg-rose-50/70">
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                    <CardTitle className="text-xs font-medium tracking-wide uppercase text-rose-600">Total Outflow</CardTitle>
+                                    <div className="h-9 w-9 rounded-full bg-rose-100 flex items-center justify-center">
+                                        <TrendingDown className="h-4 w-4 text-rose-600" />
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="pt-1">
+                                    <div className="text-xl font-bold text-rose-600 mb-1">{formatCurrency(totalOutflow)}</div>
+                                    <p className="text-xs text-muted-foreground">Purchases + Expenses</p>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="border-amber-200 bg-amber-50/70">
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                    <CardTitle className="text-xs font-medium tracking-wide uppercase text-amber-600">Total Inventory</CardTitle>
+                                    <div className="h-9 w-9 rounded-full bg-amber-100 flex items-center justify-center">
+                                        <BookOpen className="h-4 w-4 text-amber-600" />
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="pt-1">
+                                    <div className="text-xl font-bold text-amber-600 mb-1">{formatCurrency(inventoryValue)}</div>
+                                    <p className="text-xs text-muted-foreground">Stock value in hand</p>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="border-blue-200 bg-blue-50/70">
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                    <CardTitle className="text-xs font-medium tracking-wide uppercase text-blue-600">Purchase Returns</CardTitle>
+                                    <div className="h-9 w-9 rounded-full bg-blue-100 flex items-center justify-center">
+                                        <ArrowUpDown className="h-4 w-4 text-blue-600" />
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="pt-1">
+                                    <div className="text-xl font-bold text-blue-600 mb-1">{formatCurrency(totalPurchaseReturns)}</div>
+                                    <p className="text-xs text-muted-foreground">Collected/remaining returns</p>
+                                </CardContent>
+                            </Card>
                         </div>
-                    </CardHeader>
-                    <CardContent className="pt-1">
-                        <div className={`text-xl sm:text-2xl font-bold mb-1 ${netBalance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                            {formatCurrency(netBalance)}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                            Current account balance
-                        </p>
-                    </CardContent>
-                </Card>
 
-                <Card className="border shadow-md hover:shadow-lg transition-shadow">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-xs sm:text-sm font-medium tracking-wide uppercase text-emerald-600 dark:text-emerald-400">Total Income</CardTitle>
-                        <div className="h-10 w-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                            <Plus className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                        </div>
-                    </CardHeader>
-                    <CardContent className="pt-1">
-                        <div className="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mb-1">{formatCurrency(totalIncome)}</div>
-                        <p className="text-xs text-muted-foreground">
-                            Actual cash received
-                        </p>
-                    </CardContent>
-                </Card>
-
-                <Card className="border shadow-md hover:shadow-lg transition-shadow">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-xs sm:text-sm font-medium tracking-wide uppercase text-rose-600 dark:text-rose-400">Total Outflow</CardTitle>
-                        <div className="h-10 w-10 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center">
-                            <TrendingDown className="h-5 w-5 text-rose-600 dark:text-rose-400" />
-                        </div>
-                    </CardHeader>
-                    <CardContent className="pt-1">
-                        <div className="text-xl sm:text-2xl font-bold text-rose-600 dark:text-rose-400 mb-1">{formatCurrency(totalOutflow)}</div>
-                        <p className="text-xs text-muted-foreground">
-                            Purchases: {formatCurrency(totalPurchases)} | Expenses: {formatCurrency(totalExpensesOnly)}
-                        </p>
-                    </CardContent>
-                </Card>
-
-                <Card className="border shadow-md hover:shadow-lg transition-shadow">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-xs sm:text-sm font-medium tracking-wide uppercase text-amber-600 dark:text-amber-400">Total Inventory</CardTitle>
-                        <div className="h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                            <BookOpen className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                        </div>
-                    </CardHeader>
-                    <CardContent className="pt-1">
-                        <div className="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400 mb-1">{formatCurrency(inventoryValue)}</div>
-                        <p className="text-xs text-muted-foreground">
-                            Total value of stock in hand
-                        </p>
-                    </CardContent>
-                </Card>
-
-                <Card className="border shadow-md hover:shadow-lg transition-shadow">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-xs sm:text-sm font-medium tracking-wide uppercase text-blue-600 dark:text-blue-400">Purchase Returns</CardTitle>
-                        <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                            <ArrowUpDown className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                        </div>
-                    </CardHeader>
-                    <CardContent className="pt-1">
-                        <div className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400 mb-1">{formatCurrency(totalPurchaseReturns)}</div>
-                        <p className="text-xs text-muted-foreground">
-                            Collected/Remaining returns
-                        </p>
-                    </CardContent>
-                </Card>
-
-                
-            </div>
-
-            {/* Collection by Payment Mode */}
-            <div>
-                <h3 className="text-lg font-semibold mb-3 flex items-center gap-2 text-foreground">
-                    <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                    Collections by Payment Mode
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-                    {['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Other'].map((method) => (
-                        <Card key={method} className="border shadow-sm hover:shadow-md transition-shadow">
-                            <CardHeader className="p-3 pb-1">
-                                <CardTitle className="text-xs font-medium text-muted-foreground uppercase">{method}</CardTitle>
+                        <Card className="border-border/70">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                                    <TrendingUp className="h-4 w-4 text-emerald-600" />
+                                    Collections by Payment Mode
+                                </CardTitle>
                             </CardHeader>
-                            <CardContent className="p-3 pt-0">
-                                <div className="text-lg font-bold text-foreground">
-                                    {formatCurrency(paymentMethodTotals[method as any] || 0)}
+                            <CardContent>
+                                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
+                                    {['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Other'].map((method) => (
+                                        <div key={method} className="rounded-lg border border-border/70 bg-background/80 p-3">
+                                            <p className="text-[10px] font-medium uppercase text-muted-foreground">{method}</p>
+                                            <p className="mt-1 text-base font-bold">{formatCurrency(paymentMethodTotals[method as any] || 0)}</p>
+                                        </div>
+                                    ))}
                                 </div>
                             </CardContent>
                         </Card>
-                    ))}
+
+                        <Card className="border-border/70">
+                            <CardHeader className="border-b bg-muted/30 pb-3">
+                                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                                    <Filter className="h-4 w-4 text-primary" />
+                                    Filters
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-4">
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs">Transaction Type</Label>
+                                        <Select value={filterType} onValueChange={setFilterType}>
+                                            <SelectTrigger className="h-10">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Types</SelectItem>
+                                                <SelectItem value="sale">Sales (+)</SelectItem>
+                                                <SelectItem value="payment">Collections (+)</SelectItem>
+                                                <SelectItem value="purchase">Purchases (-)</SelectItem>
+                                                <SelectItem value="expense">Expenses (-)</SelectItem>
+                                                <SelectItem value="return">Returns (-)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs">Category</Label>
+                                        <Select value={filterCategory} onValueChange={setFilterCategory}>
+                                            <SelectTrigger className="h-10">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Categories</SelectItem>
+                                                {categories.map(category => (
+                                                    <SelectItem key={category} value={category}>{category}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs">GST Type</Label>
+                                        <Select value={gstFilter} onValueChange={setGstFilter}>
+                                            <SelectTrigger className="h-10">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Transactions</SelectItem>
+                                                <SelectItem value="gst">GST Transactions</SelectItem>
+                                                <SelectItem value="non-gst">Non-GST Transactions</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs">Start Date</Label>
+                                        <Input
+                                            type="date"
+                                            value={dateRange.start}
+                                            onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
+                                            className="h-10"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs">End Date</Label>
+                                        <Input
+                                            type="date"
+                                            value={dateRange.end}
+                                            onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
+                                            className="h-10"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="mt-4 flex flex-wrap gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                                        className="gap-2"
+                                    >
+                                        <ArrowUpDown className="h-4 w-4" />
+                                        {sortOrder === 'asc' ? 'Old to New' : 'New to Old'}
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                            setFilterType('all');
+                                            setFilterCategory('all');
+                                            setGstFilter('all');
+                                            setDateRange({ start: '', end: '' });
+                                        }}
+                                    >
+                                        Clear Filters
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="border-border/70">
+                            <CardHeader className="border-b bg-muted/20 pb-3">
+                                <CardTitle className="text-base sm:text-lg">Transaction History</CardTitle>
+                                <p className="text-xs text-muted-foreground">{filteredEntries.length} {filteredEntries.length === 1 ? "entry" : "entries"}</p>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                                {filteredEntries.length === 0 ? (
+                                    <div className="text-center py-12 px-4">
+                                        <BookOpen className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+                                        <p className="text-sm font-medium text-foreground mb-1">No transactions found</p>
+                                        <p className="text-xs text-muted-foreground">Try adjusting your filters</p>
+                                    </div>
+                                ) : (
+                                    <div className="w-full overflow-x-auto">
+                                        <table className="w-full min-w-[850px] border-collapse">
+                                            <thead className="sticky top-0 z-10 bg-muted/60 backdrop-blur supports-[backdrop-filter]:bg-muted/55">
+                                                <tr className="border-b">
+                                                    <th className="text-left p-4 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Date</th>
+                                                    <th className="text-left p-4 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Type</th>
+                                                    <th className="text-left p-4 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Description</th>
+                                                    <th className="text-right p-4 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Amount</th>
+                                                    <th className="text-right p-4 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Balance</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y">
+                                                {filteredEntries.map((entry) => (
+                                                    <tr key={entry.id} className="hover:bg-muted/30 transition-colors">
+                                                        <td className="p-4 align-top">
+                                                            <div className="flex items-center gap-2">
+                                                                <Calendar className="h-4 w-4 text-primary/60" />
+                                                                <span className="text-sm font-medium whitespace-nowrap">{formatDate(entry.date)}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-4 align-top">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className={`h-8 w-8 rounded-full flex items-center justify-center ${entry.amount >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                                    {getTypeIcon(entry.type)}
+                                                                </div>
+                                                                <Badge className={`text-[10px] font-bold uppercase tracking-tighter ${getTypeBadgeColor(entry.type)}`}>
+                                                                    {entry.type}
+                                                                </Badge>
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-4 align-top max-w-[320px]">
+                                                            <p className="text-sm font-semibold text-foreground leading-tight">{entry.description}</p>
+                                                            <div className="flex flex-wrap gap-2 mt-1.5">
+                                                                {entry.category && (
+                                                                    <Badge variant="secondary" className="text-[10px] py-0 h-4 px-1.5 font-normal bg-muted/50">
+                                                                        {entry.category}
+                                                                    </Badge>
+                                                                )}
+                                                                {entry.details?.billNumber && (
+                                                                    <span className="text-[10px] text-muted-foreground font-mono">ID: {entry.details.billNumber}</span>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-4 text-right align-top">
+                                                            <div className="flex flex-col items-end">
+                                                                <span className={`font-bold text-base tabular-nums ${entry.amount >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                                                    {entry.amount >= 0 ? "+" : ""}
+                                                                    {formatCurrency(entry.amount)}
+                                                                </span>
+                                                                {entry.details?.currentPayment?.method && (
+                                                                    <span className="text-[10px] text-muted-foreground opacity-70">via {entry.details.currentPayment.method}</span>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-4 text-right align-top">
+                                                            <span className={`font-bold text-sm tabular-nums ${entry.balance >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                                                                {formatCurrency(entry.balance)}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
             </div>
-
-            {/* Filters */}
-            <Card className="border shadow-sm">
-                <CardHeader className="bg-muted border-b">
-                    <CardTitle className="flex items-center gap-2 text-xl text-foreground">
-                        <Filter className="h-5 w-5 text-primary" />
-                        Filters & Search
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-6">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                            <Label className="font-medium">Transaction Type</Label>
-                            <Select value={filterType} onValueChange={setFilterType}>
-                                <SelectTrigger className="h-11 border-2">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Types</SelectItem>
-                                    <SelectItem value="sale">Sales (+)</SelectItem>
-                                    <SelectItem value="payment">Collections (+)</SelectItem>
-                                    <SelectItem value="purchase">Purchases (-)</SelectItem>
-                                    <SelectItem value="expense">Expenses (-)</SelectItem>
-                                    <SelectItem value="return">Returns (-)</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label className="font-medium">Category</Label>
-                            <Select value={filterCategory} onValueChange={setFilterCategory}>
-                                <SelectTrigger className="h-11 border-2">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Categories</SelectItem>
-                                    {categories.map(category => (
-                                        <SelectItem key={category} value={category}>{category}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label className="font-medium">GST Type</Label>
-                            <Select value={gstFilter} onValueChange={setGstFilter}>
-                                <SelectTrigger className="h-11 border-2">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Transactions</SelectItem>
-                                    <SelectItem value="gst">GST Transactions</SelectItem>
-                                    <SelectItem value="non-gst">Non-GST Transactions</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                        <div className="space-y-2">
-                            <Label className="font-medium">Start Date</Label>
-                            <Input
-                                type="date"
-                                value={dateRange.start}
-                                onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-                                className="h-11 border-2"
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label className="font-medium">End Date</Label>
-                            <Input
-                                type="date"
-                                value={dateRange.end}
-                                onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-                                className="h-11 border-2"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-3 mt-6">
-                        <Button
-                            variant="outline"
-                            size="default"
-                            onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                            className="gap-2 flex-1 sm:flex-none"
-                        >
-                            <ArrowUpDown className="h-4 w-4" />
-                            {sortOrder === 'asc' ? 'Old to New' : 'New to Old'}
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="default"
-                            onClick={() => {
-                                setFilterType('all');
-                                setFilterCategory('all');
-                                setGstFilter('all');
-                                setDateRange({ start: '', end: '' });
-                            }}
-                            className="gap-2 flex-1 sm:flex-none"
-                        >
-                            Clear Filters
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Transaction History */}
-            <Card className="border shadow-md">
-    <CardHeader className="bg-gradient-to-r from-blue-500/5 to-purple-500/5 border-b">
-        <CardTitle className="text-xl">Transaction History</CardTitle>
-        <p className="text-sm text-muted-foreground mt-1">
-            {filteredEntries.length}{" "}
-            {filteredEntries.length === 1 ? "entry" : "entries"}
-        </p>
-    </CardHeader>
-
-    <CardContent className="p-0">
-        {filteredEntries.length === 0 ? (
-            <div className="text-center py-12 px-4">
-                <BookOpen className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                <p className="text-lg font-medium text-foreground mb-2">
-                    No transactions found
-                </p>
-                <p className="text-sm text-muted-foreground">
-                    Try adjusting your filters to see more results
-                </p>
-            </div>
-        ) : (
-            /* 👇 SCROLL CONTAINER (MOBILE FIX) */
-            <div className="w-full overflow-x-auto">
-                <table className="w-full min-w-[850px] border-collapse">
-                    <thead className="bg-muted/50">
-                        <tr className="border-b">
-                            <th className="text-left p-4 font-semibold text-xs uppercase tracking-wider text-muted-foreground">
-                                Date
-                            </th>
-                            <th className="text-left p-4 font-semibold text-xs uppercase tracking-wider text-muted-foreground">
-                                Type
-                            </th>
-                            <th className="text-left p-4 font-semibold text-xs uppercase tracking-wider text-muted-foreground">
-                                Description
-                            </th>
-                            <th className="text-right p-4 font-semibold text-xs uppercase tracking-wider text-muted-foreground">
-                                Amount
-                            </th>
-                            <th className="text-right p-4 font-semibold text-xs uppercase tracking-wider text-muted-foreground">
-                                Balance
-                            </th>
-                        </tr>
-                    </thead>
-
-                    <tbody className="divide-y">
-                        {filteredEntries.map((entry) => (
-                            <tr
-                                key={entry.id}
-                                className="hover:bg-muted/30 transition-colors group"
-                            >
-                                <td className="p-4 align-top">
-                                    <div className="flex items-center gap-2">
-                                        <Calendar className="h-4 w-4 text-primary/60" />
-                                        <span className="text-sm font-medium whitespace-nowrap">
-                                            {formatDate(entry.date)}
-                                        </span>
-                                    </div>
-                                </td>
-
-                                <td className="p-4 align-top">
-                                    <div className="flex items-center gap-2">
-                                        <div className={`h-8 w-8 rounded-full flex items-center justify-center ${
-                                            entry.amount >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                                        }`}>
-                                            {getTypeIcon(entry.type)}
-                                        </div>
-                                        <Badge
-                                            className={`text-[10px] font-bold uppercase tracking-tighter ${getTypeBadgeColor(
-                                                entry.type
-                                            )}`}
-                                        >
-                                            {entry.type}
-                                        </Badge>
-                                    </div>
-                                </td>
-
-                                <td className="p-4 align-top max-w-[300px]">
-                                    <p className="text-sm font-semibold text-foreground leading-tight">
-                                        {entry.description}
-                                    </p>
-                                    <div className="flex flex-wrap gap-2 mt-1.5">
-                                        {entry.category && (
-                                            <Badge
-                                                variant="secondary"
-                                                className="text-[10px] py-0 h-4 px-1.5 font-normal bg-muted/50"
-                                            >
-                                                {entry.category}
-                                            </Badge>
-                                        )}
-                                        {entry.details?.billNumber && (
-                                            <span className="text-[10px] text-muted-foreground font-mono">
-                                                ID: {entry.details.billNumber}
-                                            </span>
-                                        )}
-                                    </div>
-                                </td>
-
-                                <td className="p-4 text-right align-top">
-                                    <div className="flex flex-col items-end">
-                                        <span
-                                            className={`font-bold text-base tabular-nums ${
-                                                entry.amount >= 0
-                                                    ? "text-green-600"
-                                                    : "text-red-600"
-                                            }`}
-                                        >
-                                            {entry.amount >= 0 ? "+" : ""}
-                                            {formatCurrency(entry.amount)}
-                                        </span>
-                                        {entry.details?.currentPayment?.method && (
-                                            <span className="text-[10px] text-muted-foreground opacity-70">
-                                                via {entry.details.currentPayment.method}
-                                            </span>
-                                        )}
-                                    </div>
-                                </td>
-
-                                <td className="p-4 text-right align-top">
-                                    <span className={`font-bold text-sm tabular-nums ${entry.balance >= 0 ? 'text-primary' : 'text-destructive'}`}>
-                                        {formatCurrency(entry.balance)}
-                                    </span>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        )}
-    </CardContent>
-</Card>
-
         </div>
     );
 }

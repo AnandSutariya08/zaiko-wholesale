@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { getVendors, saveVendor, deleteVendor, getPurchaseBills } from "@/lib/storage";
 import { Vendor, PurchaseBill } from "@/types";
-import { Plus, Edit, Trash2, Store, Eye, Loader2, Search, Receipt, History, Download, FileSpreadsheet, FileText, ArrowLeftRight, RotateCcw, TrendingDown } from "lucide-react";
+import { Plus, Edit, Trash2, Store, Eye, Search, Receipt, History, FileSpreadsheet, FileText, RotateCcw, TrendingDown, BadgeCheck, MapPin, Phone, Mail, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -52,7 +52,6 @@ export default function Vendors() {
   const [isOpen, setIsOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
   const [viewingVendor, setViewingVendor] = useState<Vendor | null>(null);
-  const [isViewOpen, setIsViewOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [historySearchQuery, setHistorySearchQuery] = useState("");
@@ -73,12 +72,12 @@ export default function Vendors() {
     loadPurchaseBills();
   }, []);
 
-  // Reload purchase bills whenever the dialog is opened to ensure fresh data
+  // Reload purchase bills whenever vendor detail view opens
   useEffect(() => {
-    if (isViewOpen && viewingVendor) {
+    if (viewingVendor) {
       loadPurchaseBills();
     }
-  }, [isViewOpen, viewingVendor]);
+  }, [viewingVendor]);
 
   const loadVendors = async () => {
     try {
@@ -298,16 +297,285 @@ export default function Vendors() {
 
   if (loading) return <LoadingSpinner size="xl" text="Loading vendors..." fullScreen contentAreaOnly />;
 
+  if (viewingVendor) {
+    const stats = getVendorStats(viewingVendor.id, viewingVendor.name);
+
+    return (
+      <div className="-mx-3 sm:-mx-4 md:-mx-6 lg:-mx-8 h-[calc(100dvh-8.5rem)] sm:h-[calc(100dvh-9.5rem)] px-2 sm:px-4 md:px-6 lg:px-8">
+        <div className="relative h-full w-full overflow-hidden rounded-[28px] border border-emerald-500/20 bg-gradient-to-br from-background via-background to-emerald-500/10 p-3 shadow-sm sm:p-5 lg:p-6">
+          <div className="pointer-events-none absolute -right-14 -top-16 h-40 w-40 rounded-full bg-emerald-500/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-20 -left-20 h-52 w-52 rounded-full bg-amber-500/10 blur-3xl" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/25 to-transparent" />
+          <div className="relative flex h-full min-h-0 flex-col">
+            <div className="rounded-2xl border border-border/70 bg-background/90 p-3 backdrop-blur sm:p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9 border-border/70 bg-background/90 sm:h-10 sm:w-10"
+                    onClick={() => setViewingVendor(null)}
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="min-w-0">
+                    <h1 className="truncate text-lg font-semibold leading-tight sm:text-2xl">{viewingVendor.name}</h1>
+                    <p className="text-xs text-muted-foreground sm:text-sm">Performance overview and transaction history</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="icon" onClick={() => downloadExcel(viewingVendor)} className="h-9 w-9 sm:h-10 sm:w-10" title="Export Excel">
+                    <FileSpreadsheet className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="icon" onClick={() => downloadPDF(viewingVendor)} className="h-9 w-9 sm:h-10 sm:w-10" title="Export PDF">
+                    <FileText className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 flex-1 min-h-0 rounded-2xl border border-border/70 bg-background/60 p-2 sm:p-3">
+              <div className="h-full overflow-y-auto space-y-5 pr-1 sm:pr-2">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <Card className="bg-primary/5 border-primary/20 shadow-sm">
+                <CardContent className="p-3">
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Purchases</p>
+                  <p className="text-lg font-bold truncate">{formatCurrency(stats.totalPurchase)}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">{stats.billCount} Bills</p>
+                </CardContent>
+              </Card>
+              <Card className="bg-emerald-50 border-emerald-100 shadow-sm">
+                <CardContent className="p-3">
+                  <p className="text-[10px] text-emerald-600 uppercase font-bold tracking-wider">Paid</p>
+                  <p className="text-lg font-bold text-emerald-700 truncate">{formatCurrency(stats.totalPaid)}</p>
+                </CardContent>
+              </Card>
+              <Card className="bg-orange-50 border-orange-100 shadow-sm">
+                <CardContent className="p-3">
+                  <p className="text-[10px] text-orange-600 uppercase font-bold tracking-wider">Pending</p>
+                  <p className="text-lg font-bold text-orange-700 truncate">{formatCurrency(stats.pendingAmount)}</p>
+                </CardContent>
+              </Card>
+              <Card className="bg-blue-50 border-blue-100 shadow-sm">
+                <CardContent className="p-3">
+                  <p className="text-[10px] text-blue-600 uppercase font-bold tracking-wider">Returns</p>
+                  <p className="text-lg font-bold text-blue-700 truncate">{formatCurrency(stats.totalReturn)}</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 border rounded-xl bg-muted/30 space-y-3">
+                <div className="flex items-start gap-3">
+                  <Store className="h-5 w-5 text-primary mt-0.5" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Vendor Info</p>
+                    <p className="font-bold text-base truncate">{viewingVendor.name}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{viewingVendor.address || "No address provided"}</p>
+                    {viewingVendor.gstin && (
+                      <div className="mt-2 inline-flex items-center px-2 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-mono font-bold">
+                        GST: {viewingVendor.gstin}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 border rounded-xl bg-muted/30 space-y-3">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Contact Details</p>
+                <div className="grid grid-cols-1 gap-2">
+                  <div className="flex items-center justify-between py-1 border-b border-dashed border-muted-foreground/20">
+                    <span className="text-sm text-muted-foreground">Phone</span>
+                    <span className="text-sm font-bold">{viewingVendor.phone || "N/A"}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-1">
+                    <span className="text-sm text-muted-foreground">Email</span>
+                    <span className="text-sm font-bold truncate ml-4">{viewingVendor.email || "N/A"}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <Tabs defaultValue="bills" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 h-11 p-1 bg-muted/50 rounded-lg">
+                <TabsTrigger value="bills" className="rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                  <Receipt className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Purchase Bills</span>
+                  <span className="sm:hidden">Bills</span>
+                </TabsTrigger>
+                <TabsTrigger value="transactions" className="rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                  <History className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Transactions</span>
+                  <span className="sm:hidden">History</span>
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="bills" className="mt-4 focus-visible:outline-none">
+                <div className="space-y-3">
+                  {(() => {
+                    const term = viewingVendor.name.toLowerCase().trim();
+                    const filteredBills = purchaseBills.filter(b =>
+                      (b.vendorId && b.vendorId === viewingVendor.id) ||
+                      (b.vendorName && b.vendorName.toLowerCase().trim() === term)
+                    );
+
+                    if (filteredBills.length === 0) {
+                      return (
+                        <div className="text-center py-10 border-2 border-dashed rounded-xl">
+                          <Receipt className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" />
+                          <p className="text-muted-foreground font-medium">No purchase bills found</p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="grid grid-cols-1 gap-3">
+                        {filteredBills.map(bill => {
+                          const totalReturns = (bill.returns || []).reduce((sum, r) => sum + r.totalReturnValue, 0);
+                          const netTotal = bill.total - totalReturns;
+                          const paidAmount = bill.paidAmount || 0;
+                          const remainingAmount = netTotal - paidAmount;
+
+                          let currentStatus = bill.paymentStatus;
+                          if (remainingAmount < 0) currentStatus = 'overpaid';
+                          else if (remainingAmount === 0) currentStatus = 'paid';
+                          else if (paidAmount > 0) currentStatus = 'partial';
+                          else if (bill.dueDate && new Date(bill.dueDate) < new Date()) currentStatus = 'overdue';
+                          else currentStatus = 'pending';
+
+                          return (
+                            <Card key={bill.id} className="overflow-hidden border-muted-foreground/10 hover:border-primary/30 transition-colors shadow-none">
+                              <div className="p-4 sm:p-5">
+                                <div className="flex justify-between items-start mb-3">
+                                  <div className="min-w-0">
+                                    <p className="font-bold text-sm truncate">#{bill.billNumber || "N/A"}</p>
+                                    <p className="text-xs text-muted-foreground">{formatDate(bill.billDate || bill.createdAt)}</p>
+                                  </div>
+                                  <Badge variant={
+                                    currentStatus === 'paid' ? 'default' :
+                                    currentStatus === 'overdue' || currentStatus === 'overpaid' ? 'destructive' :
+                                    currentStatus === 'partial' ? 'secondary' : 'outline'
+                                  } className="text-[10px] px-2 py-0">
+                                    {currentStatus.toUpperCase()}
+                                  </Badge>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Net Total</p>
+                                    <p className="text-sm font-bold">{formatCurrency(netTotal)}</p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Paid</p>
+                                    <p className="text-sm font-bold text-emerald-600">{formatCurrency(paidAmount)}</p>
+                                  </div>
+                                </div>
+                                <div className="mt-4 pt-3 border-t flex justify-between items-center">
+                                  <div className="text-[10px] text-muted-foreground italic">
+                                    Balance: {formatCurrency(remainingAmount)}
+                                  </div>
+                                  <Button variant="ghost" size="sm" className="h-7 text-xs font-bold text-primary px-3" onClick={() => navigate(`/purchases?id=${bill.id}`)}>
+                                    Details
+                                  </Button>
+                                </div>
+                              </div>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="transactions" className="mt-4 focus-visible:outline-none">
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input placeholder="Search payments..." value={historySearchQuery} onChange={(e) => setHistorySearchQuery(e.target.value)} className="pl-9 h-10" />
+                    </div>
+                    <div className="flex gap-2">
+                      <Input type="date" value={dateFilter.start} onChange={(e) => setDateFilter({ ...dateFilter, start: e.target.value })} className="h-10 text-xs sm:text-sm" />
+                      <Input type="date" value={dateFilter.end} onChange={(e) => setDateFilter({ ...dateFilter, end: e.target.value })} className="h-10 text-xs sm:text-sm" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {(() => {
+                      const transactions = getVendorTransactions(viewingVendor.id, viewingVendor.name);
+
+                      if (transactions.length === 0) {
+                        return (
+                          <div className="text-center py-10 border-2 border-dashed rounded-xl">
+                            <History className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" />
+                            <p className="text-muted-foreground font-medium">No transaction history found</p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="grid grid-cols-1 gap-3">
+                          {transactions.map(tx => (
+                            <Card key={tx.id} className="shadow-none border-muted-foreground/10">
+                              <CardContent className="p-4">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex gap-3 min-w-0">
+                                    <div className={cn(
+                                      "h-10 w-10 rounded-full flex items-center justify-center shrink-0",
+                                      tx.isRefund ? "bg-blue-100 text-blue-600" : "bg-emerald-100 text-emerald-600"
+                                    )}>
+                                      {tx.isRefund ? <RotateCcw className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="font-bold text-sm truncate">{tx.type}</p>
+                                      <p className="text-xs text-muted-foreground line-clamp-1">{tx.reference}</p>
+                                      <div className="flex items-center gap-2 mt-1">
+                                        <Badge variant="outline" className="text-[9px] font-mono px-1.5 h-4">
+                                          {tx.method || "CASH"}
+                                        </Badge>
+                                        <span className="text-[10px] text-muted-foreground font-medium">{formatDate(tx.date)}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className={cn(
+                                      "text-base font-bold",
+                                      tx.isRefund ? "text-blue-600" : "text-emerald-600"
+                                    )}>
+                                      {tx.isRefund ? "+" : "-"}{formatCurrency(tx.amount)}
+                                    </p>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6 p-4">
+    <div className="-mx-3 h-[calc(100dvh-8.5rem)] overflow-hidden px-2 sm:-mx-4 sm:h-[calc(100dvh-9.5rem)] sm:px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
+      <div className="relative flex h-full min-h-0 flex-col rounded-[28px] border border-border/70 bg-background p-3 shadow-sm sm:p-5 lg:p-6">
+      <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background/95 p-3 backdrop-blur sm:p-4">
       <div className="page-header-controls">
         <div className="page-header-title">
           <div className="page-header-icon">
             <Store className="h-5 w-5 md:h-6 md:w-6" />
           </div>
           <div>
-          <h1 className="page-title">Vendors</h1>
-          <p className="page-subtitle">Manage your supply chain</p>
+            <h1 className="page-title">Vendors</h1>
+            <p className="page-subtitle">Manage your supply chain</p>
           </div>
         </div>
         <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
@@ -347,6 +615,10 @@ export default function Vendors() {
           </DialogContent>
         </Dialog>
       </div>
+      </div>
+
+      <div className="mt-4 flex-1 min-h-0 rounded-2xl border border-border/70 bg-background/60 p-2 sm:p-3">
+      <div className="h-full overflow-y-auto space-y-6 pr-1 sm:pr-2">
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -355,15 +627,53 @@ export default function Vendors() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filteredVendors.map((vendor) => (
-          <Card key={vendor.id}>
-            <CardHeader>
-              <CardTitle className="flex justify-between items-center">
-                <span>{vendor.name}</span>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" onClick={() => { setViewingVendor(vendor); setIsViewOpen(true); }}><Eye className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleEdit(vendor)}><Edit className="h-4 w-4" /></Button>
+          <Card
+            key={vendor.id}
+            className="group relative overflow-hidden border-border/70 bg-gradient-to-br from-background via-background to-emerald-500/5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+          >
+            <div className="pointer-events-none absolute -right-12 -top-12 h-28 w-28 rounded-full bg-emerald-500/10 blur-2xl" />
+            <div className="pointer-events-none absolute -bottom-16 -left-16 h-32 w-32 rounded-full bg-amber-500/10 blur-2xl" />
+            <CardHeader className="relative pb-3">
+              <CardTitle className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex items-start gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-700 ring-1 ring-emerald-500/20">
+                    <Store className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-base font-semibold leading-tight">{vendor.name}</p>
+                    <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                      <BadgeCheck className="h-3.5 w-3.5" />
+                      Vendor Profile
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-1 rounded-xl border border-border/60 bg-background/85 p-1 backdrop-blur">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-700"
+                    onClick={() => setViewingVendor(vendor)}
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-700"
+                    onClick={() => handleEdit(vendor)}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
                   <AlertDialog>
-                    <AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader><AlertDialogTitle>Delete Vendor</AlertDialogTitle><AlertDialogDescription>Are you sure you want to delete {vendor.name}?</AlertDialogDescription></AlertDialogHeader>
                       <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(vendor.id)}>Delete</AlertDialogAction></AlertDialogFooter>
@@ -372,266 +682,51 @@ export default function Vendors() {
                 </div>
               </CardTitle>
             </CardHeader>
-            <CardContent className="text-sm space-y-1">
-              <p className="text-muted-foreground">{vendor.address}</p>
-              {vendor.gstin && <p>GSTIN: {vendor.gstin}</p>}
-              {vendor.phone && <p>Phone: {vendor.phone}</p>}
+            <CardContent className="relative space-y-3 pt-0 text-sm">
+              {vendor.address && (
+                <div className="rounded-xl border border-border/60 bg-muted/30 p-3">
+                  <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <MapPin className="h-3.5 w-3.5" />
+                    Address
+                  </p>
+                  <p className="text-sm leading-relaxed text-foreground/90">{vendor.address}</p>
+                </div>
+              )}
+              <div className="space-y-2 rounded-xl border border-border/60 bg-background/70 p-3">
+                {vendor.gstin && (
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">GSTIN</span>
+                    <span className="max-w-[60%] truncate rounded-md bg-emerald-500/10 px-2 py-0.5 font-mono text-xs text-emerald-700">
+                      {vendor.gstin}
+                    </span>
+                  </div>
+                )}
+                {vendor.phone && (
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="inline-flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      <Phone className="h-3 w-3" />
+                      Phone
+                    </span>
+                    <span className="truncate text-xs font-medium">{vendor.phone}</span>
+                  </div>
+                )}
+                {vendor.email && (
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="inline-flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      <Mail className="h-3 w-3" />
+                      Email
+                    </span>
+                    <span className="max-w-[65%] truncate text-xs font-medium">{vendor.email}</span>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         ))}
       </div>
-
-      {viewingVendor && (
-        <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-          <DialogContent className="dialog-form-content max-w-4xl p-0 flex flex-col h-[90vh] sm:h-[85vh]">
-            <DialogHeader className="dialog-form-header shrink-0 flex flex-row items-center justify-between px-4 py-3 border-b">
-              <DialogTitle className="text-base font-semibold truncate">
-                {viewingVendor.name}
-              </DialogTitle>
-              <div className="flex gap-2 mr-8">
-                <Button variant="outline" size="icon" onClick={() => downloadExcel(viewingVendor)} className="h-8 w-8" title="Export Excel">
-                  <FileSpreadsheet className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="icon" onClick={() => downloadPDF(viewingVendor)} className="h-8 w-8" title="Export PDF">
-                  <FileText className="h-4 w-4" />
-                </Button>
-              </div>
-            </DialogHeader>
-
-            <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-hide">
-              {/* Stats Grid - Responsive */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <Card className="bg-primary/5 border-primary/20 shadow-none">
-                  <CardContent className="p-3">
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Purchases</p>
-                    <p className="text-lg font-bold truncate">{formatCurrency(getVendorStats(viewingVendor.id, viewingVendor.name).totalPurchase)}</p>
-                    <p className="text-[10px] text-muted-foreground truncate">{getVendorStats(viewingVendor.id, viewingVendor.name).billCount} Bills</p>
-                  </CardContent>
-                </Card>
-                <Card className="bg-emerald-50 border-emerald-100 shadow-none">
-                  <CardContent className="p-3">
-                    <p className="text-[10px] text-emerald-600 uppercase font-bold tracking-wider">Paid</p>
-                    <p className="text-lg font-bold text-emerald-700 truncate">{formatCurrency(getVendorStats(viewingVendor.id, viewingVendor.name).totalPaid)}</p>
-                  </CardContent>
-                </Card>
-                <Card className="bg-orange-50 border-orange-100 shadow-none">
-                  <CardContent className="p-3">
-                    <p className="text-[10px] text-orange-600 uppercase font-bold tracking-wider">Pending</p>
-                    <p className="text-lg font-bold text-orange-700 truncate">{formatCurrency(getVendorStats(viewingVendor.id, viewingVendor.name).pendingAmount)}</p>
-                  </CardContent>
-                </Card>
-                <Card className="bg-blue-50 border-blue-100 shadow-none">
-                  <CardContent className="p-3">
-                    <p className="text-[10px] text-blue-600 uppercase font-bold tracking-wider">Returns</p>
-                    <p className="text-lg font-bold text-blue-700 truncate">{formatCurrency(getVendorStats(viewingVendor.id, viewingVendor.name).totalReturn)}</p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Info Section - Mobile Optimized */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 border rounded-xl bg-muted/30 space-y-3">
-                  <div className="flex items-start gap-3">
-                    <Store className="h-5 w-5 text-primary mt-0.5" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Vendor Info</p>
-                      <p className="font-bold text-base truncate">{viewingVendor.name}</p>
-                      <p className="text-sm text-muted-foreground line-clamp-2">{viewingVendor.address || "No address provided"}</p>
-                      {viewingVendor.gstin && (
-                        <div className="mt-2 inline-flex items-center px-2 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-mono font-bold">
-                          GST: {viewingVendor.gstin}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-4 border rounded-xl bg-muted/30 space-y-3">
-                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Contact Details</p>
-                  <div className="grid grid-cols-1 gap-2">
-                    <div className="flex items-center justify-between py-1 border-b border-dashed border-muted-foreground/20">
-                      <span className="text-sm text-muted-foreground">Phone</span>
-                      <span className="text-sm font-bold">{viewingVendor.phone || "N/A"}</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1">
-                      <span className="text-sm text-muted-foreground">Email</span>
-                      <span className="text-sm font-bold truncate ml-4">{viewingVendor.email || "N/A"}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Tabs with scrollable content */}
-              <Tabs defaultValue="bills" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 h-11 p-1 bg-muted/50 rounded-lg">
-                  <TabsTrigger value="bills" className="rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                    <Receipt className="h-4 w-4 mr-2" /> 
-                    <span className="hidden sm:inline">Purchase Bills</span>
-                    <span className="sm:hidden">Bills</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="transactions" className="rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                    <History className="h-4 w-4 mr-2" /> 
-                    <span className="hidden sm:inline">Transactions</span>
-                    <span className="sm:hidden">History</span>
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="bills" className="mt-4 focus-visible:outline-none">
-                  <div className="space-y-3">
-                    {(() => {
-                      const term = viewingVendor.name.toLowerCase().trim();
-                      const filteredBills = purchaseBills.filter(b => 
-                        (b.vendorId && b.vendorId === viewingVendor.id) || 
-                        (b.vendorName && b.vendorName.toLowerCase().trim() === term)
-                      );
-                      
-                      if (filteredBills.length === 0) {
-                        return (
-                          <div className="text-center py-10 border-2 border-dashed rounded-xl">
-                            <Receipt className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" />
-                            <p className="text-muted-foreground font-medium">No purchase bills found</p>
-                          </div>
-                        );
-                      }
-
-                      return (
-                        <div className="grid grid-cols-1 gap-3">
-                          {filteredBills.map(bill => {
-                            const totalReturns = (bill.returns || []).reduce((sum, r) => sum + r.totalReturnValue, 0);
-                            const netTotal = bill.total - totalReturns;
-                            const paidAmount = bill.paidAmount || 0;
-                            const remainingAmount = netTotal - paidAmount;
-                            
-                            let currentStatus = bill.paymentStatus;
-                            if (remainingAmount < 0) currentStatus = 'overpaid';
-                            else if (remainingAmount === 0) currentStatus = 'paid';
-                            else if (paidAmount > 0) currentStatus = 'partial';
-                            else if (bill.dueDate && new Date(bill.dueDate) < new Date()) currentStatus = 'overdue';
-                            else currentStatus = 'pending';
-
-                            return (
-                              <Card key={bill.id} className="overflow-hidden border-muted-foreground/10 hover:border-primary/30 transition-colors shadow-none">
-                                <div className="p-4 sm:p-5">
-                                  <div className="flex justify-between items-start mb-3">
-                                    <div className="min-w-0">
-                                      <p className="font-bold text-sm truncate">#{bill.billNumber || "N/A"}</p>
-                                      <p className="text-xs text-muted-foreground">{formatDate(bill.billDate || bill.createdAt)}</p>
-                                    </div>
-                                    <Badge variant={
-                                      currentStatus === 'paid' ? 'default' : 
-                                      currentStatus === 'overdue' || currentStatus === 'overpaid' ? 'destructive' : 
-                                      currentStatus === 'partial' ? 'secondary' : 'outline'
-                                    } className="text-[10px] px-2 py-0">
-                                      {currentStatus.toUpperCase()}
-                                    </Badge>
-                                  </div>
-                                  <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                      <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Net Total</p>
-                                      <p className="text-sm font-bold">{formatCurrency(netTotal)}</p>
-                                    </div>
-                                    <div className="text-right">
-                                      <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Paid</p>
-                                      <p className="text-sm font-bold text-emerald-600">{formatCurrency(paidAmount)}</p>
-                                    </div>
-                                  </div>
-                                  <div className="mt-4 pt-3 border-t flex justify-between items-center">
-                                    <div className="text-[10px] text-muted-foreground italic">
-                                      Balance: {formatCurrency(remainingAmount)}
-                                    </div>
-                                    <Button variant="ghost" size="sm" className="h-7 text-xs font-bold text-primary px-3" onClick={() => navigate(`/purchases?id=${bill.id}`)}>
-                                      Details
-                                    </Button>
-                                  </div>
-                                </div>
-                              </Card>
-                            );
-                          })}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="transactions" className="mt-4 focus-visible:outline-none">
-                  <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input placeholder="Search payments..." value={historySearchQuery} onChange={(e) => setHistorySearchQuery(e.target.value)} className="pl-9 h-10" />
-                      </div>
-                      <div className="flex gap-2">
-                        <Input type="date" value={dateFilter.start} onChange={(e) => setDateFilter({ ...dateFilter, start: e.target.value })} className="h-10 text-xs sm:text-sm" />
-                        <Input type="date" value={dateFilter.end} onChange={(e) => setDateFilter({ ...dateFilter, end: e.target.value })} className="h-10 text-xs sm:text-sm" />
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      {(() => {
-                        const transactions = getVendorTransactions(viewingVendor.id, viewingVendor.name);
-                        
-                        if (transactions.length === 0) {
-                          return (
-                            <div className="text-center py-10 border-2 border-dashed rounded-xl">
-                              <History className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" />
-                              <p className="text-muted-foreground font-medium">No transaction history found</p>
-                            </div>
-                          );
-                        }
-
-                        return (
-                          <div className="grid grid-cols-1 gap-3">
-                            {transactions.map(tx => (
-                              <Card key={tx.id} className="shadow-none border-muted-foreground/10">
-                                <CardContent className="p-4">
-                                  <div className="flex items-start justify-between">
-                                    <div className="flex gap-3 min-w-0">
-                                      <div className={cn(
-                                        "h-10 w-10 rounded-full flex items-center justify-center shrink-0",
-                                        tx.isRefund ? "bg-blue-100 text-blue-600" : "bg-emerald-100 text-emerald-600"
-                                      )}>
-                                        {tx.isRefund ? <RotateCcw className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
-                                      </div>
-                                      <div className="min-w-0">
-                                        <p className="font-bold text-sm truncate">{tx.type}</p>
-                                        <p className="text-xs text-muted-foreground line-clamp-1">{tx.reference}</p>
-                                        <div className="flex items-center gap-2 mt-1">
-                                          <Badge variant="outline" className="text-[9px] font-mono px-1.5 h-4">
-                                            {tx.method || "CASH"}
-                                          </Badge>
-                                          <span className="text-[10px] text-muted-foreground font-medium">{formatDate(tx.date)}</span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <div className="text-right">
-                                      <p className={cn(
-                                        "text-base font-bold",
-                                        tx.isRefund ? "text-blue-600" : "text-emerald-600"
-                                      )}>
-                                        {tx.isRefund ? "+" : "-"}{formatCurrency(tx.amount)}
-                                      </p>
-                                    </div>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            ))}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </div>
-
-            <div className="dialog-form-footer shrink-0 flex justify-end gap-2 p-4 border-t bg-muted/20">
-              <Button variant="outline" onClick={() => setIsViewOpen(false)} className="h-10 px-6 font-bold">
-                Close
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+      </div>
+      </div>
+      </div>
     </div>
   );
 }

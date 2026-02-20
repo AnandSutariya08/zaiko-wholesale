@@ -118,7 +118,9 @@ export default function NonGSTBill() {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6 pb-4">
+    <div className="-mx-3 h-[calc(100dvh-8.5rem)] overflow-hidden px-2 sm:-mx-4 sm:h-[calc(100dvh-9.5rem)] sm:px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
+      <div className="relative flex h-full min-h-0 flex-col rounded-[28px] border border-border/70 bg-background p-3 shadow-sm sm:p-5 lg:p-6">
+      <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background/95 p-3 backdrop-blur sm:p-4">
       <div className="page-header-controls">
         <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
           <Button
@@ -152,6 +154,10 @@ export default function NonGSTBill() {
           Create Non-GST Bill
         </Button>
       </div>
+      </div>
+
+      <div className="mt-4 flex-1 min-h-0 rounded-2xl border border-border/70 bg-background/60 p-2 sm:p-3">
+      <div className="h-full overflow-y-auto space-y-4 md:space-y-6 pr-1 sm:pr-2">
 
       <Card className="border shadow-sm">
         <CardContent className="pt-4 px-3 sm:px-4">
@@ -340,6 +346,9 @@ export default function NonGSTBill() {
           onPaymentCollected={handlePaymentCollected}
         />
       )}
+      </div>
+      </div>
+      </div>
     </div>
   );
 }
