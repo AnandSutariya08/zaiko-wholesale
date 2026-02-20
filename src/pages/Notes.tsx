@@ -158,7 +158,7 @@ export default function Notes() {
   }, []);
 
   return (
-    <div className="-mx-3 px-2 sm:-mx-4 sm:px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:h-[calc(100dvh-9.5rem)] lg:px-8">
+    <div className="w-full lg:h-[calc(100dvh-9.5rem)]">
       <div className="relative flex flex-col rounded-[28px] border border-border/70 bg-gradient-to-b from-background to-muted/20 p-3 shadow-sm sm:p-5 lg:h-full lg:min-h-0 lg:overflow-hidden lg:p-6">
       {/* Header */}
       <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background/95 p-3 shadow-sm backdrop-blur sm:p-4">

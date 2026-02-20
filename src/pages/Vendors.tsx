@@ -301,7 +301,7 @@ export default function Vendors() {
     const stats = getVendorStats(viewingVendor.id, viewingVendor.name);
 
     return (
-      <div className="-mx-3 sm:-mx-4 md:-mx-6 lg:-mx-8 h-[calc(100dvh-8.5rem)] sm:h-[calc(100dvh-9.5rem)] px-2 sm:px-4 md:px-6 lg:px-8">
+      <div className="h-[calc(100dvh-8.5rem)] w-full overflow-hidden sm:h-[calc(100dvh-9.5rem)]">
         <div className="relative h-full w-full overflow-hidden rounded-[28px] border border-emerald-500/20 bg-gradient-to-br from-background via-background to-emerald-500/10 p-3 shadow-sm sm:p-5 lg:p-6">
           <div className="pointer-events-none absolute -right-14 -top-16 h-40 w-40 rounded-full bg-emerald-500/10 blur-3xl" />
           <div className="pointer-events-none absolute -bottom-20 -left-20 h-52 w-52 rounded-full bg-amber-500/10 blur-3xl" />
@@ -565,7 +565,7 @@ export default function Vendors() {
   }
 
   return (
-    <div className="-mx-3 h-[calc(100dvh-8.5rem)] overflow-hidden px-2 sm:-mx-4 sm:h-[calc(100dvh-9.5rem)] sm:px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
+    <div className="h-[calc(100dvh-8.5rem)] w-full overflow-hidden sm:h-[calc(100dvh-9.5rem)]">
       <div className="relative flex h-full min-h-0 flex-col rounded-[28px] border border-border/70 bg-background p-3 shadow-sm sm:p-5 lg:p-6">
       <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background/95 p-3 backdrop-blur sm:p-4">
       <div className="page-header-controls">
