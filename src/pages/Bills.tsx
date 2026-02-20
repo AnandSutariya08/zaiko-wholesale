@@ -228,7 +228,9 @@ export default function Bills() {
   }
 
   return (
-    <div className="space-y-4 p-3 sm:p-4 w-full max-w-full overflow-x-hidden">
+    <div className="-mx-3 h-[calc(100dvh-8.5rem)] overflow-hidden px-2 sm:-mx-4 sm:h-[calc(100dvh-9.5rem)] sm:px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
+      <div className="relative flex h-full min-h-0 flex-col rounded-[28px] border border-border/70 bg-background p-3 shadow-sm sm:p-5 lg:p-6">
+      <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background/95 p-3 backdrop-blur sm:p-4">
       <div className="page-header-controls">
         <div className="page-header-title min-w-0 flex-1">
           <div className="page-header-icon">
@@ -253,6 +255,10 @@ export default function Bills() {
           </Label>
         </div> */}
       </div>
+      </div>
+
+      <div className="mt-4 flex-1 min-h-0 rounded-2xl border border-border/70 bg-background/60 p-2 sm:p-3">
+      <div className="h-full overflow-y-auto space-y-4 pr-1 sm:pr-2">
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
@@ -607,6 +613,9 @@ export default function Bills() {
           onPaymentCollected={handlePaymentCollected}
         />
       )}
+      </div>
+      </div>
+      </div>
     </div>
   );
 }
