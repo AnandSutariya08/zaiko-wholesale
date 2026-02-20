@@ -322,6 +322,20 @@ function PurchaseBills() {
     loadCompanyProfile();
     loadProducts();
     loadVendors();
+
+    // Check for ID in URL to open detailed view
+    const params = new URLSearchParams(window.location.search);
+    const billId = params.get("id");
+    if (billId) {
+      const fetchAndOpenBill = async () => {
+        const data = await getPurchaseBills();
+        const bill = data.find((b) => b.id === billId);
+        if (bill) {
+          setSelectedBill(bill);
+        }
+      };
+      fetchAndOpenBill();
+    }
   }, []);
 
   const loadVendors = async () => {
