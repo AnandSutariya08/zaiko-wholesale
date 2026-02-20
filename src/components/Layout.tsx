@@ -523,13 +523,14 @@ export function Layout({ children }: LayoutProps) {
         </header>
         {/* Main Content */}
         <main
-          className="relative flex-1 overflow-y-auto overflow-x-hidden pb-20 sm:pb-6"
+          className="relative flex-1 overflow-y-auto overflow-x-hidden"
           style={{
             overscrollBehavior: "contain",
             WebkitOverflowScrolling: "touch",
+            scrollbarGutter: "stable both-edges",
           }}
         >
-          <div className="px-3 sm:px-4 md:px-6 lg:px-8 max-w-7xl mx-auto w-full py-4 sm:py-6 safe-area-inset-bottom">
+          <div className="p-3 sm:p-4 md:p-6 lg:p-8 w-full">
             {children}
           </div>
         </main>
