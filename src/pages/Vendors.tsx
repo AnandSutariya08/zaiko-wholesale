@@ -539,7 +539,7 @@ export default function Vendors() {
                                     <div className="text-[10px] text-muted-foreground italic">
                                       Balance: {formatCurrency(remainingAmount)}
                                     </div>
-                                    <Button variant="ghost" size="sm" className="h-7 text-xs font-bold text-primary px-3" onClick={() => navigate(`/purchase-bills?id=${bill.id}`)}>
+                                    <Button variant="ghost" size="sm" className="h-7 text-xs font-bold text-primary px-3" onClick={() => navigate(`/purchases?id=${bill.id}`)}>
                                       Details
                                     </Button>
                                   </div>
