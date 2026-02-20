@@ -322,6 +322,20 @@ function PurchaseBills() {
     loadCompanyProfile();
     loadProducts();
     loadVendors();
+
+    // Check for ID in URL to open detailed view
+    const params = new URLSearchParams(window.location.search);
+    const billId = params.get("id");
+    if (billId) {
+      const fetchAndOpenBill = async () => {
+        const data = await getPurchaseBills();
+        const bill = data.find((b) => b.id === billId);
+        if (bill) {
+          setSelectedBill(bill);
+        }
+      };
+      fetchAndOpenBill();
+    }
   }, []);
 
   const loadVendors = async () => {
@@ -1211,8 +1225,10 @@ function PurchaseBills() {
   }
 
   return (
-    <div className="space-y-6 p-4">
+    <div className="-mx-3 h-[calc(100dvh-8.5rem)] overflow-hidden px-2 sm:-mx-4 sm:h-[calc(100dvh-9.5rem)] sm:px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
+      <div className="relative flex h-full min-h-0 flex-col rounded-[28px] border border-border/70 bg-background p-3 shadow-sm sm:p-5 lg:p-6">
       {/* Header */}
+      <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background/95 p-3 backdrop-blur sm:p-4">
       <div className="page-header-controls">
         <div className="page-header-title">
           <div className="page-header-icon">
@@ -1276,6 +1292,10 @@ function PurchaseBills() {
           </Button>
         </div>
       </div>
+      </div>
+
+      <div className="mt-4 flex-1 min-h-0 rounded-2xl border border-border/70 bg-background/60 p-2 sm:p-3">
+      <div className="h-full overflow-y-auto space-y-6 pr-1 sm:pr-2">
 
       {/* Summary Tiles */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -3479,6 +3499,9 @@ function PurchaseBills() {
           </div>
         </DialogContent>
       </Dialog>
+      </div>
+      </div>
+      </div>
     </div>
   );
 }

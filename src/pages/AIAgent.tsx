@@ -46,12 +46,74 @@ interface LanguageOption {
   flag: string;
 }
 
+interface AnalysisOption {
+  key:
+    | "business_overview"
+    | "address_wise"
+    | "monthly"
+    | "product_wise"
+    | "client_wise"
+    | "sales"
+    | "purchase"
+    | "vendor";
+  label: string;
+  prompt: string;
+}
 const LANGUAGES: LanguageOption[] = [
-  { code: "english", label: "English", nativeLabel: "English", flag: "🇬🇧" },
-  { code: "hindi", label: "Hindi", nativeLabel: "हिंदी", flag: "🇮🇳" },
-  { code: "gujarati", label: "Gujarati", nativeLabel: "ગુજરાતી", flag: "🏵️" },
+  { code: "english", label: "English", nativeLabel: "English", flag: "EN" },
+  { code: "hindi", label: "Hindi", nativeLabel: "Hindi", flag: "HI" },
+  { code: "gujarati", label: "Gujarati", nativeLabel: "Gujarati", flag: "GU" },
 ];
-
+const ANALYSIS_OPTIONS: AnalysisOption[] = [
+  {
+    key: "business_overview",
+    label: "Bussiness overview",
+    prompt:
+      "Create a full business overview from the provided data.",
+  },
+  {
+    key: "address_wise",
+    label: "Address Vise analysis",
+    prompt:
+      "Create address-wise analysis from the provided data.",
+  },
+  {
+    key: "monthly",
+    label: "Monthly analysis",
+    prompt:
+      "Create month-wise analysis from the provided data.",
+  },
+  {
+    key: "product_wise",
+    label: "Product vise analysis",
+    prompt:
+      "Create product-wise analysis from the provided data.",
+  },
+  {
+    key: "client_wise",
+    label: "Client vise analysis",
+    prompt:
+      "Create client-wise analysis from the provided data.",
+  },
+  {
+    key: "sales",
+    label: "Sales Analysis",
+    prompt:
+      "Create sales analysis from the provided data.",
+  },
+  {
+    key: "purchase",
+    label: "Purchase analysis",
+    prompt:
+      "Create purchase analysis from the provided data.",
+  },
+  {
+    key: "vendor",
+    label: "Vendor Analysis",
+    prompt:
+      "Create vendor-wise analysis from the provided data.",
+  },
+];
 const SARVAM_API_URL = "https://api.sarvam.ai/v1/chat/completions";
 const getApiKey = () =>
   import.meta.env.VITE_SARVAM_API_KEY || "sk_cgklaer7_PyVfuZMemeppS9aL53Cvbldg";
@@ -150,6 +212,7 @@ export default function AIAgent() {
   const [isLoading, setIsLoading] = useState(false);
   const [isAnalyzed, setIsAnalyzed] = useState(false);
   const [rawBusinessData, setRawBusinessData] = useState<any>(null);
+  const [analysisSourceData, setAnalysisSourceData] = useState<any>(null);
   const [pdfData, setPdfData] = useState<string>("");
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [pdfReady, setPdfReady] = useState(false);
@@ -157,6 +220,7 @@ export default function AIAgent() {
   const [reportLanguage, setReportLanguage] =
     useState<ReportLanguage>("english");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const fullHistoryRef = useRef<Message[]>([]);
 
   const scrollToBottom = () => {
@@ -173,6 +237,381 @@ export default function AIAgent() {
   useEffect(() => {
     scrollToBottom();
   }, [displayMessages]);
+
+  const getMonthKey = (dateValue?: string) => {
+    if (!dateValue) return "unknown";
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return "unknown";
+    return date.toISOString().slice(0, 7);
+  };
+
+  const summarizeByMonth = (records: any[], dateKey: string, amountKey: string) => {
+    const monthMap = new Map<string, number>();
+    records.forEach((record) => {
+      const key = getMonthKey(record?.[dateKey]);
+      const amount = Number(record?.[amountKey] ?? 0);
+      monthMap.set(key, (monthMap.get(key) ?? 0) + amount);
+    });
+    return [...monthMap.entries()]
+      .map(([month, total]) => ({ month, total }))
+      .sort((a, b) => a.month.localeCompare(b.month));
+  };
+
+  const buildOptionDataPayload = (optionKey: AnalysisOption["key"]) => {
+    if (!analysisSourceData) return rawBusinessData;
+
+    const { processedData, bills, purchaseBills, expenses, products, clients } =
+      analysisSourceData;
+    const top = <T,>(arr: T[], count = 40) => arr.slice(0, count);
+
+    if (optionKey === "business_overview") {
+      return {
+        company: rawBusinessData?.company,
+        stats: rawBusinessData?.stats,
+        monthlyTrends: top(rawBusinessData?.monthlyTrends ?? [], 24),
+        topProducts: top(rawBusinessData?.productAnalytics?.topProductsByRevenue ?? [], 12),
+        topClients: top(rawBusinessData?.clientAnalytics?.topClientsByRevenue ?? [], 12),
+        summaryNotes: (processedData?.recommendations ?? []).slice(0, 8),
+      };
+    }
+
+    if (optionKey === "address_wise") {
+      const addressMap = new Map<
+        string,
+        { billCount: number; salesTotal: number; paidTotal: number; pendingTotal: number }
+      >();
+      bills.forEach((bill: any) => {
+        const address =
+          bill?.client?.billingAddress ||
+          bill?.client?.shippingAddress ||
+          "Unknown Address";
+        const total = Number(bill?.total ?? 0);
+        const paid = Number(bill?.paidAmount ?? 0);
+        const entry = addressMap.get(address) ?? {
+          billCount: 0,
+          salesTotal: 0,
+          paidTotal: 0,
+          pendingTotal: 0,
+        };
+        entry.billCount += 1;
+        entry.salesTotal += total;
+        entry.paidTotal += paid;
+        entry.pendingTotal += Math.max(0, total - paid);
+        addressMap.set(address, entry);
+      });
+
+      return {
+        addressSummary: top(
+          [...addressMap.entries()]
+          .map(([address, values]) => ({ address, ...values }))
+          .sort((a, b) => b.salesTotal - a.salesTotal),
+          50,
+        ),
+      };
+    }
+
+    if (optionKey === "monthly") {
+      return {
+        monthlySales: top(summarizeByMonth(bills, "date", "total"), 36),
+        monthlyPurchases: top(summarizeByMonth(purchaseBills, "billDate", "total"), 36),
+        monthlyExpenses: top(summarizeByMonth(expenses, "date", "amount"), 36),
+        monthlyTrends: top(rawBusinessData?.monthlyTrends ?? [], 36),
+      };
+    }
+
+    if (optionKey === "product_wise") {
+      const salesByProduct = new Map<string, { quantity: number; revenue: number }>();
+      bills.forEach((bill: any) => {
+        (bill?.items ?? []).forEach((item: any) => {
+          const name = item?.productName || "Unknown Product";
+          const quantity = Number(item?.quantity ?? 0);
+          const revenue = Number(item?.amount ?? 0);
+          const entry = salesByProduct.get(name) ?? { quantity: 0, revenue: 0 };
+          entry.quantity += quantity;
+          entry.revenue += revenue;
+          salesByProduct.set(name, entry);
+        });
+      });
+
+      return {
+        products: top((products ?? []).map((p: any) => ({
+          name: p?.name,
+          stock: p?.stock,
+          purchasePrice: p?.purchasePrice,
+          sellingPrice: p?.sellingPrice,
+        })), 80),
+        productSales: top(
+          [...salesByProduct.entries()]
+          .map(([name, values]) => ({ name, ...values }))
+          .sort((a, b) => b.revenue - a.revenue),
+          80,
+        ),
+      };
+    }
+
+    if (optionKey === "client_wise") {
+      const byClient = new Map<
+        string,
+        { billCount: number; totalSales: number; collected: number; pending: number }
+      >();
+      bills.forEach((bill: any) => {
+        const clientName = bill?.client?.name || "Unknown Client";
+        const total = Number(bill?.total ?? 0);
+        const paid = Number(bill?.paidAmount ?? 0);
+        const entry = byClient.get(clientName) ?? {
+          billCount: 0,
+          totalSales: 0,
+          collected: 0,
+          pending: 0,
+        };
+        entry.billCount += 1;
+        entry.totalSales += total;
+        entry.collected += paid;
+        entry.pending += Math.max(0, total - paid);
+        byClient.set(clientName, entry);
+      });
+
+      return {
+        registeredClients: top((clients ?? []).map((c: any) => ({
+          name: c?.name,
+          billingAddress: c?.billingAddress,
+          phone: c?.phone,
+        })), 80),
+        clientSalesSummary: top(
+          [...byClient.entries()]
+          .map(([clientName, values]) => ({ clientName, ...values }))
+          .sort((a, b) => b.totalSales - a.totalSales),
+          80,
+        ),
+      };
+    }
+
+    if (optionKey === "sales") {
+      return {
+        salesStats: {
+          totalRevenue: rawBusinessData?.stats?.totalRevenue ?? 0,
+          totalBills: rawBusinessData?.stats?.totalBills ?? 0,
+          pendingAmount: rawBusinessData?.stats?.pendingAmount ?? 0,
+          overdueBills: rawBusinessData?.stats?.overdueBills ?? 0,
+        },
+        recentBills: top((bills ?? [])
+          .slice()
+          .sort((a: any, b: any) => (b?.date || "").localeCompare(a?.date || ""))
+          .slice(0, 30)
+          .map((bill: any) => ({
+            date: bill?.date,
+            client: bill?.client?.name,
+            total: bill?.total,
+            paidAmount: bill?.paidAmount,
+            paymentStatus: bill?.paymentStatus,
+          })), 40),
+      };
+    }
+
+    if (optionKey === "purchase") {
+      return {
+        purchaseStats: {
+          totalPurchases: rawBusinessData?.stats?.totalPurchases ?? 0,
+          totalPurchaseBills: rawBusinessData?.stats?.totalPurchaseBills ?? 0,
+        },
+        recentPurchaseBills: top((purchaseBills ?? [])
+          .slice()
+          .sort((a: any, b: any) =>
+            (b?.billDate || b?.createdAt || "").localeCompare(a?.billDate || a?.createdAt || ""),
+          )
+          .slice(0, 30)
+          .map((bill: any) => ({
+            vendorName: bill?.vendorName,
+            billDate: bill?.billDate,
+            total: bill?.total,
+            paidAmount: bill?.paidAmount,
+            paymentStatus: bill?.paymentStatus,
+          })), 40),
+      };
+    }
+
+    if (optionKey === "vendor") {
+      const byVendor = new Map<
+        string,
+        { billCount: number; purchaseTotal: number; paidTotal: number; pendingTotal: number }
+      >();
+      purchaseBills.forEach((bill: any) => {
+        const vendorName = bill?.vendorName || "Unknown Vendor";
+        const total = Number(bill?.total ?? 0);
+        const paid = Number(bill?.paidAmount ?? 0);
+        const entry = byVendor.get(vendorName) ?? {
+          billCount: 0,
+          purchaseTotal: 0,
+          paidTotal: 0,
+          pendingTotal: 0,
+        };
+        entry.billCount += 1;
+        entry.purchaseTotal += total;
+        entry.paidTotal += paid;
+        entry.pendingTotal += Math.max(0, total - paid);
+        byVendor.set(vendorName, entry);
+      });
+
+      return {
+        vendorPurchaseSummary: top(
+          [...byVendor.entries()]
+          .map(([vendorName, values]) => ({ vendorName, ...values }))
+          .sort((a, b) => b.purchaseTotal - a.purchaseTotal),
+          80,
+        ),
+      };
+    }
+
+    return rawBusinessData;
+  };
+
+  const buildOptionPrompt = (option: AnalysisOption) => {
+    const sharedRules = `Rules:
+- Base your answer ONLY on the provided JSON data.
+- If some metric is missing, state "data not available" for that metric.
+- Keep the answer practical and action-oriented.
+- Use clear headings and bullet points.
+- Mention important numbers where possible.`;
+
+    const optionInstructions: Record<AnalysisOption["key"], string> = {
+      business_overview: `Task: Business Overview
+1. Business health summary (2-3 lines)
+2. Key strengths (top 3)
+3. Key risks/issues (top 3)
+4. Financial snapshot
+5. Priority action plan for next 30 days`,
+      address_wise: `Task: Address-wise Analysis
+1. Top addresses by sales
+2. Address-level pending/collection risk
+3. Underperforming addresses
+4. Opportunity addresses
+5. Address-specific action plan`,
+      monthly: `Task: Monthly Analysis
+1. Month-by-month trend summary
+2. Best and worst months (with reasons from data)
+3. Revenue vs expense vs purchase pattern
+4. Profitability movement
+5. Next month improvement plan`,
+      product_wise: `Task: Product-wise Analysis
+1. Top products by revenue
+2. Low-performing products
+3. Stock risk and deadstock signals
+4. Margin/price insight (if data available)
+5. Product-level action plan`,
+      client_wise: `Task: Client-wise Analysis
+1. Top clients by revenue
+2. High pending clients and risk
+3. Collection priority list
+4. Retention and upsell opportunities
+5. Client action plan`,
+      sales: `Task: Sales Analysis
+1. Sales performance summary
+2. Growth/decline trend
+3. Collection and overdue risk
+4. Pipeline/coverage insight (if possible)
+5. 30-day sales execution plan`,
+      purchase: `Task: Purchase Analysis
+1. Purchase trend summary
+2. Cost pressure and potential savings
+3. Purchase concentration risk
+4. Impact on margin/cashflow
+5. Purchase optimization plan`,
+      vendor: `Task: Vendor Analysis
+1. Top vendors by spend
+2. Vendor dependency risk
+3. Pending payable risk
+4. Reliability and negotiation insight
+5. Vendor management action plan`,
+    };
+
+    return `${option.prompt}
+
+${optionInstructions[option.key]}
+
+${sharedRules}`;
+  };
+
+  const compressPayload = (
+    value: any,
+    maxArrayItems: number,
+    maxObjectKeys: number,
+    maxDepth: number,
+    depth = 0,
+  ): any => {
+    if (value === null || value === undefined) return value;
+    if (typeof value !== "object") return value;
+    if (depth >= maxDepth) {
+      if (Array.isArray(value)) return { count: value.length };
+      return "[truncated]";
+    }
+
+    if (Array.isArray(value)) {
+      return value
+        .slice(0, maxArrayItems)
+        .map((item) =>
+          compressPayload(item, maxArrayItems, maxObjectKeys, maxDepth, depth + 1),
+        );
+    }
+
+    const entries = Object.entries(value).slice(0, maxObjectKeys);
+    return Object.fromEntries(
+      entries.map(([k, v]) => [
+        k,
+        compressPayload(v, maxArrayItems, maxObjectKeys, maxDepth, depth + 1),
+      ]),
+    );
+  };
+
+  const buildOptionPromptWithData = (
+    option: AnalysisOption,
+    optionData: any,
+    reductionLevel: number,
+  ) => {
+    const compressedData =
+      reductionLevel === 0
+        ? optionData
+        : reductionLevel === 1
+          ? compressPayload(optionData, 40, 30, 5)
+          : reductionLevel === 2
+            ? compressPayload(optionData, 20, 20, 4)
+            : compressPayload(optionData, 10, 12, 3);
+
+    const promptBase = buildOptionPrompt(option);
+    return `${promptBase}
+
+Use only the following filtered business data for this analysis:
+${JSON.stringify(compressedData, null, 2)}`;
+  };
+
+  const buildRequestMessages = (
+    history: Message[],
+    currentPrompt: string,
+    keepTurns: number,
+  ) => {
+    const systemMessage = history.find((m) => m.role === "system");
+    const convo = history.filter((m) => m.role !== "system");
+    const previous = convo.slice(0, Math.max(0, convo.length - 1));
+    const recent = previous.slice(-keepTurns * 2);
+    const messages: Message[] = [];
+
+    if (systemMessage) messages.push(systemMessage);
+    messages.push(...recent);
+    messages.push({ role: "user", content: currentPrompt });
+    return messages;
+  };
+
+  const isContextLimitError = (status: number, errorText: string) => {
+    const text = (errorText || "").toLowerCase();
+    return (
+      status === 413 ||
+      status === 414 ||
+      text.includes("token") ||
+      text.includes("context") ||
+      text.includes("maximum") ||
+      text.includes("too long") ||
+      text.includes("length")
+    );
+  };
 
   // ── Auto-analyse on mount ─────────────────────────────────────────────────
   useEffect(() => {
@@ -205,6 +644,19 @@ export default function AIAgent() {
         ]);
 
         const processedData = await getBusinessDataForAI();
+        setAnalysisSourceData({
+          processedData,
+          bills,
+          products,
+          purchaseBills,
+          expenses,
+          inventoryTransactions,
+          billReturns,
+          deadstock,
+          clients,
+          profile,
+          notes,
+        });
 
         setRawBusinessData({
           stats: {
@@ -267,46 +719,11 @@ export default function AIAgent() {
 Help the user understand their business situation and grow it using simple, clear language.
 Use emojis and short sentences. Always respond in the same language the user writes in.`,
         };
-
-        const initialUserMessage: Message = {
-          role: "user",
-          content: `Tell me how my business is doing and how to grow. Business data: ${JSON.stringify(processedData)}`,
-        };
-
-        fullHistoryRef.current = [systemMessage, initialUserMessage];
-
-        const response = await fetch(SARVAM_API_URL, {
-          method: "POST",
-          headers: {
-            "api-subscription-key": getApiKey(),
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "sarvam-m",
-            messages: fullHistoryRef.current,
-            temperature: 0.7,
-            max_tokens: 2000,
-          }),
-        });
-
-        if (!response.ok) throw new Error("AI Connection Failed");
-        const data = await response.json();
-
-        if (data?.choices?.[0]) {
-          const assistantMessage: Message = {
-            role: "assistant",
-            content: data.choices[0].message.content,
-          };
-          fullHistoryRef.current = [
-            ...fullHistoryRef.current,
-            assistantMessage,
-          ];
-          setDisplayMessages([assistantMessage]);
-          setIsAnalyzed(true);
-        }
+        fullHistoryRef.current = [systemMessage];
+        setIsAnalyzed(true);
       } catch (error) {
         console.error("Error:", error);
-        toast.error("AI Consultant is taking a break. Please retry.");
+        toast.error("Failed to prepare business analysis data.");
       } finally {
         setIsLoading(false);
       }
@@ -471,45 +888,116 @@ JSON structure:
   };
 
   // ── Send chat message ─────────────────────────────────────────────────────
+  const sendUserPrompt = async (
+    visibleText: string,
+    actualPrompt?: string,
+    optionForRetry?: AnalysisOption,
+    optionDataForRetry?: any,
+  ) => {
+    if (isLoading) return;
+
+    const promptText = (actualPrompt ?? visibleText).trim();
+    if (!promptText) return;
+
+    const userMsg: Message = { role: "user", content: visibleText };
+    setDisplayMessages((prev) => [...prev, userMsg]);
+    fullHistoryRef.current = [
+      ...fullHistoryRef.current,
+      { role: "user", content: promptText },
+    ];
+    setIsLoading(true);
+
+    try {
+      const historyWindows = [20, 12, 8, 4];
+      const maxTokenWindows = [1000, 800, 650, 500];
+      let assistantContent = "";
+      let lastError = "Message delivery failed.";
+
+      for (let level = 0; level < historyWindows.length; level++) {
+        const promptForAttempt =
+          optionForRetry && optionDataForRetry
+            ? buildOptionPromptWithData(optionForRetry, optionDataForRetry, level)
+            : promptText;
+        const messagesForAttempt = buildRequestMessages(
+          fullHistoryRef.current,
+          promptForAttempt,
+          historyWindows[level],
+        );
+
+        const response = await fetch(SARVAM_API_URL, {
+          method: "POST",
+          headers: {
+            "api-subscription-key": getApiKey(),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "sarvam-m",
+            messages: messagesForAttempt,
+            temperature: 0.7,
+            max_tokens: maxTokenWindows[level],
+          }),
+        });
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          const errText = String((err as any)?.message ?? `API error ${response.status}`);
+          lastError = errText;
+          if (isContextLimitError(response.status, errText) && level < historyWindows.length - 1) {
+            continue;
+          }
+          throw new Error(errText);
+        }
+
+        const data = await response.json();
+        assistantContent = String(data?.choices?.[0]?.message?.content ?? "").trim();
+        if (assistantContent) {
+          fullHistoryRef.current[fullHistoryRef.current.length - 1] = {
+            role: "user",
+            content: promptForAttempt,
+          };
+          break;
+        }
+      }
+
+      if (!assistantContent) {
+        throw new Error(lastError || "AI returned empty response.");
+      }
+
+      const assistantMessage: Message = {
+        role: "assistant",
+        content: assistantContent,
+      };
+      fullHistoryRef.current = [...fullHistoryRef.current, assistantMessage];
+      setDisplayMessages((prev) => [...prev, assistantMessage]);
+    } catch (error: any) {
+      console.error("AI message error:", error);
+      toast.error(
+        error?.message?.includes("token") || error?.message?.includes("context")
+          ? "Data was too large; retried with compact context but still failed."
+          : "Message delivery failed.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
-    const userMsg: Message = { role: "user", content: input };
-    setDisplayMessages((prev) => [...prev, userMsg]);
-    fullHistoryRef.current = [...fullHistoryRef.current, userMsg];
+    const text = input.trim();
     setInput("");
-    setIsLoading(true);
+    await sendUserPrompt(text);
+  };
 
-    try {
-      const response = await fetch(SARVAM_API_URL, {
-        method: "POST",
-        headers: {
-          "api-subscription-key": getApiKey(),
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "sarvam-m",
-          messages: fullHistoryRef.current,
-          temperature: 0.7,
-          max_tokens: 1000,
-        }),
-      });
+  const handleAnalysisOptionSelect = async (option: AnalysisOption) => {
+    const optionData = buildOptionDataPayload(option.key);
+    const contextualPrompt = buildOptionPromptWithData(option, optionData, 0);
+    await sendUserPrompt(option.label, contextualPrompt, option, optionData);
+  };
 
-      const data = await response.json();
-      if (data?.choices?.[0]) {
-        const assistantMessage: Message = {
-          role: "assistant",
-          content: data.choices[0].message.content,
-        };
-        fullHistoryRef.current = [...fullHistoryRef.current, assistantMessage];
-        setDisplayMessages((prev) => [...prev, assistantMessage]);
-      }
-    } catch {
-      toast.error("Message delivery failed.");
-    } finally {
-      setIsLoading(false);
-    }
+  const handleCustomOptionSelect = () => {
+    inputRef.current?.focus();
   };
 
   const currentLang = LANGUAGES.find((l) => l.code === reportLanguage);
@@ -524,9 +1012,9 @@ JSON structure:
         />
       )}
 
-      <div className="fixed inset-0 z-40 flex flex-col bg-slate-50 dark:bg-zinc-950 font-sans">
+      <div className="relative flex h-[calc(100dvh-9.5rem)] min-h-[36rem] flex-col overflow-hidden rounded-[28px] border border-border bg-background shadow-sm">
         {/* ── Header ──────────────────────────────────────────── */}
-        <div className="sticky top-0 z-30 border-b bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl px-4 md:px-8 py-3 flex items-center justify-between shadow-sm">
+        <div className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-background/95 px-4 py-3 backdrop-blur md:px-6">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -536,22 +1024,16 @@ JSON structure:
             >
               <ChevronRight className="rotate-180" />
             </Button>
-            <div className="relative">
-              <div className="absolute inset-0 bg-blue-500 rounded-xl blur-md opacity-20 animate-pulse" />
-              <div className="relative p-2.5 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl shadow-lg ring-1 ring-white/20">
-                <Bot className="h-5 w-5 text-white" />
-              </div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <Bot className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400">
+              <h2 className="text-lg font-semibold text-foreground">
                 Business Growth AI
               </h2>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <div className="relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500" />
-                </div>
-                <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+              <div className="mt-0.5 flex items-center gap-1.5">
+                <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                   Online & Ready
                 </p>
               </div>
@@ -566,12 +1048,12 @@ JSON structure:
                   size="sm"
                   onClick={() => !isGeneratingPDF && setShowLangModal(true)}
                   disabled={isGeneratingPDF}
-                  className="flex gap-2 rounded-full border-blue-200 hover:border-blue-500 hover:bg-blue-50 dark:border-zinc-800 transition-all duration-300 h-9 px-4"
+                  className="h-9 gap-2 rounded-full"
                 >
                   {isGeneratingPDF ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
-                    <Sparkles className="h-3.5 w-3.5 text-blue-600" />
+                    <Sparkles className="h-3.5 w-3.5" />
                   )}
                   <span className="font-bold text-[11px] uppercase tracking-wider">
                     {isGeneratingPDF ? "Generating..." : "Get State Report"}
@@ -585,12 +1067,12 @@ JSON structure:
                       setPdfReady(false);
                       setShowLangModal(true);
                     }}
-                    className="flex items-center gap-1.5 px-3 h-9 rounded-full border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:border-zinc-400 transition-all text-xs font-semibold"
+                    className="flex h-9 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
                   >
                     <Globe size={13} />
                     {currentLang?.flag} {currentLang?.label}
-                    <span className="text-zinc-300 dark:text-zinc-600">·</span>
-                    <span className="text-blue-500 text-[10px]">Change</span>
+                    <span className="text-border">.</span>{" "}
+                    <span className="text-[10px] text-primary">Change</span>
                   </button>
 
                   {/* Download */}
@@ -608,7 +1090,7 @@ JSON structure:
                       <Button
                         variant="default"
                         size="sm"
-                        className="flex gap-2 rounded-full bg-green-600 hover:bg-green-700 transition-all h-9 px-4"
+                        className="h-9 gap-2 rounded-full"
                         disabled={loading}
                       >
                         <Download className="h-3.5 w-3.5" />
@@ -621,35 +1103,28 @@ JSON structure:
                 </div>
               )}
 
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => window.history.back()}
-                className="hidden md:flex h-9 w-9 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800"
-              >
-                <X className="h-4 w-4" />
-              </Button>
+           
             </div>
           )}
         </div>
 
         {/* ── Chat area ───────────────────────────────────────── */}
-        <div className="flex-1 flex flex-col min-h-0 relative">
-          <ScrollArea ref={scrollAreaRef} className="h-full px-4 py-6 md:py-10">
-            <div className="max-w-3xl mx-auto space-y-8 pb-32">
+        <div className="relative flex min-h-0 flex-1 flex-col bg-gradient-to-b from-muted/20 to-background">
+          <ScrollArea
+            ref={scrollAreaRef}
+            className="h-full px-3 py-4 md:px-5 md:py-5"
+          >
+            <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 pb-4">
               {displayMessages.length === 0 && isLoading && (
-                <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-in fade-in zoom-in-95 duration-1000">
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-3xl animate-pulse" />
-                    <div className="relative p-8 rounded-3xl bg-white dark:bg-zinc-900 border border-blue-50 dark:border-zinc-800 shadow-2xl">
-                      <Sparkles className="h-16 w-16 text-blue-600 dark:text-blue-400 animate-pulse" />
-                    </div>
+                <div className="flex min-h-[52vh] flex-col items-center justify-center gap-4 animate-in fade-in duration-300">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-3xl border border-border bg-card">
+                    <Sparkles className="h-8 w-8 animate-pulse text-primary" />
                   </div>
-                  <div className="text-center space-y-3">
-                    <h3 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-white">
+                  <div className="space-y-2 text-center">
+                    <h3 className="text-xl font-semibold text-foreground">
                       Checking Your Business...
                     </h3>
-                    <p className="text-zinc-500 dark:text-zinc-400 font-medium max-w-xs mx-auto leading-relaxed">
+                    <p className="mx-auto max-w-xs text-sm text-muted-foreground">
                       Looking at your sales and stock to help you grow.
                     </p>
                   </div>
@@ -664,14 +1139,14 @@ JSON structure:
                   ) : (
                     <div
                       key={i}
-                      className="flex justify-end animate-in slide-in-from-bottom-4 duration-500"
+                      className="flex justify-end animate-in slide-in-from-bottom-2 duration-300"
                     >
-                      <div className="flex gap-2.5 items-end max-w-[80%] md:max-w-[70%]">
-                        <div className="px-4 py-2.5 bg-blue-600 text-white rounded-2xl rounded-br-sm shadow-sm text-[14px] leading-relaxed font-medium">
+                      <div className="flex max-w-[88%] items-end gap-2 md:max-w-[72%]">
+                        <div className="rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-sm font-medium leading-relaxed text-primary-foreground shadow-sm">
                           {msg.content}
                         </div>
-                        <div className="mb-0.5 h-7 w-7 rounded-xl bg-blue-600 flex items-center justify-center shrink-0 shadow-sm">
-                          <User size={14} className="text-white" />
+                        <div className="mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+                          <User size={14} />
                         </div>
                       </div>
                     </div>
@@ -679,19 +1154,16 @@ JSON structure:
                 )}
 
               {isLoading && displayMessages.length > 0 && (
-                <div className="flex justify-start animate-in fade-in-0 duration-300">
-                  <div className="flex gap-3">
-                    <div className="mt-0.5 h-8 w-8 rounded-xl bg-white dark:bg-zinc-900 border dark:border-zinc-700 flex items-center justify-center shadow-sm">
-                      <Loader2
-                        size={14}
-                        className="animate-spin text-blue-600"
-                      />
+                <div className="flex justify-start animate-in fade-in duration-200">
+                  <div className="flex items-end gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15 text-primary">
+                      <Loader2 size={14} className="animate-spin" />
                     </div>
-                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl rounded-tl-none px-4 py-3 shadow-sm">
+                    <div className="rounded-2xl rounded-tl-md border border-border bg-card px-4 py-3 shadow-sm">
                       <div className="flex gap-1">
-                        <span className="w-1 h-1 bg-blue-600/40 rounded-full animate-bounce" />
-                        <span className="w-1 h-1 bg-blue-600/40 rounded-full animate-bounce [animation-delay:200ms]" />
-                        <span className="w-1 h-1 bg-blue-600/40 rounded-full animate-bounce [animation-delay:400ms]" />
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/50" />
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/50 [animation-delay:150ms]" />
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/50 [animation-delay:300ms]" />
                       </div>
                     </div>
                   </div>
@@ -702,33 +1174,63 @@ JSON structure:
 
           {/* ── Input bar ──────────────────────────────────────── */}
           {isAnalyzed && (
-            <div className="absolute bottom-6 left-0 right-0 z-40 px-4">
-              <div className="max-w-2xl mx-auto">
-                <div className="relative flex items-center bg-white dark:bg-zinc-900 shadow-xl rounded-2xl border border-zinc-200 dark:border-zinc-800 p-1.5 pl-4 transition-all duration-300 focus-within:ring-4 focus-within:ring-blue-500/10">
-                  <form
-                    onSubmit={handleSendMessage}
-                    className="flex-1 flex gap-2"
-                  >
+            <div className="border-t border-border bg-background/95 px-3 py-3 backdrop-blur md:px-5">
+              <div className="mx-auto w-full max-w-4xl">
+                <div className="mb-3 rounded-xl border border-border bg-card p-3">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Quick Analysis Options
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {ANALYSIS_OPTIONS.map((option) => (
+                      <Button
+                        key={option.label}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 rounded-full px-3 text-xs"
+                        onClick={() => handleAnalysisOptionSelect(option)}
+                        disabled={isLoading}
+                      >
+                        {option.label}
+                      </Button>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="h-8 rounded-full px-3 text-xs"
+                      onClick={handleCustomOptionSelect}
+                      disabled={isLoading}
+                    >
+                      Custom
+                    </Button>
+                  </div>
+                </div>
+                <form
+                  onSubmit={handleSendMessage}
+                  className="flex items-center gap-2 rounded-2xl border border-border bg-card p-2 shadow-sm focus-within:ring-2 focus-within:ring-primary/20"
+                >
+                  <div className="flex-1 px-2">
                     <input
-                      placeholder="Type in English · हिंदी में लिखें · ગુજરાતીમાં લખો"
+                      ref={inputRef}
+                      placeholder="Ask about revenue, expenses, stock, clients, and growth..."
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       disabled={isLoading}
-                      className="flex-1 bg-transparent border-none focus:ring-0 text-zinc-900 dark:text-white py-2.5 text-[14px] font-medium placeholder:text-zinc-400"
+                      className="w-full bg-transparent py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
                     />
-                    <Button
-                      type="submit"
-                      size="icon"
-                      className="rounded-xl h-10 w-10 bg-blue-600 hover:bg-blue-700 shadow-sm active:scale-95 transition-all"
-                      disabled={isLoading || !input.trim()}
-                    >
-                      <Send className="h-4 w-4" />
-                    </Button>
-                  </form>
-                </div>
-                <p className="text-center text-[10px] text-zinc-400 mt-3 font-medium uppercase tracking-widest">
-                  Chat · then generate your Business State Report in any
-                  language
+                  </div>
+                  <Button
+                    type="submit"
+                    size="icon"
+                    className="h-10 w-10 rounded-xl"
+                    disabled={isLoading || !input.trim()}
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </form>
+                <p className="mt-2 text-center text-[10px] uppercase tracking-wide text-muted-foreground">
+                  Chat first, then generate your business state report
                 </p>
               </div>
             </div>
@@ -738,3 +1240,10 @@ JSON structure:
     </>
   );
 }
+
+
+
+
+
+
+

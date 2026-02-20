@@ -13,7 +13,7 @@ import { getBills, getBillReturns, getInventoryTransactions, getProducts, update
 import { formatCurrency } from '@/lib/billUtils';
 import { 
   Calendar, TrendingUp, DollarSign, FileText, Package, 
-  ArrowLeftRight, Filter, Search, Eye, X, RefreshCw, CreditCard, Loader2, Download
+  ArrowLeftRight, Filter, Search, Eye, X, RefreshCw, CreditCard, Loader2, Download, ArrowLeft
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -26,9 +26,11 @@ interface ClientDetailViewProps {
   client: Client;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  fullScreen?: boolean;
+  onBack?: () => void;
 }
 
-export function ClientDetailView({ client, open, onOpenChange }: ClientDetailViewProps) {
+export function ClientDetailView({ client, open, onOpenChange, fullScreen = false, onBack }: ClientDetailViewProps) {
   const navigate = useNavigate();
   const [bills, setBills] = useState<Bill[]>([]);
   const [returns, setReturns] = useState<BillReturn[]>([]);
@@ -230,10 +232,24 @@ export function ClientDetailView({ client, open, onOpenChange }: ClientDetailVie
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[96vw] sm:max-w-4xl lg:max-w-6xl max-h-[90vh] overflow-hidden flex flex-col p-0">
-        <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3 border-b flex-shrink-0">
-          <div className="flex items-center justify-between pr-8">
+      <DialogContent className={fullScreen
+        ? "max-w-none w-[calc(100%-1rem)] h-[calc(100dvh-1rem)] overflow-hidden flex flex-col p-3 sm:p-4 md:p-5"
+        : "max-w-[96vw] sm:max-w-4xl lg:max-w-6xl max-h-[90vh] overflow-hidden flex flex-col p-0"}>
+        <DialogHeader className={fullScreen
+          ? "rounded-2xl border border-border/70 bg-background/90 p-3 backdrop-blur sm:p-4 flex-shrink-0"
+          : "px-4 sm:px-6 pt-4 sm:pt-6 pb-3 border-b flex-shrink-0"}>
+          <div className={`flex items-center justify-between ${fullScreen ? "" : "pr-8"}`}>
             <DialogTitle className="text-base sm:text-lg md:text-xl flex items-center gap-2 break-words">
+              {fullScreen && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 sm:h-9 sm:w-9"
+                  onClick={() => (onBack ? onBack() : onOpenChange(false))}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+              )}
               <Package className="h-4 w-4 sm:h-5 sm:w-5 text-primary flex-shrink-0" />
               Client Details - {client.name}
             </DialogTitle>
@@ -282,8 +298,11 @@ export function ClientDetailView({ client, open, onOpenChange }: ClientDetailVie
         {loading ? (
           <div className="py-12 text-center text-muted-foreground text-sm">Loading client data...</div>
         ) : (
-          <div className="flex-1 overflow-y-auto px-4 sm:px-6 pb-4 sm:pb-6">
-            <div className="space-y-4 py-4">
+          <div className={fullScreen
+            ? "mt-4 flex-1 min-h-0 rounded-2xl border border-border/70 bg-background/60 p-2 sm:p-3"
+            : "flex-1 overflow-y-auto px-4 sm:px-6 pb-4 sm:pb-6"}>
+            <div className={fullScreen ? "h-full overflow-y-auto px-2 sm:px-3" : ""}>
+              <div className="space-y-4 py-4">
             {/* Analytics Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <Card className="border">
@@ -718,6 +737,7 @@ export function ClientDetailView({ client, open, onOpenChange }: ClientDetailVie
                 )}
               </TabsContent> */}
             </Tabs>
+              </div>
             </div>
           </div>
         )}

@@ -38,7 +38,13 @@ import {
   saveCreator,
   deleteCreator,
 } from "@/lib/storage";
-import { Bill, SampleBill, CompanyProfile, BillCreator, PaymentMethod } from "@/types";
+import {
+  Bill,
+  SampleBill,
+  CompanyProfile,
+  BillCreator,
+  PaymentMethod,
+} from "@/types";
 import {
   User,
   Receipt,
@@ -82,39 +88,59 @@ export default function BillCreators() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [newCreatorName, setNewCreatorName] = useState("");
   const [newCreatorPassword, setNewCreatorPassword] = useState("");
-  const [newCreatorPermissions, setNewCreatorPermissions] = useState<string[]>(["/", "/bills", "/sample-bill", "/products", "/clients", "/notes"]);
-  const [newCreatorType, setNewCreatorType] = useState<"Creator" | "Employee" | "CA" | "Expo">("Creator");
+  const [newCreatorPermissions, setNewCreatorPermissions] = useState<string[]>([
+    "/",
+    "/bills",
+    "/sample-bill",
+    "/products",
+    "/clients",
+    "/notes",
+  ]);
+  const [newCreatorType, setNewCreatorType] = useState<
+    "Creator" | "Employee" | "CA" | "Expo"
+  >("Creator");
   const [newExpoId, setNewExpoId] = useState("");
-  const [editingCreator, setEditingCreator] = useState<BillCreator | null>(null);
+  const [editingCreator, setEditingCreator] = useState<BillCreator | null>(
+    null,
+  );
   const [editedCreatorName, setEditedCreatorName] = useState("");
   const [editedCreatorPassword, setEditedCreatorPassword] = useState("");
-  const [editedCreatorType, setEditedCreatorType] = useState<"Creator" | "Employee" | "CA" | "Expo">("Creator");
+  const [editedCreatorType, setEditedCreatorType] = useState<
+    "Creator" | "Employee" | "CA" | "Expo"
+  >("Creator");
   const [editedExpoId, setEditedExpoId] = useState("");
-  const [editedCreatorPermissions, setEditedCreatorPermissions] = useState<string[]>([]);
-  const [creatorToDelete, setCreatorToDelete] = useState<BillCreator | null>(null);
+  const [editedCreatorPermissions, setEditedCreatorPermissions] = useState<
+    string[]
+  >([]);
+  const [creatorToDelete, setCreatorToDelete] = useState<BillCreator | null>(
+    null,
+  );
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showEditPassword, setShowEditPassword] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
-      const [profile, fetchedCreators, regularBills, sampleBills] = await Promise.all([
-        getCompanyProfile(),
-        getCreators(),
-        getBills(),
-        getSampleBills(),
-      ]);
-      
+      const [profile, fetchedCreators, regularBills, sampleBills] =
+        await Promise.all([
+          getCompanyProfile(),
+          getCreators(),
+          getBills(),
+          getSampleBills(),
+        ]);
+
       if (profile) {
         setCompanyProfile(profile);
       }
 
       // Calculate admin bills count
       const allBills = [...regularBills, ...sampleBills];
-      const adminBillsCount = allBills.filter(b => b.createdBy === "Admin").length;
+      const adminBillsCount = allBills.filter(
+        (b) => b.createdBy === "Admin",
+      ).length;
 
       // Filter out 'Admin' from database if it exists (we add it manually for UI)
-      const otherCreators = fetchedCreators.filter(c => c.name !== "Admin");
-      
+      const otherCreators = fetchedCreators.filter((c) => c.name !== "Admin");
+
       // Always include Admin at the top
       const displayCreators: any[] = [
         {
@@ -124,7 +150,7 @@ export default function BillCreators() {
           billCount: adminBillsCount,
           createdAt: new Date(0).toISOString(),
         },
-        ...otherCreators
+        ...otherCreators,
       ];
 
       setCreators(displayCreators);
@@ -139,7 +165,7 @@ export default function BillCreators() {
       toast({ title: "Creator already exists", variant: "destructive" });
       return;
     }
-    
+
     const newCreator: BillCreator = {
       id: Math.random().toString(36).substr(2, 9),
       name: newCreatorName.trim(),
@@ -154,7 +180,14 @@ export default function BillCreators() {
     setCreators([...creators, newCreator]);
     setNewCreatorName("");
     setNewCreatorPassword("");
-    setNewCreatorPermissions(["/", "/bills", "/sample-bill", "/products", "/clients", "/notes"]);
+    setNewCreatorPermissions([
+      "/",
+      "/bills",
+      "/sample-bill",
+      "/products",
+      "/clients",
+      "/notes",
+    ]);
     setIsAddDialogOpen(false);
     toast({ title: "Creator added successfully" });
   };
@@ -181,7 +214,9 @@ export default function BillCreators() {
     };
 
     await saveCreator(updatedCreator);
-    setCreators(creators.map((c) => (c.id === updatedCreator.id ? updatedCreator : c)));
+    setCreators(
+      creators.map((c) => (c.id === updatedCreator.id ? updatedCreator : c)),
+    );
     setEditingCreator(null);
     setEditedCreatorName("");
     setEditedCreatorPassword("");
@@ -205,18 +240,27 @@ export default function BillCreators() {
     setEditedCreatorPassword(creator.password || "");
     setEditedCreatorType(creator.type || "Creator");
     setEditedExpoId(creator.expoId || "");
-    setEditedCreatorPermissions(creator.permissions || ["/", "/bills", "/sample-bill", "/products", "/clients", "/notes"]);
+    setEditedCreatorPermissions(
+      creator.permissions || [
+        "/",
+        "/bills",
+        "/sample-bill",
+        "/products",
+        "/clients",
+        "/notes",
+      ],
+    );
     setIsEditDialogOpen(true);
   };
 
-  const togglePermission = (path: string, mode: 'add' | 'edit') => {
-    if (mode === 'add') {
-      setNewCreatorPermissions(prev => 
-        prev.includes(path) ? prev.filter(p => p !== path) : [...prev, path]
+  const togglePermission = (path: string, mode: "add" | "edit") => {
+    if (mode === "add") {
+      setNewCreatorPermissions((prev) =>
+        prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path],
       );
     } else {
-      setEditedCreatorPermissions(prev => 
-        prev.includes(path) ? prev.filter(p => p !== path) : [...prev, path]
+      setEditedCreatorPermissions((prev) =>
+        prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path],
       );
     }
   };
@@ -257,15 +301,18 @@ export default function BillCreators() {
       ]);
 
       const allBills = [...regularBills, ...sampleBills];
-      
-      const creatorData = creators.find(c => c.name === selectedCreator);
+
+      const creatorData = creators.find((c) => c.name === selectedCreator);
       const isExpo = creatorData?.type === "Expo";
       const expoId = creatorData?.expoId;
 
       const filtered = allBills
         .filter((bill) => {
           if (isExpo && expoId) {
-            return bill.createdBy === selectedCreator && (bill as any).expoId === expoId;
+            return (
+              bill.createdBy === selectedCreator &&
+              (bill as any).expoId === expoId
+            );
           }
           return bill.createdBy === selectedCreator;
         })
@@ -304,171 +351,280 @@ export default function BillCreators() {
     });
 
   if (selectedCreator) {
-    const totalAmount = filteredAndSortedBills.reduce((sum, bill) => sum + bill.total, 0);
-    const totalPaid = filteredAndSortedBills.reduce((sum, bill) => 
-      sum + (bill.paidAmount || 0), 0);
+    const totalAmount = filteredAndSortedBills.reduce(
+      (sum, bill) => sum + bill.total,
+      0,
+    );
+    const totalPaid = filteredAndSortedBills.reduce(
+      (sum, bill) => sum + (bill.paidAmount || 0),
+      0,
+    );
     const totalPending = totalAmount - totalPaid;
 
-    const paymentMethods = filteredAndSortedBills.reduce((acc, bill) => {
-      const b = bill as any;
-      if (b.payments && Array.isArray(b.payments)) {
-        b.payments.forEach((p: any) => {
-          const method = p.method || 'Other';
-          acc[method] = (acc[method] || 0) + p.amount;
-        });
-      } else if (b.paidAmount > 0) {
-        // Fallback for bills without payments array but with paidAmount
-        const method = b.paymentMethod || b.paymentType || 'Other';
-        acc[method] = (acc[method] || 0) + b.paidAmount;
-      }
-      return acc;
-    }, {} as Record<string, number>);
+    const paymentMethods = filteredAndSortedBills.reduce(
+      (acc, bill) => {
+        const b = bill as any;
+        if (b.payments && Array.isArray(b.payments)) {
+          b.payments.forEach((p: any) => {
+            const method = p.method || "Other";
+            acc[method] = (acc[method] || 0) + p.amount;
+          });
+        } else if (b.paidAmount > 0) {
+          // Fallback for bills without payments array but with paidAmount
+          const method = b.paymentMethod || b.paymentType || "Other";
+          acc[method] = (acc[method] || 0) + b.paidAmount;
+        }
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
 
-    const ALL_PAYMENT_METHODS: PaymentMethod[] = ["Cash", "UPI", "Bank Transfer", "Cheque", "Other"];
+    const ALL_PAYMENT_METHODS: PaymentMethod[] = [
+      "Cash",
+      "UPI",
+      "Bank Transfer",
+      "Cheque",
+      "Other",
+    ];
 
     return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setSelectedCreator(null)}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="page-title">Bills by {selectedCreator}</h1>
-            <p className="page-subtitle">Performance overview and bill history</p>
-          </div>
-        </div>
+      <div className="-mx-3 sm:-mx-4 md:-mx-6 lg:-mx-8 h-[calc(100dvh-8.5rem)] sm:h-[calc(100dvh-9.5rem)] px-2 sm:px-4 md:px-6 lg:px-8">
+        <div className="relative h-full w-full overflow-hidden rounded-[28px] border border-primary/20 bg-gradient-to-br from-background via-background to-primary/10 p-3 shadow-sm sm:p-5 lg:p-6">
+          <div className="pointer-events-none absolute -right-14 -top-16 h-40 w-40 rounded-full bg-primary/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-20 -left-20 h-52 w-52 rounded-full bg-cyan-500/10 blur-3xl" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/25 to-transparent" />
+          <div className="relative flex h-full min-h-0 flex-col">
+            <div className="rounded-2xl border border-border/70 bg-background/90 p-3 backdrop-blur sm:p-4">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 border-border/70 bg-background/90 sm:h-10 sm:w-10"
+                  onClick={() => setSelectedCreator(null)}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+                <div className="min-w-0">
+                  <h1 className="truncate text-lg font-semibold leading-tight sm:text-2xl">
+                    Bills by {selectedCreator}
+                  </h1>
+                  <p className="text-xs text-muted-foreground sm:text-sm">
+                    Performance overview and bill history
+                  </p>
+                </div>
+              </div>
+            </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Card className="bg-primary/5 border-primary/20">
-            <CardContent className="p-4">
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-tight">Total Billed</p>
-              <h3 className="text-2xl font-bold text-primary">{formatCurrency(totalAmount)}</h3>
-              <p className="text-xs text-muted-foreground mt-1">{filteredAndSortedBills.length} bills</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-green-500/5 border-green-500/20">
-            <CardContent className="p-4">
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-tight">Collected</p>
-              <h3 className="text-2xl font-bold text-green-600">{formatCurrency(totalPaid)}</h3>
-              <p className="text-xs text-muted-foreground mt-1">Total payments received</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-orange-500/5 border-orange-500/20">
-            <CardContent className="p-4">
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-tight">Pending</p>
-              <h3 className="text-2xl font-bold text-orange-600">{formatCurrency(totalPending)}</h3>
-              <p className="text-xs text-muted-foreground mt-1">Outstanding balance</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold mb-3">Collected by Payment Method</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-            {ALL_PAYMENT_METHODS.map((method) => (
-              <Card key={method} className="bg-muted/30 border-border/50">
-                <CardContent className="p-3">
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight truncate">{method}</p>
-                  <h3 className="text-sm font-bold mt-1">{formatCurrency(paymentMethods[method] || 0)}</h3>
+            <div className="mt-4 flex-1 min-h-0 rounded-2xl border border-border/70 bg-background/60 p-2 sm:p-3">
+              <div className="h-full overflow-y-auto space-y-5 px-2 sm:px-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <Card className="bg-primary/5 border-primary/20 shadow-sm">
+                <CardContent className="p-4">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-tight">
+                    Total Billed
+                  </p>
+                  <h3 className="text-2xl font-bold text-primary">
+                    {formatCurrency(totalAmount)}
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {filteredAndSortedBills.length} bills
+                  </p>
                 </CardContent>
               </Card>
-            ))}
-          </div>
-        </div>
+              <Card className="bg-green-500/5 border-green-500/20 shadow-sm">
+                <CardContent className="p-4">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-tight">
+                    Collected
+                  </p>
+                  <h3 className="text-2xl font-bold text-green-600">
+                    {formatCurrency(totalPaid)}
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Total payments received
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="bg-orange-500/5 border-orange-500/20 shadow-sm sm:col-span-2 xl:col-span-1">
+                <CardContent className="p-4">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-tight">
+                    Pending
+                  </p>
+                  <h3 className="text-2xl font-bold text-orange-600">
+                    {formatCurrency(totalPending)}
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Outstanding balance
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
 
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-4 border-t">
-          <div className="flex gap-2 w-full sm:w-auto">
-            <div className="relative flex-1 sm:w-64">
+            <div className="rounded-2xl border border-border/70 bg-background/70 p-3 sm:p-4">
+              <h2 className="text-base font-semibold sm:text-lg mb-3">
+                Collected by Payment Method
+              </h2>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+                {ALL_PAYMENT_METHODS.map((method) => (
+                  <Card key={method} className="bg-muted/30 border-border/50 shadow-none">
+                    <CardContent className="p-3">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight truncate">
+                        {method}
+                      </p>
+                      <h3 className="text-sm font-bold mt-1">
+                        {formatCurrency(paymentMethods[method] || 0)}
+                      </h3>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-border/70 bg-background/70 p-3 sm:p-4">
+              <div className="flex w-full flex-col items-start gap-3 sm:flex-row sm:items-center">
+                <div className="flex w-full gap-2">
+                  <div className="relative w-full flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search bills..."
-                className="pl-10"
+                className="h-10 w-full pl-10"
                 value={billSearchTerm}
                 onChange={(e) => setBillSearchTerm(e.target.value)}
               />
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon">
+                <Button variant="outline" size="icon" className="h-10 w-10 shrink-0">
                   <ArrowUpDown className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => { setSortBy("date"); setSortOrder(sortOrder === "desc" ? "asc" : "desc"); }}>
-                  Sort by Date {sortBy === "date" && (sortOrder === "desc" ? "↓" : "↑")}
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSortBy("date");
+                    setSortOrder(sortOrder === "desc" ? "asc" : "desc");
+                  }}
+                >
+                  Sort by Date{" "}
+                  {sortBy === "date" && (sortOrder === "desc" ? "↓" : "↑")}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => { setSortBy("amount"); setSortOrder(sortOrder === "desc" ? "asc" : "desc"); }}>
-                  Sort by Amount {sortBy === "amount" && (sortOrder === "desc" ? "↓" : "↑")}
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSortBy("amount");
+                    setSortOrder(sortOrder === "desc" ? "asc" : "desc");
+                  }}
+                >
+                  Sort by Amount{" "}
+                  {sortBy === "amount" && (sortOrder === "desc" ? "↓" : "↑")}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => { setSortBy("client"); setSortOrder(sortOrder === "desc" ? "asc" : "desc"); }}>
-                  Sort by Client {sortBy === "client" && (sortOrder === "desc" ? "↓" : "↑")}
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSortBy("client");
+                    setSortOrder(sortOrder === "desc" ? "asc" : "desc");
+                  }}
+                >
+                  Sort by Client{" "}
+                  {sortBy === "client" && (sortOrder === "desc" ? "↓" : "↑")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              {filteredAndSortedBills.length === 0 ? (
+                <Card>
+                  <CardContent className="py-10 text-center text-muted-foreground">
+                    {billSearchTerm
+                      ? "No bills match your search."
+                      : "No bills found for this creator."}
+                  </CardContent>
+                </Card>
+              ) : (
+                filteredAndSortedBills.map((bill) => (
+                  <Card
+                    key={bill.id}
+                    className="cursor-pointer border-border/70 bg-gradient-to-br from-background via-background to-primary/5 p-2 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg"
+                    onClick={() =>
+                      navigate(
+                        "isSample" in bill
+                          ? `/sample-bills/${bill.id}`
+                          : `/bills/${bill.id}`,
+                      )
+                    }
+                  >
+                    <CardContent className="space-y-2 p-0">
+                      <div className="rounded-xl border border-border/70 bg-background/95 px-3 py-3 sm:px-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0 space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="truncate text-sm font-bold sm:text-base">
+                                {bill.billNumber}
+                              </span>
+                              {"isSample" in bill && (
+                                <Badge variant="outline" className="text-[10px]">
+                                  Sample
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="truncate text-xs text-muted-foreground sm:text-sm">
+                              {bill.client.name}
+                            </p>
+                          </div>
+                          <Badge
+                            variant={
+                              bill.paymentStatus === "paid"
+                                ? "secondary"
+                                : "outline"
+                            }
+                            className="w-fit"
+                          >
+                            {bill.paymentStatus}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-3 sm:px-4">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-center">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground sm:text-sm">
+                            <Calendar className="h-3.5 w-3.5" />
+                            <span>{new Date(bill.date).toLocaleDateString()}</span>
+                          </div>
+                          <div className="text-left sm:text-center">
+                            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Type
+                            </p>
+                            <p className="text-xs font-semibold sm:text-sm">
+                              {"isSample" in bill ? "Sample Bill" : "Regular Bill"}
+                            </p>
+                          </div>
+                          <div className="text-left sm:text-right">
+                            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Amount
+                            </p>
+                            <p className="text-sm font-bold sm:text-base">
+                              {formatCurrency(bill.total)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+            </div>
           </div>
         </div>
-
-        <div className="grid grid-cols-1 gap-4">
-          {filteredAndSortedBills.length === 0 ? (
-            <Card>
-              <CardContent className="py-10 text-center text-muted-foreground">
-                {billSearchTerm ? "No bills match your search." : "No bills found for this creator."}
-              </CardContent>
-            </Card>
-          ) : (
-            filteredAndSortedBills.map((bill) => (
-              <Card
-                key={bill.id}
-                className="hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() =>
-                  navigate(
-                    "isSample" in bill
-                      ? `/sample-bills/${bill.id}`
-                      : `/bills/${bill.id}`,
-                  )
-                }
-              >
-                <CardContent className="p-4 flex justify-between items-center">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold">{bill.billNumber}</span>
-                      {"isSample" in bill && (
-                        <Badge variant="outline">Sample</Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {bill.client.name}
-                    </p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Calendar className="h-3 w-3" />
-                      {new Date(bill.date).toLocaleDateString()}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold">{formatCurrency(bill.total)}</p>
-                    <Badge
-                      variant={
-                        bill.paymentStatus === "paid" ? "secondary" : "outline"
-                      }
-                    >
-                      {bill.paymentStatus}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
+      </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="-mx-3 h-[calc(100dvh-8.5rem)] overflow-hidden px-2 sm:-mx-4 sm:h-[calc(100dvh-9.5rem)] sm:px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
+      <div className="relative flex h-full min-h-0 flex-col rounded-[28px] border border-border/70 bg-background p-3 shadow-sm sm:p-5 lg:p-6">
+      <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background/95 p-3 backdrop-blur sm:p-4">
       <div className="page-header-controls">
         <div className="page-header-title">
           <div className="page-header-icon">
@@ -481,11 +637,19 @@ export default function BillCreators() {
             </p>
           </div>
         </div>
-        <Button size="sm" className="page-header-btn" onClick={() => setIsAddDialogOpen(true)}>
+        <Button
+          size="sm"
+          className="page-header-btn"
+          onClick={() => setIsAddDialogOpen(true)}
+        >
           <Plus className="h-4 w-4 mr-2" />
           Add Creator
         </Button>
       </div>
+      </div>
+
+      <div className="mt-4 flex-1 min-h-0 rounded-2xl border border-border/70 bg-background/60 p-2 sm:p-3">
+      <div className="h-full overflow-y-auto space-y-6 pr-1 sm:pr-2">
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -501,19 +665,34 @@ export default function BillCreators() {
         {filteredCreators.map((creator) => (
           <Card
             key={creator.id}
-            className="hover:border-primary transition-colors cursor-pointer group"
+            className="group relative cursor-pointer overflow-hidden border-border/70 bg-gradient-to-br from-background via-background to-sky-500/5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-xl"
             onClick={() => setSelectedCreator(creator.name)}
           >
-            <CardHeader className="pb-2">
-              <div className="flex justify-between items-start">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2 group-hover:bg-primary/20 transition-colors">
-                  <User className="h-6 w-6 text-primary" />
+            <div className="pointer-events-none absolute -right-12 -top-12 h-28 w-28 rounded-full bg-sky-500/10 blur-2xl" />
+            <div className="pointer-events-none absolute -bottom-16 -left-16 h-32 w-32 rounded-full bg-blue-500/10 blur-2xl" />
+            <CardHeader className="relative pb-2">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/20 transition-colors group-hover:bg-primary/15">
+                    <User className="h-5 w-5 text-primary" />
+                  </div>
+                  <CardTitle className="flex items-center gap-2 truncate text-base">
+                    <span className="truncate">{creator.name}</span>
+                    {creator.type && (
+                      <Badge variant="secondary" className="text-[10px] font-medium">
+                        {creator.type}
+                      </Badge>
+                    )}
+                  </CardTitle>
+                  <CardDescription className="mt-1 text-xs">
+                    View bills and performance
+                  </CardDescription>
                 </div>
-                <div className="flex gap-1">
+                <div className="flex gap-1 rounded-xl border border-border/60 bg-background/85 p-1 backdrop-blur">
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-8 w-8 text-muted-foreground hover:bg-primary/10 hover:text-primary"
                     onClick={(e) => openEditDialog(creator, e)}
                   >
                     <Pencil className="h-4 w-4" />
@@ -521,28 +700,19 @@ export default function BillCreators() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-destructive hover:text-destructive"
+                    className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                     onClick={(e) => openDeleteDialog(creator, e)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
-              <CardTitle className="flex items-center gap-2">
-                {creator.name}
-                {creator.type && (
-                  <Badge variant="secondary" className="text-[10px] font-normal">
-                    {creator.type}
-                  </Badge>
-                )}
-              </CardTitle>
-              <CardDescription>Click to view bills</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="flex flex-col gap-2">
+            <CardContent className="relative pt-0">
+              <div className="rounded-xl border border-border/60 bg-muted/25 p-2">
                 <Button
-                  variant="ghost"
-                  className="w-full justify-between text-primary"
+                  variant="secondary"
+                  className="h-9 w-full justify-between rounded-lg bg-background text-primary shadow-sm hover:bg-background"
                   onClick={(e) => {
                     e.stopPropagation();
                     if (creator.type === "Expo" && creator.expoId) {
@@ -552,7 +722,9 @@ export default function BillCreators() {
                     }
                   }}
                 >
-                  {creator.type === "Expo" ? "View Expo Dashboard" : "View History"}
+                  {creator.type === "Expo"
+                    ? "View Expo Dashboard"
+                    : "View History"}
                   <Receipt className="h-4 w-4" />
                 </Button>
               </div>
@@ -645,12 +817,12 @@ export default function BillCreators() {
               <div className="grid grid-cols-2 gap-2">
                 {PERMISSION_OPTIONS.map((opt) => (
                   <div key={opt.path} className="flex items-center space-x-2">
-                    <Checkbox 
-                      id={`new-perm-${opt.path}`} 
+                    <Checkbox
+                      id={`new-perm-${opt.path}`}
                       checked={newCreatorPermissions.includes(opt.path)}
-                      onCheckedChange={() => togglePermission(opt.path, 'add')}
+                      onCheckedChange={() => togglePermission(opt.path, "add")}
                     />
-                    <label 
+                    <label
                       htmlFor={`new-perm-${opt.path}`}
                       className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                     >
@@ -743,12 +915,12 @@ export default function BillCreators() {
               <div className="grid grid-cols-2 gap-2">
                 {PERMISSION_OPTIONS.map((opt) => (
                   <div key={opt.path} className="flex items-center space-x-2">
-                    <Checkbox 
-                      id={`edit-perm-${opt.path}`} 
+                    <Checkbox
+                      id={`edit-perm-${opt.path}`}
                       checked={editedCreatorPermissions.includes(opt.path)}
-                      onCheckedChange={() => togglePermission(opt.path, 'edit')}
+                      onCheckedChange={() => togglePermission(opt.path, "edit")}
                     />
-                    <label 
+                    <label
                       htmlFor={`edit-perm-${opt.path}`}
                       className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                     >
@@ -779,8 +951,8 @@ export default function BillCreators() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Creator</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{creatorToDelete?.name}"? This action
-              cannot be undone.
+              Are you sure you want to delete "{creatorToDelete?.name}"? This
+              action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -791,9 +963,9 @@ export default function BillCreators() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </div>
+      </div>
+      </div>
     </div>
   );
 }
-
-
-

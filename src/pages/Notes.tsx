@@ -138,6 +138,8 @@ export default function Notes() {
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
   const activeNotes = notes.filter(n => !n.isDone);
   const doneNotes = notes.filter(n => n.isDone);
+  const totalNotes = notes.length;
+  const completionRate = totalNotes > 0 ? Math.round((doneNotes.length / totalNotes) * 100) : 0;
 
   // Get dates with notes for calendar highlighting
   const [datesWithNotes, setDatesWithNotes] = useState<Set<string>>(new Set());
@@ -156,8 +158,10 @@ export default function Notes() {
   }, []);
 
   return (
-    <div className="space-y-6 p-4">
+    <div className="-mx-3 px-2 sm:-mx-4 sm:px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:h-[calc(100dvh-9.5rem)] lg:px-8">
+      <div className="relative flex flex-col rounded-[28px] border border-border/70 bg-gradient-to-b from-background to-muted/20 p-3 shadow-sm sm:p-5 lg:h-full lg:min-h-0 lg:overflow-hidden lg:p-6">
       {/* Header */}
+      <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background/95 p-3 shadow-sm backdrop-blur sm:p-4">
       <div className="page-header-controls">
         <div className="page-header-title">
           <div className="page-header-icon">
@@ -239,57 +243,112 @@ export default function Notes() {
           </DialogContent>
         </Dialog>
       </div>
+      </div>
 
+      <div className="mt-4 flex-1 min-h-0 rounded-2xl border border-border/70 bg-background/70 p-2 sm:p-3 lg:overflow-hidden">
+      <div className="h-full pr-1 sm:pr-2">
       {/* Calendar and Notes Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-4 lg:h-full lg:min-h-0 lg:grid-cols-[330px_minmax(0,1fr)] lg:items-start">
         {/* Calendar */}
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle>Select Date</CardTitle>
+        <Card className="self-start border-border/70 bg-background/90 shadow-sm lg:flex lg:h-full lg:min-h-0 lg:w-[330px] lg:flex-col">
+          <CardHeader className="border-b bg-muted/20 pb-3">
+            <CardTitle className="text-base sm:text-lg">Date & Overview</CardTitle>
           </CardHeader>
-          <CardContent>
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={(date) => {
-                if (date) {
-                  setSelectedDate(date);
-                }
-              }}
-              modifiers={{
-                hasNotes: (date) => {
-                  const dateStr = format(date, 'yyyy-MM-dd');
-                  return datesWithNotes.has(dateStr);
-                }
-              }}
-              modifiersClassNames={{
-                hasNotes: "bg-primary/20 text-primary font-semibold"
-              }}
-              className="rounded-md border"
-            />
-            <div className="mt-4 p-3 bg-muted/50 rounded-lg">
-              <p className="text-sm font-medium mb-2">Selected Date:</p>
-              <p className="text-lg font-bold">{format(selectedDate, "EEEE, MMMM d, yyyy")}</p>
+          <CardContent className="space-y-4 p-3 sm:p-4 lg:min-h-0 lg:overflow-y-auto">
+            <div className="flex justify-center">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(date) => {
+                  if (date) {
+                    setSelectedDate(date);
+                  }
+                }}
+                modifiers={{
+                  hasNotes: (date) => {
+                    const dateStr = format(date, 'yyyy-MM-dd');
+                    return datesWithNotes.has(dateStr);
+                  }
+                }}
+                modifiersClassNames={{
+                  hasNotes: "bg-primary/15 text-primary font-semibold border border-primary/30"
+                }}
+                className="w-fit rounded-xl border border-border/70 bg-background p-2 sm:p-3 shadow-sm"
+                classNames={{
+                  table: "w-auto border-collapse",
+                  head_row: "flex justify-between",
+                  row: "flex justify-between mt-2",
+                }}
+              />
+            </div>
+            <div className="rounded-xl border border-border/70 bg-background p-3 shadow-sm">
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Selected Date</p>
+              <p className="text-sm font-semibold sm:text-base">{format(selectedDate, "EEEE, MMMM d, yyyy")}</p>
+            </div>
+            <div className="rounded-xl border border-border/70 bg-background p-3 shadow-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Overview</p>
+                <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                  {completionRate}% done
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-sm">
+                <div className="rounded-lg border border-border/60 bg-muted/30 p-2 text-center">
+                  <p className="text-[10px] text-muted-foreground uppercase">Total</p>
+                  <p className="font-bold text-foreground">{totalNotes}</p>
+                </div>
+                <div className="rounded-lg border border-border/60 bg-blue-50/70 p-2 text-center">
+                  <p className="text-[10px] text-muted-foreground uppercase">Active</p>
+                  <p className="font-bold text-blue-600">{activeNotes.length}</p>
+                </div>
+                <div className="rounded-lg border border-border/60 bg-emerald-50/70 p-2 text-center">
+                  <p className="text-[10px] text-muted-foreground uppercase">Done</p>
+                  <p className="font-bold text-emerald-600">{doneNotes.length}</p>
+                </div>
+              </div>
+              <div className="mt-3 space-y-1">
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+                    style={{ width: `${completionRate}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Completion Progress
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Notes List */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Notes for {format(selectedDate, "MMMM d, yyyy")}</CardTitle>
+        <Card className="flex min-h-0 min-w-0 flex-col border-border/70 bg-background/90 shadow-sm lg:h-full">
+          <CardHeader className="border-b bg-muted/20 pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CardTitle className="text-base sm:text-lg">Notes for {format(selectedDate, "MMMM d, yyyy")}</CardTitle>
+              <div className="flex items-center gap-2 text-[11px]">
+                <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 font-semibold text-blue-700">
+                  Active: {activeNotes.length}
+                </span>
+                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700">
+                  Done: {doneNotes.length}
+                </span>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex min-h-0 flex-1 flex-col p-4">
             {loading ? (
               <LoadingSpinner size="lg" text="Loading notes..." />
             ) : notes.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
+              <div className="flex h-full min-h-[260px] items-center justify-center rounded-xl border border-dashed border-border/80 bg-muted/20 text-center text-muted-foreground">
+                <div>
                 <StickyNote className="h-16 w-16 mx-auto mb-4 opacity-40" />
                 <p className="text-lg">No notes for this date</p>
                 <p className="text-sm mt-2">Click "Add Note" to create your first note</p>
+                </div>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="max-h-[56dvh] min-h-0 flex-1 space-y-5 overflow-y-auto pr-1 lg:h-full lg:max-h-none">
                 {/* Active Notes */}
                 {activeNotes.length > 0 && (
                   <div>
@@ -301,7 +360,7 @@ export default function Notes() {
                       {activeNotes.map((note) => (
                         <div
                           key={note.id}
-                          className="flex items-start gap-3 p-4 border rounded-lg hover:bg-accent/50 transition-colors"
+                          className="flex items-start gap-3 rounded-xl border border-border/70 bg-background p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
                         >
                           <button
                             onClick={() => handleToggleDone(note)}
@@ -365,7 +424,7 @@ export default function Notes() {
                       {doneNotes.map((note) => (
                         <div
                           key={note.id}
-                          className="flex items-start gap-3 p-4 border rounded-lg bg-muted/30 opacity-75"
+                          className="flex items-start gap-3 rounded-xl border border-border/70 bg-muted/20 p-4 opacity-80"
                         >
                           <button
                             onClick={() => handleToggleDone(note)}
@@ -422,6 +481,9 @@ export default function Notes() {
           </CardContent>
         </Card>
       </div>
+    </div>
+    </div>
+    </div>
     </div>
   );
 }

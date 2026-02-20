@@ -32,6 +32,9 @@ import {
   Download,
   Trash2,
   File,
+  Files as FilesIcon,
+  HardDrive,
+  Layers3,
   Loader2,
   Eye,
   ExternalLink,
@@ -254,8 +257,10 @@ export default function Files() {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 p-3 sm:p-4 w-full max-w-full overflow-x-hidden">
+    <div className="-mx-3 h-[calc(100dvh-8.5rem)] overflow-hidden px-2 sm:-mx-4 sm:h-[calc(100dvh-9.5rem)] sm:px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
+      <div className="relative flex h-full min-h-0 flex-col rounded-[28px] border border-border/70 bg-background p-3 shadow-sm sm:p-5 lg:p-6">
       {/* Header */}
+      <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background/95 p-3 backdrop-blur sm:p-4">
       <div className="page-header-controls">
         <div className="page-header-title min-w-0 flex-1">
           <div className="page-header-icon">
@@ -300,6 +305,10 @@ export default function Files() {
           </Button>
         </div>
       </div>
+      </div>
+
+      <div className="mt-4 flex-1 min-h-0 rounded-2xl border border-border/70 bg-background/60 p-2 sm:p-3">
+      <div className="h-full overflow-y-auto space-y-4 sm:space-y-6 pr-1 sm:pr-2">
 
       {/* Filters */}
       <Card className="w-full max-w-full overflow-hidden">
@@ -432,39 +441,52 @@ export default function Files() {
       )}
 
       {/* Summary Card */}
-      <Card className="w-full max-w-full overflow-hidden">
-        <CardHeader className="px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 pb-3 sm:pb-4">
-          <CardTitle className="text-base sm:text-lg md:text-xl">
+      <Card className="w-full max-w-full overflow-hidden border-border/70">
+        <CardHeader className="px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 pb-3 sm:pb-4 border-b bg-muted/20">
+          <CardTitle className="text-base sm:text-lg md:text-xl flex items-center gap-2">
+            <FilesIcon className="h-4 w-4 text-primary" />
             File Statistics
           </CardTitle>
         </CardHeader>
         <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-            <div>
-              <div className="text-xl sm:text-2xl font-bold break-words">
+            <div className="rounded-xl border border-border/70 bg-background/80 p-3">
+              <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <FilesIcon className="h-3.5 w-3.5" />
+                Files
+              </p>
+              <div className="text-xl sm:text-2xl font-bold break-words text-primary">
                 {filteredFiles.length}{" "}
                 {searchQuery || dateFrom || dateTo ? `of ${files.length}` : ""}
               </div>
-              <p className="text-xs sm:text-sm text-muted-foreground break-words">
-                Files
+              <p className="text-xs text-muted-foreground break-words">
+                Visible in current filter
               </p>
             </div>
-            <div>
-              <div className="text-xl sm:text-2xl font-bold break-words">
+            <div className="rounded-xl border border-border/70 bg-background/80 p-3">
+              <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <HardDrive className="h-3.5 w-3.5" />
+                Total Size
+              </p>
+              <div className="text-xl sm:text-2xl font-bold break-words text-emerald-600">
                 {formatFileSize(
                   filteredFiles.reduce((sum, f) => sum + f.size, 0)
                 )}
               </div>
-              <p className="text-xs sm:text-sm text-muted-foreground break-words">
-                Total Size
+              <p className="text-xs text-muted-foreground break-words">
+                Combined file storage
               </p>
             </div>
-            <div>
-              <div className="text-xl sm:text-2xl font-bold break-words">
+            <div className="rounded-xl border border-border/70 bg-background/80 p-3">
+              <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <Layers3 className="h-3.5 w-3.5" />
+                File Types
+              </p>
+              <div className="text-xl sm:text-2xl font-bold break-words text-blue-600">
                 {new Set(filteredFiles.map((f) => f.type.split("/")[0])).size}
               </div>
-              <p className="text-xs sm:text-sm text-muted-foreground break-words">
-                File Types
+              <p className="text-xs text-muted-foreground break-words">
+                Distinct categories
               </p>
             </div>
           </div>
@@ -609,6 +631,9 @@ export default function Files() {
           )}
         </CardContent>
       </Card>
+      </div>
+      </div>
+      </div>
     </div>
   );
 }
