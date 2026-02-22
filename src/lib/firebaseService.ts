@@ -723,6 +723,16 @@ export const saveBill = async (bill: Bill): Promise<void> => {
         billId: bill.id,
         type: "sale" as const,
         quantity: item.quantity,
+        sellingPrice: item.ratePerUnit,
+        itemNo: item.itemNo || "",
+        model: item.model || "",
+        imeiNumber: item.imeiNumber || "",
+        storage: item.storage || "",
+        color: item.color || "",
+        vendorId: item.vendorId || "",
+        vendorName: item.vendorName || "",
+        clientId: bill.clientId,
+        clientName: bill.client?.name || "",
         date: new Date().toISOString(),
         userId,
       };
@@ -1372,6 +1382,13 @@ export const addPurchaseItemsToInventory = async (
 export interface InventoryItemInput {
   description: string;
   hsnCode?: string;
+  barcode?: string;
+  vendorId?: string;
+  itemNo?: string;
+  model?: string;
+  imeiNumber?: string;
+  storage?: string;
+  color?: string;
   quantity: number;
   unit: string;
   purchasePrice: number;
@@ -1407,6 +1424,11 @@ const updateExistingProduct = async (
   const updates: any = {
     stock: newStock,
     purchasePrice: newPurchasePrice,
+    model: item.model || existingProduct.model || "",
+    imeiNumber: item.imeiNumber || existingProduct.imeiNumber || "",
+    storage: item.storage || existingProduct.storage || "",
+    color: item.color || existingProduct.color || "",
+    itemNo: item.itemNo || existingProduct.itemNo || "",
   };
 
   if (item.sellingPrice > 0) {
@@ -1426,6 +1448,13 @@ const updateExistingProduct = async (
     quantity: item.quantity,
     date: bill.billDate || bill.createdAt,
     purchasePrice: item.purchasePrice,
+    itemNo: item.itemNo || existingProduct.itemNo || "",
+    model: item.model || existingProduct.model || "",
+    imeiNumber: item.imeiNumber || existingProduct.imeiNumber || "",
+    storage: item.storage || existingProduct.storage || "",
+    color: item.color || existingProduct.color || "",
+    vendorId: item.vendorId || bill.vendorId || "",
+    vendorName: bill.vendorName || "",
     userId,
   };
   const cleanedTransactionData = removeUndefined(transaction);
@@ -1461,6 +1490,11 @@ const updateExistingProductWithNameChange = async (
     purchasePrice: newPurchasePrice,
     gstRate: item.gstRate || existingProduct.gstRate,
     unit: item.unit || existingProduct.unit,
+    model: item.model || existingProduct.model || "",
+    imeiNumber: item.imeiNumber || existingProduct.imeiNumber || "",
+    storage: item.storage || existingProduct.storage || "",
+    color: item.color || existingProduct.color || "",
+    itemNo: item.itemNo || existingProduct.itemNo || "",
   };
 
   if (item.sellingPrice > 0) {
@@ -1480,6 +1514,13 @@ const updateExistingProductWithNameChange = async (
     quantity: item.quantity,
     date: bill.billDate || bill.createdAt,
     purchasePrice: item.purchasePrice,
+    itemNo: item.itemNo || existingProduct.itemNo || "",
+    model: item.model || existingProduct.model || "",
+    imeiNumber: item.imeiNumber || existingProduct.imeiNumber || "",
+    storage: item.storage || existingProduct.storage || "",
+    color: item.color || existingProduct.color || "",
+    vendorId: item.vendorId || bill.vendorId || "",
+    vendorName: bill.vendorName || "",
     userId,
   };
   const cleanedTransactionData = removeUndefined(transaction);
@@ -1495,6 +1536,11 @@ const createNewProduct = async (
   const newProduct: Product = {
     id: crypto.randomUUID(),
     name: item.description,
+    itemNo: item.itemNo || "",
+    model: item.model || "",
+    imeiNumber: item.imeiNumber || "",
+    storage: item.storage || "",
+    color: item.color || "",
     hsnCode: item.hsnCode || "",
     gstRate: item.gstRate || 0,
     unit: item.unit || "pcs",
@@ -1522,6 +1568,13 @@ const createNewProduct = async (
     quantity: item.quantity,
     date: bill.billDate || bill.createdAt,
     purchasePrice: item.purchasePrice,
+    itemNo: item.itemNo || "",
+    model: item.model || "",
+    imeiNumber: item.imeiNumber || "",
+    storage: item.storage || "",
+    color: item.color || "",
+    vendorId: item.vendorId || bill.vendorId || "",
+    vendorName: bill.vendorName || "",
     userId,
   };
   const cleanedTransactionData = removeUndefined(transaction);

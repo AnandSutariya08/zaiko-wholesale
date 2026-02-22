@@ -49,6 +49,8 @@ import {
   UserPlus,
   PlusCircle,
   CreditCard,
+  Search,
+  Smartphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -125,6 +127,7 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
   >(null);
   const [productSearch, setProductSearch] = useState("");
   const [barcodeSearch, setBarcodeSearch] = useState("");
+  const [imeiLookup, setImeiLookup] = useState("");
   const [createProductOpen, setCreateProductOpen] = useState(false);
   const [createProductForIndex, setCreateProductForIndex] = useState<
     number | null
@@ -262,6 +265,17 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
     );
     if (invalidItems.length > 0) {
       toast.error("Please select a product for all items");
+      return;
+    }
+
+    const imeiList = billItems
+      .map((item) => (item.imeiNumber || "").replace(/\s+/g, "").trim())
+      .filter(Boolean);
+    const duplicateImei = imeiList.find(
+      (imei, idx) => imeiList.indexOf(imei) !== idx,
+    );
+    if (duplicateImei) {
+      toast.error(`Duplicate IMEI in bill items: ${duplicateImei}`);
       return;
     }
 
@@ -467,6 +481,14 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
           const newItem: BillItem = {
             productId: product.id,
             productName: product.name,
+            itemNo: product.itemNo || "",
+            model: product.model || "",
+            imeiNumber: product.imeiNumber || "",
+            storage: product.storage || "",
+            color: product.color || "",
+            vendorId: product.vendorId || "",
+            vendorName: product.whereToBuy || "",
+            purchasePrice: product.purchasePrice || 0,
             hsnCode: product.hsnCode,
             gstRate: product.gstRate,
             quantity: 1,
@@ -513,16 +535,11 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
   const handleCreateClient = async () => {
     const name = clientFormData.name.trim();
     const billingAddress = clientFormData.billingAddress.trim();
-    const gstin = clientFormData.gstin.trim();
+    const gstin = clientFormData.gstin.trim().toUpperCase();
     const state = clientFormData.state.trim();
     const stateCode = clientFormData.stateCode.trim();
 
     if (!name) return toast.error("Client name is required");
-    if (!billingAddress) return toast.error("Billing address is required");
-    if (!gstin)
-      return toast.error("GSTIN is required (use N.A. if not applicable)");
-    if (!state) return toast.error("State is required");
-    if (!stateCode) return toast.error("State code is required");
 
     setCreatingClient(true);
     try {
@@ -560,6 +577,14 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
     const item = { ...updated[index] };
     item.productId = product.id;
     item.productName = product.name;
+    item.itemNo = product.itemNo || "";
+    item.model = product.model || "";
+    item.imeiNumber = product.imeiNumber || "";
+    item.storage = product.storage || "";
+    item.color = product.color || "";
+    item.vendorId = product.vendorId || "";
+    item.vendorName = product.whereToBuy || "";
+    item.purchasePrice = product.purchasePrice || 0;
     item.hsnCode = product.hsnCode;
     item.gstRate = product.gstRate;
     item.unit = product.unit;
@@ -582,16 +607,84 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
     setBillItems(updated);
   };
 
+  const normalizeLookupText = (value: string) =>
+    value.replace(/\s+/g, "").trim().toLowerCase();
+
+  const buildBillItemFromProduct = (product: Product): BillItem => {
+    const quantity = 1;
+    const ratePerUnit = product.sellingPrice || product.price || 0;
+    const amount = roundToTwoDecimals(quantity * ratePerUnit);
+
+    let cgst = 0;
+    let sgst = 0;
+    let igst = 0;
+    if (gstEnabled) {
+      if (isIGST) {
+        igst = roundToTwoDecimals((amount * product.gstRate) / 100);
+      } else {
+        cgst = roundToTwoDecimals((amount * product.gstRate) / 200);
+        sgst = roundToTwoDecimals((amount * product.gstRate) / 200);
+      }
+    }
+
+    return {
+      productId: product.id,
+      productName: product.name,
+      itemNo: product.itemNo || "",
+      model: product.model || "",
+      imeiNumber: product.imeiNumber || "",
+      storage: product.storage || "",
+      color: product.color || "",
+      vendorId: product.vendorId || "",
+      vendorName: product.whereToBuy || "",
+      purchasePrice: product.purchasePrice || 0,
+      hsnCode: product.hsnCode,
+      gstRate: product.gstRate,
+      quantity,
+      unit: product.unit || "pcs",
+      ratePerUnit,
+      amount,
+      cgst,
+      sgst,
+      igst,
+    };
+  };
+
+  const addProductByLookup = (product: Product) => {
+    const productImei = normalizeLookupText(product.imeiNumber || "");
+    if (
+      productImei &&
+      billItems.some(
+        (item) => normalizeLookupText(item.imeiNumber || "") === productImei,
+      )
+    ) {
+      toast.error("This IMEI is already present in bill items");
+      return;
+    }
+
+    setBillItems((prev) => [...prev, buildBillItemFromProduct(product)]);
+    setImeiLookup("");
+    toast.success(`Added ${product.name}`);
+  };
+
   const addItem = () => {
     setBillItems([
       ...billItems,
       {
         productId: "",
         productName: "",
+        itemNo: "",
+        model: "",
+        imeiNumber: "",
+        storage: "",
+        color: "",
+        vendorId: "",
+        vendorName: "",
+        purchasePrice: 0,
         hsnCode: "",
         gstRate: 0,
         quantity: 1,
-        unit: "kg",
+        unit: "pcs",
         ratePerUnit: 0,
         amount: 0,
         cgst: 0,
@@ -614,6 +707,14 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
       if (product) {
         item.productId = product.id;
         item.productName = product.name;
+        item.itemNo = product.itemNo || "";
+        item.model = product.model || "";
+        item.imeiNumber = product.imeiNumber || "";
+        item.storage = product.storage || "";
+        item.color = product.color || "";
+        item.vendorId = product.vendorId || "";
+        item.vendorName = product.whereToBuy || "";
+        item.purchasePrice = product.purchasePrice || 0;
         item.hsnCode = product.hsnCode;
         item.gstRate = product.gstRate;
         item.unit = product.unit;
@@ -690,6 +791,26 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
     return product.stock + originalQty;
   };
 
+  const lookupTerm = normalizeLookupText(imeiLookup);
+  const imeiMatches =
+    lookupTerm.length < 3
+      ? []
+      : products
+          .filter((product) => {
+            const searchBlob = [
+              product.imeiNumber || "",
+              product.model || "",
+              product.itemNo || "",
+              product.name || "",
+            ]
+              .join(" ")
+              .toLowerCase()
+              .replace(/\s+/g, "");
+            if (!searchBlob.includes(lookupTerm)) return false;
+            return getAvailableStock(product.id) > 0;
+          })
+          .slice(0, 12);
+
   const otherChargesNum = parseFloat(formData.otherCharges || "0") || 0;
   const discountValue = formData.discount?.trim() || "";
   const discountNum = discountValue === "" ? 0 : parseFloat(discountValue) || 0;
@@ -763,7 +884,7 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
                 </PopoverTrigger>
                 <PopoverContent className="w-full p-0" align="start">
                   <Command>
-                    <CommandInput placeholder="Search client..." />
+                    <CommandInput placeholder="Search client by name or mobile..." />
                     <CommandList>
                       <CommandEmpty>
                         <div className="py-6 text-center">
@@ -800,7 +921,7 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
                         {clients.map((client) => (
                           <CommandItem
                             key={client.id}
-                            value={client.name}
+                            value={[client.name, client.phone || ""].join(" ")}
                             onSelect={() => {
                               setSelectedClient(client);
                               setClientComboOpen(false);
@@ -814,7 +935,14 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
                                   : "opacity-0",
                               )}
                             />
-                            {client.name}
+                            <div className="flex flex-col">
+                              <span>{client.name}</span>
+                              {client.phone && (
+                                <span className="text-xs text-muted-foreground">
+                                  {client.phone}
+                                </span>
+                              )}
+                            </div>
                           </CommandItem>
                         ))}
                       </CommandGroup>
@@ -1117,13 +1245,91 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
         </div>
       )}
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Bill Items</CardTitle>
-          <Button onClick={addItem} size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Item
-          </Button>
+      <Card className="border-primary/20 bg-gradient-to-br from-background via-background to-primary/5">
+        <CardHeader className="space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle>Bill Items</CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">
+                Enter IMEI to fetch mobile quickly, or add manually.
+              </p>
+            </div>
+            <Button onClick={addItem} size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Item
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div className="md:col-span-2">
+              <Label className="flex items-center gap-2">
+                <Search className="h-4 w-4" />
+                Quick IMEI / Model Lookup
+              </Label>
+              <Input
+                value={imeiLookup}
+                onChange={(e) => setImeiLookup(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && imeiMatches.length > 0) {
+                    e.preventDefault();
+                    addProductByLookup(imeiMatches[0]);
+                  }
+                }}
+                placeholder="Type IMEI, model or item number..."
+                className="mt-2 border-primary/40 focus-visible:ring-primary/30"
+              />
+              {imeiLookup.trim().length > 0 && (
+                <div className="mt-2 max-h-52 overflow-y-auto rounded-lg border bg-background">
+                  {imeiMatches.length === 0 ? (
+                    <p className="px-3 py-2 text-sm text-muted-foreground">
+                      No matching mobile found.
+                    </p>
+                  ) : (
+                    imeiMatches.map((product) => (
+                      <button
+                        key={`imei-${product.id}`}
+                        type="button"
+                        onClick={() => addProductByLookup(product)}
+                        className="flex w-full items-start justify-between gap-3 border-b px-3 py-2 text-left last:border-b-0 hover:bg-muted/40"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold">
+                            {product.model || product.name}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {[
+                              product.itemNo,
+                              product.imeiNumber,
+                              product.storage,
+                              product.color,
+                            ]
+                              .filter(Boolean)
+                              .join(" / ")}
+                          </p>
+                        </div>
+                        <div className="shrink-0 text-right text-xs">
+                          <p className="font-medium">
+                            Stock: {getAvailableStock(product.id)}
+                          </p>
+                          <p className="text-muted-foreground">
+                            Rate: {formatToTwoDecimals(product.sellingPrice || product.price || 0)}
+                          </p>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="rounded-lg border bg-background/70 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Selected Items
+              </p>
+              <p className="mt-1 text-2xl font-bold">{billItems.length}</p>
+              <p className="text-xs text-muted-foreground">
+                Total IMEI devices in this bill.
+              </p>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -1142,11 +1348,66 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
               const originalQty = getOriginalQuantity(item.productId);
 
               return (
-                <Card key={index}>
+                <Card
+                  key={index}
+                  className="overflow-hidden border-border/70 bg-gradient-to-br from-background via-background to-primary/5 shadow-sm"
+                >
                   <CardContent className="pt-4">
-                    <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                      <div className="min-w-0 space-y-2">
+                        <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                          <Smartphone className="mr-1.5 h-3.5 w-3.5" />
+                          Item {index + 1}
+                        </span>
+                        <p className="truncate text-sm font-semibold">
+                          {item.model || item.productName || "Select mobile"}
+                        </p>
+                        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                          {item.imeiNumber && (
+                            <span className="rounded-full bg-muted px-2 py-0.5 font-mono">
+                              IMEI: {item.imeiNumber}
+                            </span>
+                          )}
+                          {(item.storage || item.color) && (
+                            <span className="rounded-full bg-muted px-2 py-0.5">
+                              {[item.storage, item.color].filter(Boolean).join(" / ")}
+                            </span>
+                          )}
+                          {item.itemNo && (
+                            <span className="rounded-full bg-muted px-2 py-0.5">
+                              Item No: {item.itemNo}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-right">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            Line Total
+                          </p>
+                          <p className="text-lg font-bold leading-tight text-primary">
+                            Rs {formatToTwoDecimals(item.amount)}
+                          </p>
+                          {gstEnabled && (
+                            <p className="text-[10px] text-muted-foreground">
+                              {isIGST ? "IGST" : "CGST+SGST"}: Rs{" "}
+                              {formatToTwoDecimals(item.igst || item.cgst + item.sgst)}
+                            </p>
+                          )}
+                        </div>
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          className="h-9 w-9"
+                          onClick={() => removeItem(index)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 rounded-xl border border-border/60 bg-background/70 p-3 md:grid-cols-6">
                       {/* Product Combobox */}
-                      <div className="md:col-span-2">
+                      <div className={cn(gstEnabled ? "md:col-span-3" : "md:col-span-4")}>
                         <Label>Product</Label>
                         <Popover
                           open={productComboOpenIndex === index}
@@ -1159,7 +1420,7 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
                               variant="outline"
                               role="combobox"
                               aria-expanded={productComboOpenIndex === index}
-                              className="w-full justify-between"
+                              className="w-full justify-between border-border/70 bg-background"
                             >
                               {item.productName || "Select product..."}
                               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -1211,7 +1472,12 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
                                     return (
                                       <CommandItem
                                         key={product.id}
-                                        value={product.name}
+                                        value={[
+                                          product.name,
+                                          product.model || "",
+                                          product.itemNo || "",
+                                          product.imeiNumber || "",
+                                        ].join(" ")}
                                         onSelect={() => {
                                           updateItem(
                                             index,
@@ -1230,13 +1496,17 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
                                           )}
                                         />
                                         <div className="flex flex-col">
-                                          <span>{product.name}</span>
+                                          <span className="font-medium">
+                                            {product.model || product.name}
+                                          </span>
                                           <span className="text-xs text-muted-foreground">
-                                            Stock:{" "}
-                                            {availStock % 1 === 0
-                                              ? availStock
-                                              : availStock.toFixed(2)}{" "}
-                                            {product.unit}
+                                            {[
+                                              product.itemNo,
+                                              product.imeiNumber,
+                                              `Stock: ${availStock % 1 === 0 ? availStock : availStock.toFixed(2)} ${product.unit}`,
+                                            ]
+                                              .filter(Boolean)
+                                              .join(" / ")}
                                           </span>
                                         </div>
                                       </CommandItem>
@@ -1295,7 +1565,7 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
                             )}
                             {item.quantity > availableStock && (
                               <span className="text-red-500 ml-2">
-                                ⚠️ Insufficient stock
+                                Insufficient stock
                               </span>
                             )}
                           </p>
@@ -1333,33 +1603,58 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
                           />
                         </div>
                       )}
-
-                      <div className="flex items-end">
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          onClick={() => removeItem(index)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
                     </div>
-                    <div className="mt-2 text-sm text-muted-foreground">
-                      Amount: ₹{formatToTwoDecimals(item.amount)}
-                      {gstEnabled && (
-                        <>
-                          {" + "}
-                          {isIGST ? "IGST" : "CGST+SGST"}: ₹
-                          {formatToTwoDecimals(
-                            item.igst || item.cgst + item.sgst,
-                          )}
-                          {isIGST && (
-                            <span className="ml-2 text-xs text-orange-500">
-                              (Inter-State)
-                            </span>
-                          )}
-                        </>
-                      )}
+                    <div className="mt-3 grid grid-cols-1 gap-3 rounded-xl border border-border/60 bg-muted/20 p-3 md:grid-cols-5">
+                      <div>
+                        <Label>Item No</Label>
+                        <Input
+                          value={item.itemNo || ""}
+                          onChange={(e) =>
+                            updateItem(index, "itemNo", e.target.value)
+                          }
+                          placeholder="D648"
+                        />
+                      </div>
+                      <div>
+                        <Label>Model</Label>
+                        <Input
+                          value={item.model || ""}
+                          onChange={(e) =>
+                            updateItem(index, "model", e.target.value)
+                          }
+                          placeholder="16 Pro Max"
+                        />
+                      </div>
+                      <div>
+                        <Label>IMEI / Serial</Label>
+                        <Input
+                          value={item.imeiNumber || ""}
+                          onChange={(e) =>
+                            updateItem(index, "imeiNumber", e.target.value)
+                          }
+                          placeholder="350108720225827"
+                        />
+                      </div>
+                      <div>
+                        <Label>Storage</Label>
+                        <Input
+                          value={item.storage || ""}
+                          onChange={(e) =>
+                            updateItem(index, "storage", e.target.value)
+                          }
+                          placeholder="256 GB"
+                        />
+                      </div>
+                      <div>
+                        <Label>Color</Label>
+                        <Input
+                          value={item.color || ""}
+                          onChange={(e) =>
+                            updateItem(index, "color", e.target.value)
+                          }
+                          placeholder="Natural"
+                        />
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -1546,3 +1841,6 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
     </div>
   );
 }
+
+
+

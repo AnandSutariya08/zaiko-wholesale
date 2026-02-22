@@ -298,6 +298,11 @@ function PurchaseBills() {
   const [inventoryItems, setInventoryItems] = useState<
     {
       description: string;
+      itemNo?: string;
+      model?: string;
+      imeiNumber?: string;
+      storage?: string;
+      color?: string;
       hsnCode: string;
       quantity: number;
       unit: string;
@@ -1138,6 +1143,11 @@ function PurchaseBills() {
 
       return {
         description: item.description,
+        itemNo: (item as any).itemNo || "",
+        model: (item as any).model || "",
+        imeiNumber: (item as any).imeiNumber || "",
+        storage: (item as any).storage || "",
+        color: (item as any).color || "",
         hsnCode: item.hsnCode || "",
         barcode: "", // Added barcode field for inventory addition
         quantity: item.quantity,
@@ -1224,6 +1234,11 @@ function PurchaseBills() {
 
       const itemsInput: InventoryItemInput[] = inventoryItems.map((item) => ({
         description: item.description,
+        itemNo: item.itemNo || "",
+        model: item.model || "",
+        imeiNumber: item.imeiNumber || "",
+        storage: item.storage || "",
+        color: item.color || "",
         hsnCode: item.hsnCode,
         barcode: item.barcode, // Pass barcode to inventory service
         quantity: item.quantity,
@@ -3362,6 +3377,66 @@ function PurchaseBills() {
                                     />
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                       <Input
+                                        value={(item as any).itemNo || ""}
+                                        onChange={(e) =>
+                                          updateEditedItem(
+                                            index,
+                                            "itemNo" as any,
+                                            e.target.value,
+                                          )
+                                        }
+                                        className="h-8 text-sm"
+                                        placeholder="Item No"
+                                      />
+                                      <Input
+                                        value={(item as any).model || ""}
+                                        onChange={(e) =>
+                                          updateEditedItem(
+                                            index,
+                                            "model" as any,
+                                            e.target.value,
+                                          )
+                                        }
+                                        className="h-8 text-sm"
+                                        placeholder="Model"
+                                      />
+                                      <Input
+                                        value={(item as any).imeiNumber || ""}
+                                        onChange={(e) =>
+                                          updateEditedItem(
+                                            index,
+                                            "imeiNumber" as any,
+                                            e.target.value,
+                                          )
+                                        }
+                                        className="h-8 text-sm"
+                                        placeholder="IMEI / Serial"
+                                      />
+                                      <Input
+                                        value={(item as any).storage || ""}
+                                        onChange={(e) =>
+                                          updateEditedItem(
+                                            index,
+                                            "storage" as any,
+                                            e.target.value,
+                                          )
+                                        }
+                                        className="h-8 text-sm"
+                                        placeholder="Storage"
+                                      />
+                                      <Input
+                                        value={(item as any).color || ""}
+                                        onChange={(e) =>
+                                          updateEditedItem(
+                                            index,
+                                            "color" as any,
+                                            e.target.value,
+                                          )
+                                        }
+                                        className="h-8 text-sm"
+                                        placeholder="Color"
+                                      />
+                                      <Input
                                         value={(item as any).whereToBuy || ""}
                                         onChange={(e) =>
                                           updateEditedItem(
@@ -3373,18 +3448,6 @@ function PurchaseBills() {
                                         className="h-8 text-sm"
                                         placeholder="Bought from (optional)"
                                       />
-                                      <Input
-                                        value={(item as any).weight || ""}
-                                        onChange={(e) =>
-                                          updateEditedItem(
-                                            index,
-                                            "weight" as any,
-                                            e.target.value,
-                                          )
-                                        }
-                                        className="h-8 text-sm"
-                                        placeholder="Weight (optional)"
-                                      />
                                     </div>
                                   </div>
                                 ) : (
@@ -3392,14 +3455,23 @@ function PurchaseBills() {
                                     <div className="font-medium break-words text-sm">
                                       {item.description}
                                     </div>
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                      {[
+                                        (item as any).itemNo ? `Item: ${(item as any).itemNo}` : null,
+                                        (item as any).model ? `Model: ${(item as any).model}` : null,
+                                        (item as any).imeiNumber ? `IMEI: ${(item as any).imeiNumber}` : null,
+                                        (item as any).storage || (item as any).color
+                                          ? `${(item as any).storage || "-"}${(item as any).color ? ` / ${(item as any).color}` : ""}`
+                                          : null,
+                                      ]
+                                        .filter(Boolean)
+                                        .map((line, idx) => (
+                                          <div key={idx}>{line}</div>
+                                        ))}
+                                    </div>
                                     {(item as any).whereToBuy && (
                                       <div className="text-xs text-muted-foreground mt-1">
                                         Bought from: {(item as any).whereToBuy}
-                                      </div>
-                                    )}
-                                    {(item as any).weight && (
-                                      <div className="text-xs text-muted-foreground">
-                                        Weight: {(item as any).weight}
                                       </div>
                                     )}
                                     {item.hasError && (
@@ -3846,6 +3918,15 @@ function PurchaseBills() {
                         {item.quantity} {item.unit} | HSN:{" "}
                         {item.hsnCode || "N/A"}
                       </p>
+                      {((item.itemNo || item.model || item.imeiNumber || item.storage || item.color) && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {item.itemNo ? `Item: ${item.itemNo} | ` : ""}
+                          {item.model ? `Model: ${item.model} | ` : ""}
+                          {item.imeiNumber ? `IMEI: ${item.imeiNumber} | ` : ""}
+                          {item.storage || "-"}
+                          {item.color ? ` / ${item.color}` : ""}
+                        </p>
+                      )) || null}
                     </div>
                     <Badge variant="outline" className="text-xs">
                       GST: {item.gstRate}%
@@ -3997,6 +4078,66 @@ function PurchaseBills() {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Item No</Label>
+                      <Input
+                        value={item.itemNo || ""}
+                        onChange={(e) => {
+                          const newItems = [...inventoryItems];
+                          newItems[index].itemNo = e.target.value;
+                          setInventoryItems(newItems);
+                        }}
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Model</Label>
+                      <Input
+                        value={item.model || ""}
+                        onChange={(e) => {
+                          const newItems = [...inventoryItems];
+                          newItems[index].model = e.target.value;
+                          setInventoryItems(newItems);
+                        }}
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">IMEI / Serial</Label>
+                      <Input
+                        value={item.imeiNumber || ""}
+                        onChange={(e) => {
+                          const newItems = [...inventoryItems];
+                          newItems[index].imeiNumber = e.target.value;
+                          setInventoryItems(newItems);
+                        }}
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Storage</Label>
+                      <Input
+                        value={item.storage || ""}
+                        onChange={(e) => {
+                          const newItems = [...inventoryItems];
+                          newItems[index].storage = e.target.value;
+                          setInventoryItems(newItems);
+                        }}
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Color</Label>
+                      <Input
+                        value={item.color || ""}
+                        onChange={(e) => {
+                          const newItems = [...inventoryItems];
+                          newItems[index].color = e.target.value;
+                          setInventoryItems(newItems);
+                        }}
+                        className="h-9"
+                      />
+                    </div>
                     <div className="space-y-1">
                       <Label className="text-xs text-muted-foreground">
                         Purchase Price

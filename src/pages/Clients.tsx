@@ -73,45 +73,6 @@ export default function Clients() {
 
     const trimmedGstin = formData.gstin.trim().toUpperCase();
 
-    // Validate GSTIN format only if provided
-    if (trimmedGstin) {
-      if (trimmedGstin.length !== 15) {
-        toast.error("GSTIN must be exactly 15 characters");
-        return;
-      }
-
-      if (!/^[0-9A-Z]{15}$/.test(trimmedGstin)) {
-        toast.error("GSTIN must contain only letters and numbers");
-        return;
-      }
-
-      // If GSTIN is provided, state and state code are required
-      if (!formData.state.trim()) {
-        toast.error("State is required when GSTIN is provided");
-        return;
-      }
-
-      if (!formData.stateCode.trim()) {
-        toast.error("State Code is required when GSTIN is provided");
-        return;
-      }
-
-      // Check for duplicate GSTIN - enforce one client per GSTIN (only if GSTIN is provided)
-      const existingClientWithGstin = clients.find(
-        (client) =>
-          client.gstin &&
-          client.gstin.trim().toUpperCase() === trimmedGstin &&
-          client.id !== editingClient?.id // Exclude self when editing
-      );
-
-      if (existingClientWithGstin) {
-        toast.error(
-          `A client with GSTIN "${trimmedGstin}" already exists (${existingClientWithGstin.name}). Only one client per GSTIN is allowed.`
-        );
-        return;
-      }
-    }
-
     setSaving(true);
     try {
       const client: Client = {
@@ -262,104 +223,18 @@ export default function Clients() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>GSTIN</Label>
+                  <Label>Phone</Label>
                   <Input
-                    value={formData.gstin}
-                    onChange={(e) => {
-                      const value = e.target.value
-                        .toUpperCase()
-                        .replace(/[^A-Z0-9]/g, "");
-                      setFormData({ ...formData, gstin: value });
-                    }}
-                    placeholder="Enter 15-digit GSTIN (optional)"
-                    maxLength={15}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Optional. If provided, one client can be created per GSTIN.
-                    GSTIN must be exactly 15 characters.
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Billing Address *</Label>
-                  <Textarea
-                    required
-                    value={formData.billingAddress}
+                    type="tel"
+                    value={formData.phone}
                     onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        billingAddress: e.target.value,
-                      })
+                      setFormData({ ...formData, phone: e.target.value })
                     }
-                    placeholder="Enter billing address"
-                    rows={3}
+                    placeholder="Enter phone number"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Shipping Address (if different)</Label>
-                  <Textarea
-                    value={formData.shippingAddress}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        shippingAddress: e.target.value,
-                      })
-                    }
-                    placeholder="Enter shipping address (leave empty if same as billing)"
-                    rows={3}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>State {formData.gstin.trim() ? "*" : ""}</Label>
-                    <Input
-                      required={!!formData.gstin.trim()}
-                      value={formData.state}
-                      onChange={(e) =>
-                        setFormData({ ...formData, state: e.target.value })
-                      }
-                      placeholder="Gujarat"
-                    />
-                    {formData.gstin.trim() && (
-                      <p className="text-xs text-muted-foreground">
-                        Required when GSTIN is provided
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>State Code {formData.gstin.trim() ? "*" : ""}</Label>
-                    <Input
-                      required={!!formData.gstin.trim()}
-                      value={formData.stateCode}
-                      onChange={(e) =>
-                        setFormData({ ...formData, stateCode: e.target.value })
-                      }
-                      placeholder="24"
-                    />
-                    {formData.gstin.trim() && (
-                      <p className="text-xs text-muted-foreground">
-                        Required when GSTIN is provided
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Phone</Label>
-                    <Input
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) =>
-                        setFormData({ ...formData, phone: e.target.value })
-                      }
-                      placeholder="Enter phone number"
-                    />
-                  </div>
-
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Email</Label>
                     <Input
@@ -371,6 +246,36 @@ export default function Clients() {
                       placeholder="Enter email address"
                     />
                   </div>
+
+                  <div className="space-y-2">
+                    <Label>GSTIN (Optional)</Label>
+                    <Input
+                      value={formData.gstin}
+                      onChange={(e) => {
+                        const value = e.target.value
+                          .toUpperCase()
+                          .replace(/[^A-Z0-9]/g, "");
+                        setFormData({ ...formData, gstin: value });
+                      }}
+                      placeholder="Optional"
+                      maxLength={15}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Address</Label>
+                  <Textarea
+                    value={formData.billingAddress}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        billingAddress: e.target.value,
+                      })
+                    }
+                    placeholder="Enter address"
+                    rows={2}
+                  />
                 </div>
               </div>
 

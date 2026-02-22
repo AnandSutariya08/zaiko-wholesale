@@ -522,7 +522,13 @@ export default function Products() {
       return (
         product.name.toLowerCase().includes(query) ||
         product.hsnCode.toLowerCase().includes(query) ||
-        (product.unit && product.unit.toLowerCase().includes(query))
+        (product.unit && product.unit.toLowerCase().includes(query)) ||
+        (product.itemNo && product.itemNo.toLowerCase().includes(query)) ||
+        (product.model && product.model.toLowerCase().includes(query)) ||
+        (product.imeiNumber && product.imeiNumber.toLowerCase().includes(query)) ||
+        (product.storage && product.storage.toLowerCase().includes(query)) ||
+        (product.color && product.color.toLowerCase().includes(query)) ||
+        (product.whereToBuy && product.whereToBuy.toLowerCase().includes(query))
       );
     })
     .sort((a, b) => {
@@ -987,7 +993,7 @@ export default function Products() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                 <Input
                   type="text"
-                  placeholder="Search by name or HSN code..."
+                  placeholder="Search by name, model, IMEI, item no, color..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9 h-9 text-sm w-full"
@@ -1474,6 +1480,11 @@ export default function Products() {
                             </div>
                           </div>
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            {product.itemNo && (
+                              <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded font-semibold">
+                                {product.itemNo}
+                              </span>
+                            )}
                             <span className="text-xs bg-muted px-2 py-0.5 rounded font-mono">
                               {product.hsnCode}
                             </span>
@@ -1508,6 +1519,21 @@ export default function Products() {
                               {formatCurrency(
                                 averagePrices[product.id] || purchasePrice,
                               )}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs text-muted-foreground mt-1">
+                            <span>Model</span>
+                            <span className="font-medium">{product.model || "N/A"}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs text-muted-foreground mt-1">
+                            <span>IMEI</span>
+                            <span className="font-medium">{product.imeiNumber || "N/A"}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs text-muted-foreground mt-1">
+                            <span>Storage / Color</span>
+                            <span className="font-medium">
+                              {product.storage || "N/A"}
+                              {product.color ? ` / ${product.color}` : ""}
                             </span>
                           </div>
                           <div className="flex justify-between items-center text-xs text-muted-foreground mt-1">

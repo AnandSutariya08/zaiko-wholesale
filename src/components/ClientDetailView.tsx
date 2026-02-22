@@ -101,9 +101,24 @@ export function ClientDetailView({ client, open, onOpenChange, fullScreen = fals
   const filteredBills = bills.filter(bill => {
     // Search filter
     if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      const itemMatch = bill.items.some((it) =>
+        [
+          it.productName,
+          it.itemNo || "",
+          it.model || "",
+          it.imeiNumber || "",
+          it.storage || "",
+          it.color || "",
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(searchLower),
+      );
       const matchesSearch = 
-        bill.billNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        bill.date.toLowerCase().includes(searchTerm.toLowerCase());
+        bill.billNumber.toLowerCase().includes(searchLower) ||
+        bill.date.toLowerCase().includes(searchLower) ||
+        itemMatch;
       if (!matchesSearch) return false;
     }
 
@@ -433,7 +448,7 @@ export function ClientDetailView({ client, open, onOpenChange, fullScreen = fals
                         <div className="relative">
                           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                           <Input
-                            placeholder="Bill number or date..."
+                            placeholder="Bill no, model, IMEI..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="pl-9"
@@ -537,7 +552,21 @@ export function ClientDetailView({ client, open, onOpenChange, fullScreen = fals
                                     <span className="whitespace-nowrap">{formatDate(bill.date)}</span>
                                   </div>
                                 </TableCell>
-                                <TableCell className="text-xs sm:text-sm hidden sm:table-cell">{bill.items.length} items</TableCell>
+                                <TableCell className="text-xs sm:text-sm hidden sm:table-cell">
+                                  <div className="space-y-1">
+                                    <div>{bill.items.length} items</div>
+                                    <div className="text-[11px] text-muted-foreground line-clamp-2">
+                                      {bill.items
+                                        .slice(0, 2)
+                                        .map((it) =>
+                                          [it.model || it.productName, it.imeiNumber]
+                                            .filter(Boolean)
+                                            .join(" • "),
+                                        )
+                                        .join(" | ")}
+                                    </div>
+                                  </div>
+                                </TableCell>
                                 <TableCell className="text-right font-semibold text-xs sm:text-sm whitespace-nowrap">
                                   {formatCurrency(bill.total)}
                                 </TableCell>
@@ -630,7 +659,10 @@ export function ClientDetailView({ client, open, onOpenChange, fullScreen = fals
                                   <div className="space-y-1">
                                     {ret.items.map((item, idx) => (
                                       <div key={idx} className="text-xs sm:text-sm break-words">
-                                        {item.productName} - {item.quantity} {item.condition === 'good' ? '(Good)' : '(Damaged)'}
+                                        {[item.productName, (item as any).model, (item as any).imeiNumber]
+                                          .filter(Boolean)
+                                          .join(" • ")}{" "}
+                                        - {item.quantity} {item.condition === 'good' ? '(Good)' : '(Damaged)'}
                                       </div>
                                     ))}
                                   </div>

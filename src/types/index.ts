@@ -95,6 +95,12 @@ export interface Vendor {
 export interface Product {
   whereToBuy: string;
   vendorId?: string; // Link to Vendor
+  itemNo?: string;
+  brand?: string;
+  model?: string;
+  imeiNumber?: string;
+  storage?: string;
+  color?: string;
   weight: number;
   weightUnit?: string;
   id: string;
@@ -116,6 +122,14 @@ export interface Product {
 export interface BillItem {
   productId: string;
   productName: string;
+  itemNo?: string;
+  model?: string;
+  imeiNumber?: string;
+  storage?: string;
+  color?: string;
+  vendorId?: string;
+  vendorName?: string;
+  purchasePrice?: number;
   hsnCode: string;
   gstRate: number;
   quantity: number;
@@ -229,6 +243,16 @@ export interface InventoryTransaction {
   quantity: number;
   date: string;
   purchasePrice?: number;
+  sellingPrice?: number;
+  itemNo?: string;
+  model?: string;
+  imeiNumber?: string;
+  storage?: string;
+  color?: string;
+  vendorId?: string;
+  vendorName?: string;
+  clientId?: string;
+  clientName?: string;
   userId: string; // Purchase price for stock additions
 }
 
@@ -283,6 +307,11 @@ export interface InventoryItemInput {
   hsnCode?: string;
   barcode?: string;
   vendorId?: string;
+  itemNo?: string;
+  model?: string;
+  imeiNumber?: string;
+  storage?: string;
+  color?: string;
   quantity: number;
   unit: string;
   purchasePrice: number;
@@ -305,6 +334,11 @@ export interface ProductConflict {
 
 export interface PurchaseBillItem {
   description: string;
+  itemNo?: string;
+  model?: string;
+  imeiNumber?: string;
+  storage?: string;
+  color?: string;
   hsnCode?: string;
   quantity: number;
   unit: string;

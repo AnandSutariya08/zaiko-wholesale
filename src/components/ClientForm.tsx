@@ -49,33 +49,12 @@ export function ClientForm({ open, onOpenChange, onSuccess }: ClientFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const trimmedGstin = formData.gstin.trim().toUpperCase();
-
-    if (trimmedGstin) {
-      if (trimmedGstin.length !== 15) {
-        toast.error("GSTIN must be exactly 15 characters");
-        return;
-      }
-      if (!/^[0-9A-Z]{15}$/.test(trimmedGstin)) {
-        toast.error("GSTIN must contain only letters and numbers");
-        return;
-      }
-      if (!formData.state.trim()) {
-        toast.error("State is required when GSTIN is provided");
-        return;
-      }
-      if (!formData.stateCode.trim()) {
-        toast.error("State Code is required when GSTIN is provided");
-        return;
-      }
-    }
-
     setSaving(true);
     try {
       const client: Client = {
         id: crypto.randomUUID(),
         ...formData,
-        gstin: trimmedGstin,
+        gstin: formData.gstin.trim().toUpperCase(),
         createdAt: new Date().toISOString(),
       };
 
@@ -110,62 +89,6 @@ export function ClientForm({ open, onOpenChange, onSuccess }: ClientFormProps) {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label>GSTIN</Label>
-              <Input
-                value={formData.gstin}
-                onChange={(e) => {
-                  const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
-                  setFormData({ ...formData, gstin: value });
-                }}
-                placeholder="Enter 15-digit GSTIN (optional)"
-                maxLength={15}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Billing Address *</Label>
-              <Textarea
-                required
-                value={formData.billingAddress}
-                onChange={(e) => setFormData({ ...formData, billingAddress: e.target.value })}
-                placeholder="Enter billing address"
-                rows={3}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Shipping Address (if different)</Label>
-              <Textarea
-                value={formData.shippingAddress}
-                onChange={(e) => setFormData({ ...formData, shippingAddress: e.target.value })}
-                placeholder="Enter shipping address (leave empty if same as billing)"
-                rows={3}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>State {formData.gstin.trim() ? "*" : ""}</Label>
-                <Input
-                  required={!!formData.gstin.trim()}
-                  value={formData.state}
-                  onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                  placeholder="Gujarat"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>State Code {formData.gstin.trim() ? "*" : ""}</Label>
-                <Input
-                  required={!!formData.gstin.trim()}
-                  value={formData.stateCode}
-                  onChange={(e) => setFormData({ ...formData, stateCode: e.target.value })}
-                  placeholder="24"
-                />
-              </div>
-            </div>
-
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Phone</Label>
@@ -186,6 +109,29 @@ export function ClientForm({ open, onOpenChange, onSuccess }: ClientFormProps) {
                   placeholder="Enter email address"
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Address</Label>
+              <Textarea
+                value={formData.billingAddress}
+                onChange={(e) => setFormData({ ...formData, billingAddress: e.target.value })}
+                placeholder="Enter address (optional)"
+                rows={2}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>GSTIN (Optional)</Label>
+              <Input
+                value={formData.gstin}
+                onChange={(e) => {
+                  const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+                  setFormData({ ...formData, gstin: value });
+                }}
+                placeholder="Optional"
+                maxLength={15}
+              />
             </div>
           </div>
 

@@ -854,6 +854,11 @@ interface PurchaseHistoryItem {
   id: string;
   date: string;
   vendorName: string;
+  itemNo?: string;
+  model?: string;
+  imeiNumber?: string;
+  storage?: string;
+  color?: string;
   quantity: number;
   unit: string;
   purchasePrice: number;
@@ -868,6 +873,11 @@ interface SalesHistoryItem {
   id: string;
   date: string;
   clientName: string;
+  itemNo?: string;
+  model?: string;
+  imeiNumber?: string;
+  storage?: string;
+  color?: string;
   quantity: number;
   unit: string;
   sellingPrice: number;
@@ -879,6 +889,11 @@ interface ReturnHistoryItem {
   id: string;
   date: string;
   clientName: string;
+  itemNo?: string;
+  model?: string;
+  imeiNumber?: string;
+  storage?: string;
+  color?: string;
   quantity: number;
   unit: string;
   condition: "good" | "bad";
@@ -940,6 +955,11 @@ export function ProductHistoryScreen({
               id: transaction.id,
               date: transaction.date,
               vendorName: bill.vendorName,
+              itemNo: transaction.itemNo || product.itemNo || "",
+              model: transaction.model || product.model || "",
+              imeiNumber: transaction.imeiNumber || product.imeiNumber || "",
+              storage: transaction.storage || product.storage || "",
+              color: transaction.color || product.color || "",
               quantity: transaction.quantity,
               unit: product.unit,
               purchasePrice: transaction.purchasePrice,
@@ -959,6 +979,11 @@ export function ProductHistoryScreen({
             id: transaction.id,
             date: transaction.date,
             vendorName: "Manual Addition",
+            itemNo: transaction.itemNo || product.itemNo || "",
+            model: transaction.model || product.model || "",
+            imeiNumber: transaction.imeiNumber || product.imeiNumber || "",
+            storage: transaction.storage || product.storage || "",
+            color: transaction.color || product.color || "",
             quantity: transaction.quantity,
             unit: product.unit,
             purchasePrice: transaction.purchasePrice,
@@ -990,6 +1015,11 @@ export function ProductHistoryScreen({
                 id: `${bill.id}-${item.description}`,
                 date: bill.billDate || bill.createdAt,
                 vendorName: bill.vendorName,
+                itemNo: (item as any).itemNo || product.itemNo || "",
+                model: (item as any).model || product.model || "",
+                imeiNumber: (item as any).imeiNumber || product.imeiNumber || "",
+                storage: (item as any).storage || product.storage || "",
+                color: (item as any).color || product.color || "",
                 quantity: item.quantity,
                 unit: item.unit,
                 purchasePrice: item.rate,
@@ -1012,6 +1042,11 @@ export function ProductHistoryScreen({
               id: bill.id,
               date: bill.date,
               clientName: bill.client.name,
+              itemNo: item.itemNo || product.itemNo || "",
+              model: item.model || product.model || "",
+              imeiNumber: item.imeiNumber || product.imeiNumber || "",
+              storage: item.storage || product.storage || "",
+              color: item.color || product.color || "",
               quantity: item.quantity,
               unit: item.unit,
               sellingPrice: item.ratePerUnit,
@@ -1037,6 +1072,11 @@ export function ProductHistoryScreen({
               id: `${billReturn.id}-${item.productId}`,
               date: billReturn.returnDate || billReturn.createdAt,
               clientName: billReturn.clientName,
+              itemNo: item.itemNo || product.itemNo || "",
+              model: item.model || product.model || "",
+              imeiNumber: item.imeiNumber || product.imeiNumber || "",
+              storage: item.storage || product.storage || "",
+              color: item.color || product.color || "",
               quantity: Number(item.quantity),
               unit: product.unit,
               condition: item.condition,
@@ -1217,8 +1257,14 @@ export function ProductHistoryScreen({
       .toLowerCase()
       .includes(searchStr);
     const billMatch = (item.billNumber || "").toLowerCase().includes(searchStr);
+    const deviceMatch =
+      (item.itemNo || "").toLowerCase().includes(searchStr) ||
+      (item.model || "").toLowerCase().includes(searchStr) ||
+      (item.imeiNumber || "").toLowerCase().includes(searchStr) ||
+      (item.storage || "").toLowerCase().includes(searchStr) ||
+      (item.color || "").toLowerCase().includes(searchStr);
 
-    const matchesSearch = vendorMatch || billMatch;
+    const matchesSearch = vendorMatch || billMatch || deviceMatch;
 
     const itemDate = new Date(item.date);
     const matchesStartDate = !startDate || itemDate >= new Date(startDate);
@@ -1232,8 +1278,14 @@ export function ProductHistoryScreen({
       .toLowerCase()
       .includes(searchStr);
     const billMatch = (item.billNumber || "").toLowerCase().includes(searchStr);
+    const deviceMatch =
+      (item.itemNo || "").toLowerCase().includes(searchStr) ||
+      (item.model || "").toLowerCase().includes(searchStr) ||
+      (item.imeiNumber || "").toLowerCase().includes(searchStr) ||
+      (item.storage || "").toLowerCase().includes(searchStr) ||
+      (item.color || "").toLowerCase().includes(searchStr);
 
-    const matchesSearch = clientMatch || billMatch;
+    const matchesSearch = clientMatch || billMatch || deviceMatch;
 
     const itemDate = new Date(item.date);
     const matchesStartDate = !startDate || itemDate >= new Date(startDate);
@@ -1250,8 +1302,14 @@ export function ProductHistoryScreen({
     const reasonMatch = (item.returnReason || "")
       .toLowerCase()
       .includes(searchStr);
+    const deviceMatch =
+      (item.itemNo || "").toLowerCase().includes(searchStr) ||
+      (item.model || "").toLowerCase().includes(searchStr) ||
+      (item.imeiNumber || "").toLowerCase().includes(searchStr) ||
+      (item.storage || "").toLowerCase().includes(searchStr) ||
+      (item.color || "").toLowerCase().includes(searchStr);
 
-    const matchesSearch = clientMatch || billMatch || reasonMatch;
+    const matchesSearch = clientMatch || billMatch || reasonMatch || deviceMatch;
 
     const itemDate = new Date(item.date);
     const matchesStartDate = !startDate || itemDate >= new Date(startDate);
@@ -1481,6 +1539,9 @@ export function ProductHistoryScreen({
                               <th className="h-10 px-3 sm:px-4 text-left font-medium text-xs sm:text-sm">
                                 Bill No
                               </th>
+                              <th className="h-10 px-3 sm:px-4 text-left font-medium text-xs sm:text-sm">
+                                Device
+                              </th>
                               <th className="h-10 px-3 sm:px-4 text-right font-medium text-xs sm:text-sm">
                                 Weight
                               </th>
@@ -1535,6 +1596,22 @@ export function ProductHistoryScreen({
                                   ) : (
                                     "-"
                                   )}
+                                </td>
+                                <td className="p-3 sm:p-4 text-xs sm:text-sm">
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">
+                                      {item.model || "-"}
+                                    </span>
+                                    <span className="text-muted-foreground">
+                                      {item.imeiNumber || "-"}
+                                    </span>
+                                    {(item.storage || item.color) && (
+                                      <span className="text-muted-foreground">
+                                        {item.storage || "-"}
+                                        {item.color ? ` / ${item.color}` : ""}
+                                      </span>
+                                    )}
+                                  </div>
                                 </td>
                                 <td className="p-3 sm:p-4 text-xs sm:text-sm text-right whitespace-nowrap">
                                   {item.weight || "-"}
@@ -1616,6 +1693,9 @@ export function ProductHistoryScreen({
                               <th className="h-10 px-3 sm:px-4 text-left font-medium text-xs sm:text-sm">
                                 Bill No
                               </th>
+                              <th className="h-10 px-3 sm:px-4 text-left font-medium text-xs sm:text-sm">
+                                Device
+                              </th>
                               <th className="h-10 px-3 sm:px-4 text-right font-medium text-xs sm:text-sm">
                                 Qty
                               </th>
@@ -1651,6 +1731,22 @@ export function ProductHistoryScreen({
                                   >
                                     {item.billNumber}
                                   </Badge>
+                                </td>
+                                <td className="p-3 sm:p-4 text-xs sm:text-sm">
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">
+                                      {item.model || "-"}
+                                    </span>
+                                    <span className="text-muted-foreground">
+                                      {item.imeiNumber || "-"}
+                                    </span>
+                                    {(item.storage || item.color) && (
+                                      <span className="text-muted-foreground">
+                                        {item.storage || "-"}
+                                        {item.color ? ` / ${item.color}` : ""}
+                                      </span>
+                                    )}
+                                  </div>
                                 </td>
                                 <td className="p-3 sm:p-4 text-xs sm:text-sm text-right whitespace-nowrap">
                                   {item.quantity} {item.unit}
@@ -1694,6 +1790,9 @@ export function ProductHistoryScreen({
                                 <th className="h-10 px-3 sm:px-4 text-left font-medium text-xs sm:text-sm">
                                   Bill No
                                 </th>
+                                <th className="h-10 px-3 sm:px-4 text-left font-medium text-xs sm:text-sm">
+                                  Device
+                                </th>
                                 <th className="h-10 px-3 sm:px-4 text-right font-medium text-xs sm:text-sm">
                                   Qty
                                 </th>
@@ -1729,6 +1828,22 @@ export function ProductHistoryScreen({
                                     >
                                       {item.billNumber}
                                     </Badge>
+                                  </td>
+                                  <td className="p-3 sm:p-4 text-xs sm:text-sm">
+                                    <div className="flex flex-col">
+                                      <span className="font-medium">
+                                        {item.model || "-"}
+                                      </span>
+                                      <span className="text-muted-foreground">
+                                        {item.imeiNumber || "-"}
+                                      </span>
+                                      {(item.storage || item.color) && (
+                                        <span className="text-muted-foreground">
+                                          {item.storage || "-"}
+                                          {item.color ? ` / ${item.color}` : ""}
+                                        </span>
+                                      )}
+                                    </div>
                                   </td>
                                   <td className="p-3 sm:p-4 text-xs sm:text-sm text-right whitespace-nowrap">
                                     {item.quantity} {item.unit}

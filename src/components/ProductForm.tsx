@@ -21,6 +21,7 @@ import {
   addStockToProduct,
   uploadProductImage,
   getVendors,
+  getProducts,
 } from "@/lib/storage";
 import { calculateSellingPriceFromCommission } from "@/lib/billUtils";
 
@@ -43,14 +44,20 @@ export function ProductForm({
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [existingProducts, setExistingProducts] = useState<Product[]>([]);
   const [viewingVendor, setViewingVendor] = useState<Vendor | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
-    hsnCode: "",
+    hsnCode: "MOBILE",
+    itemNo: "",
+    model: "",
+    imeiNumber: "",
+    storage: "",
+    color: "",
     barcode: "",
-    gstRate: "",
-    unit: "kg",
+    gstRate: "0",
+    unit: "pcs",
     purchasePrice: "",
     sellingPrice: "",
     whereToBuy: "",
@@ -68,9 +75,14 @@ export function ProductForm({
     if (editingProduct) {
       setFormData({
         name: editingProduct.name,
-        hsnCode: editingProduct.hsnCode,
+        hsnCode: editingProduct.hsnCode || "MOBILE",
+        itemNo: editingProduct.itemNo || "",
+        model: editingProduct.model || "",
+        imeiNumber: editingProduct.imeiNumber || "",
+        storage: editingProduct.storage || "",
+        color: editingProduct.color || "",
         barcode: editingProduct.barcode || "",
-        gstRate: String(editingProduct.gstRate),
+        gstRate: String(editingProduct.gstRate || 0),
         unit: editingProduct.unit,
         purchasePrice: String(editingProduct.purchasePrice),
         sellingPrice: String(editingProduct.sellingPrice),
@@ -105,12 +117,14 @@ export function ProductForm({
 
   useEffect(() => {
     const loadData = async () => {
-      const [profile, vendorsData] = await Promise.all([
+      const [profile, vendorsData, productsData] = await Promise.all([
         getCompanyProfile(),
         getVendors(),
+        getProducts(),
       ]);
       setCompanyProfile(profile);
       setVendors(vendorsData);
+      setExistingProducts(productsData);
       if (profile?.defaultUnit && !editingProduct) {
         setFormData((prev) => ({
           ...prev,
@@ -127,10 +141,15 @@ export function ProductForm({
     setImagePreview(null);
     setFormData({
       name: "",
-      hsnCode: "",
+      hsnCode: "MOBILE",
+      itemNo: "",
+      model: "",
+      imeiNumber: "",
+      storage: "",
+      color: "",
       barcode: "",
-      gstRate: "",
-      unit: companyProfile?.defaultUnit || "kg",
+      gstRate: "0",
+      unit: companyProfile?.defaultUnit || "pcs",
       purchasePrice: "",
       sellingPrice: "",
       whereToBuy: "",
@@ -158,6 +177,21 @@ export function ProductForm({
     setSaving(true);
 
     try {
+      const normalizedImei = formData.imeiNumber.replace(/\s+/g, "").trim();
+      if (normalizedImei) {
+        const duplicateImei = existingProducts.find(
+          (p) =>
+            p.id !== editingProduct?.id &&
+            (p.imeiNumber || "").replace(/\s+/g, "").trim() === normalizedImei,
+        );
+        if (duplicateImei) {
+          toast.error(
+            `IMEI already exists in ${duplicateImei.name}. Use a different IMEI.`,
+          );
+          return;
+        }
+      }
+
       if (!formData.vendorId) {
         toast.error("Please select a vendor");
         return;
@@ -175,10 +209,15 @@ export function ProductForm({
       const product: Product = {
         id: productId,
         name: formData.name,
-        hsnCode: formData.hsnCode.trim(),
+        hsnCode: formData.hsnCode.trim() || "MOBILE",
+        itemNo: formData.itemNo.trim(),
+        model: formData.model.trim(),
+        imeiNumber: normalizedImei,
+        storage: formData.storage.trim(),
+        color: formData.color.trim(),
         barcode: formData.barcode.trim(),
-        gstRate: parseFloat(formData.gstRate) || 0,
-        unit: formData.unit,
+        gstRate: 0,
+        unit: "pcs",
         price: sellingPriceNum,
         purchasePrice: purchasePriceNum,
         sellingPrice: sellingPriceNum,
@@ -187,8 +226,8 @@ export function ProductForm({
           vendors.find((v) => v.id === formData.vendorId)?.name ||
           formData.whereToBuy,
         vendorId: formData.vendorId,
-        weight: parseFloat(formData.weight) || 0,
-        weightUnit: formData.weightUnit,
+        weight: 0,
+        weightUnit: "g",
         createdAt: editingProduct?.createdAt || new Date().toISOString(),
         imageUrl: imageUrl,
       };
@@ -219,11 +258,6 @@ export function ProductForm({
       setSaving(false);
     }
   };
-
-  const unitOptions =
-    companyProfile?.unitOptions?.length > 0
-      ? companyProfile.unitOptions
-      : ["kg", "pcs", "box"];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -292,26 +326,65 @@ export function ProductForm({
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>HSN Code *</Label>
+                        <Label>Item No</Label>
                         <Input
-                          required
-                          value={formData.hsnCode}
+                          value={formData.itemNo}
                           onChange={(e) =>
-                            setFormData({ ...formData, hsnCode: e.target.value })
+                            setFormData({ ...formData, itemNo: e.target.value })
                           }
+                          placeholder="D648 / M1099"
                         />
                       </div>
 
                       <div className="space-y-2">
-                        <Label>Barcode (Scan or Type)</Label>
+                        <Label>Model *</Label>
                         <Input
-                          value={formData.barcode}
+                          required
+                          value={formData.model}
                           onChange={(e) =>
-                            setFormData({ ...formData, barcode: e.target.value })
+                            setFormData({ ...formData, model: e.target.value })
                           }
-                          placeholder="Scan barcode"
+                          placeholder="16 Pro Max"
                         />
                       </div>
+
+                      <div className="space-y-2">
+                        <Label>IMEI / Serial *</Label>
+                        <Input
+                          required
+                          value={formData.imeiNumber}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              imeiNumber: e.target.value,
+                            })
+                          }
+                          placeholder="350108720225827"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Storage</Label>
+                        <Input
+                          value={formData.storage}
+                          onChange={(e) =>
+                            setFormData({ ...formData, storage: e.target.value })
+                          }
+                          placeholder="256 GB"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Color</Label>
+                        <Input
+                          value={formData.color}
+                          onChange={(e) =>
+                            setFormData({ ...formData, color: e.target.value })
+                          }
+                          placeholder="Natural"
+                        />
+                      </div>
+
                     </div>
                   </div>
                 </div>
@@ -327,38 +400,6 @@ export function ProductForm({
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>GST Rate (%) *</Label>
-                    <Input
-                      required
-                      type="number"
-                      step="0.01"
-                      value={formData.gstRate}
-                      onChange={(e) =>
-                        setFormData({ ...formData, gstRate: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Unit *</Label>
-                    <Select
-                      value={formData.unit}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, unit: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select unit" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {unitOptions.map((unit: string) => (
-                          <SelectItem key={unit} value={unit}>
-                            {unit}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
                   <div className="space-y-2">
                     <Label>Purchase Price *</Label>
                     <Input
@@ -383,7 +424,7 @@ export function ProductForm({
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Selling Price (with Commission) *</Label>
+                  <Label>Selling Price *</Label>
                   <Input
                     required
                     type="number"
@@ -406,37 +447,6 @@ export function ProductForm({
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Weight</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        className="flex-1"
-                        value={formData.weight}
-                        onChange={(e) =>
-                          setFormData({ ...formData, weight: e.target.value })
-                        }
-                      />
-                      <Select
-                        value={formData.weightUnit}
-                        onValueChange={(value) =>
-                          setFormData({ ...formData, weightUnit: value })
-                        }
-                      >
-                        <SelectTrigger className="w-[80px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="g">g</SelectItem>
-                          <SelectItem value="kg">kg</SelectItem>
-                          <SelectItem value="mg">mg</SelectItem>
-                          <SelectItem value="ct">ct</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
                   <div className="space-y-2">
                     <Label>Vendor *</Label>
                     <div className="flex gap-2">
@@ -522,7 +532,7 @@ export function ProductForm({
           <div className="shrink-0 border-t bg-background px-6 py-3 shadow-[0_-10px_25px_-18px_rgba(0,0,0,0.45)] sticky bottom-0 z-20">
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs text-muted-foreground hidden sm:block">
-                Required fields: Product Name, HSN, GST, Unit, Purchase Price, Vendor
+                Required fields: Name, Model, IMEI, Unit, Purchase Price, Vendor
               </p>
               <div className="ml-auto flex justify-end gap-2">
                 <Button

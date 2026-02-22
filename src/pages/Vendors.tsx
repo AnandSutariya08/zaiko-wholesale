@@ -242,7 +242,11 @@ export default function Vendors() {
     try {
       const vendor: Vendor = {
         id: editingVendor?.id || crypto.randomUUID(),
-        ...formData,
+        name: formData.name.trim(),
+        address: formData.address.trim(),
+        gstin: formData.gstin.trim().toUpperCase(),
+        phone: formData.phone.trim(),
+        email: formData.email.trim(),
         createdAt: editingVendor?.createdAt || new Date().toISOString(),
       };
 
@@ -291,7 +295,7 @@ export default function Vendors() {
   const filteredVendors = vendors
     .filter((v) =>
       v.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      v.gstin.toLowerCase().includes(searchQuery.toLowerCase())
+      v.phone.toLowerCase().includes(searchQuery.toLowerCase())
     )
     .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 
@@ -450,6 +454,19 @@ export default function Vendors() {
                                   <div className="min-w-0">
                                     <p className="font-bold text-sm truncate">#{bill.billNumber || "N/A"}</p>
                                     <p className="text-xs text-muted-foreground">{formatDate(bill.billDate || bill.createdAt)}</p>
+                                    <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">
+                                      {bill.items
+                                        .slice(0, 2)
+                                        .map((it) =>
+                                          [
+                                            (it as any).model || it.description,
+                                            (it as any).imeiNumber,
+                                          ]
+                                            .filter(Boolean)
+                                            .join(" / "),
+                                        )
+                                        .join(" | ") || "No device details"}
+                                    </p>
                                   </div>
                                   <Badge variant={
                                     currentStatus === 'paid' ? 'default' :
@@ -590,20 +607,20 @@ export default function Vendors() {
                 <Input required value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
               </div>
               <div className="space-y-2">
-                <Label>GSTIN</Label>
-                <Input value={formData.gstin} onChange={(e) => setFormData({ ...formData, gstin: e.target.value.toUpperCase() })} maxLength={15} />
+                <Label>Phone</Label>
+                <Input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label>Address</Label>
-                <Textarea value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} rows={3} />
+                <Textarea value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} rows={2} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Phone</Label>
-                  <Input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+                  <Label>GSTIN (Optional)</Label>
+                  <Input value={formData.gstin} onChange={(e) => setFormData({ ...formData, gstin: e.target.value.toUpperCase() })} maxLength={15} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Email</Label>
+                  <Label>Email (Optional)</Label>
                   <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
                 </div>
               </div>
@@ -730,3 +747,4 @@ export default function Vendors() {
     </div>
   );
 }
+

@@ -333,9 +333,23 @@ export default function BillCreators() {
   const filteredAndSortedBills = creatorBills
     .filter((bill) => {
       const searchLower = billSearchTerm.toLowerCase();
+      const itemMatch = bill.items.some((it) =>
+        [
+          it.productName,
+          it.itemNo || "",
+          it.model || "",
+          it.imeiNumber || "",
+          it.storage || "",
+          it.color || "",
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(searchLower),
+      );
       return (
         bill.billNumber.toLowerCase().includes(searchLower) ||
-        bill.client.name.toLowerCase().includes(searchLower)
+        bill.client.name.toLowerCase().includes(searchLower) ||
+        itemMatch
       );
     })
     .sort((a, b) => {
@@ -485,7 +499,7 @@ export default function BillCreators() {
                   <div className="relative w-full flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search bills..."
+                placeholder="Search bills, model, IMEI..."
                 className="h-10 w-full pl-10"
                 value={billSearchTerm}
                 onChange={(e) => setBillSearchTerm(e.target.value)}
@@ -569,6 +583,16 @@ export default function BillCreators() {
                             </div>
                             <p className="truncate text-xs text-muted-foreground sm:text-sm">
                               {bill.client.name}
+                            </p>
+                            <p className="truncate text-[11px] text-muted-foreground sm:text-xs">
+                              {bill.items
+                                .slice(0, 2)
+                                .map((it) =>
+                                  [it.model || it.productName, it.imeiNumber]
+                                    .filter(Boolean)
+                                    .join(" • "),
+                                )
+                                .join(" | ")}
                             </p>
                           </div>
                           <Badge

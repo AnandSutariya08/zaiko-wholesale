@@ -59,6 +59,19 @@ type BillLike =
 
 const mmToPt = (mm: number) => mm * 2.83465;
 
+const getDeviceDetails = (item: any) => {
+  const parts: string[] = [];
+  if (item?.itemNo) parts.push(`Item: ${item.itemNo}`);
+  if (item?.model) parts.push(`Model: ${item.model}`);
+  if (item?.imeiNumber) parts.push(`IMEI: ${item.imeiNumber}`);
+  if (item?.storage || item?.color) {
+    parts.push(
+      `${item.storage || "-"}` + (item.color ? ` / ${item.color}` : ""),
+    );
+  }
+  return parts;
+};
+
 // ─── Unified PDF styles that match the HTML view ────────────────────────────
 const P = StyleSheet.create({
   page: {
@@ -474,6 +487,11 @@ export const BillPDF = ({
               <Text style={[P.tableCell, P.textCenter, P.border1, { width: slW, borderTopWidth: 0 }]}>{i + 1}</Text>
               <View style={[P.tableCell, P.border1, { flex: 1, borderLeftWidth: 0, borderTopWidth: 0 }]}>
                 <Text>{item.productName}</Text>
+                {getDeviceDetails(item).map((detail, idx) => (
+                  <Text key={idx} style={{ fontSize: 6.5, color: "#4b5563" }}>
+                    {detail}
+                  </Text>
+                ))}
               </View>
               {showGST && (
                 <Text style={[P.tableCell, P.textCenter, P.border1, { width: hsnW, borderLeftWidth: 0, borderTopWidth: 0 }]}>{item.hsnCode}</Text>
@@ -937,6 +955,11 @@ export function BillView({ bill }: BillViewProps) {
                         <td className="p-1.5 text-center border-r border-black/10">{index + 1}</td>
                         <td className="p-1.5 border-r border-black/10">
                           <div>{item.productName}</div>
+                          {getDeviceDetails(item).map((detail, idx) => (
+                            <div key={idx} className="text-[9px] text-gray-600 mt-0.5">
+                              {detail}
+                            </div>
+                          ))}
                           {bill.internationalDetails?.grossWeight && (
                             <div className="text-[9px] text-gray-600 mt-0.5">GW: {bill.internationalDetails.grossWeight} kg | NW: {bill.internationalDetails.netWeight || "N/A"} kg</div>
                           )}
@@ -1092,7 +1115,14 @@ export function BillView({ bill }: BillViewProps) {
                     {bill.items.map((item, index) => (
                       <tr key={index} className={index % 2 === 0 ? "bg-gray-50" : ""}>
                         <td className="border border-black p-1.5 text-center">{index + 1}</td>
-                        <td className="border border-black p-1.5">{item.productName}</td>
+                        <td className="border border-black p-1.5">
+                          <div>{item.productName}</div>
+                          {getDeviceDetails(item).map((detail, idx) => (
+                            <div key={idx} className="text-[9px] text-gray-600 mt-0.5">
+                              {detail}
+                            </div>
+                          ))}
+                        </td>
                         {showGST && <td className="border border-black p-1.5 text-center text-[9px]">{item.hsnCode}</td>}
                         {showGST && <td className="border border-black p-1.5 text-center">{item.gstRate}%</td>}
                         <td className="border border-black p-1.5 text-center">{item.quantity}</td>
