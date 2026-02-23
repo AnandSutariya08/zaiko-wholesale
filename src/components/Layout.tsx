@@ -327,7 +327,7 @@ function AppSidebarContent({
       <SidebarFooter className="border-t border-sidebar-border/40 p-2">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-3">
-            <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[8px] font-bold text-primary shrink-0">
+            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary shrink-0 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:text-xs">
               {user.name.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
@@ -339,29 +339,31 @@ function AppSidebarContent({
               </p>
             </div>
             <div className="flex items-center group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={toggleTheme}
-                aria-label="Toggle theme"
-                className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors"
-              >
-                {theme === "light" ? (
-                  <Moon className="size-4" />
-                ) : (
-                  <Sun className="size-4" />
-                )}
-              </Button>
-              <SidebarTrigger className="h-7 w-7 group-data-[collapsible=icon]:hidden" aria-label="Toggle sidebar" />
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleLogout}
-                aria-label="Logout"
-                className="h-8 w-8 rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10 transition-colors"
-              >
-                <LogOut className="size-4" />
-              </Button>
+              <div className="group-data-[collapsible=icon]:hidden flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleTheme}
+                  aria-label="Toggle theme"
+                  className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors"
+                >
+                  {theme === "light" ? (
+                    <Moon className="size-4" />
+                  ) : (
+                    <Sun className="size-4" />
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleLogout}
+                  aria-label="Logout"
+                  className="h-8 w-8 rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10 transition-colors"
+                >
+                  <LogOut className="size-4" />
+                </Button>
+              </div>
+              <SidebarTrigger className="h-8 w-8 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10" aria-label="Toggle sidebar" />
             </div>
           </div>
         </div>
