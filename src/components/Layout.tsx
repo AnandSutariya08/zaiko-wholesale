@@ -141,12 +141,7 @@ function AppSidebarContent({
               </Button>
             )}
           </div>
-          <div className="px-3 mb-2 flex items-center justify-between group-data-[collapsible=icon]:hidden">
-             <SidebarTrigger
-              className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-colors"
-              aria-label="Toggle sidebar"
-            />
-          </div>
+
           <SidebarGroupContent>
             <SidebarMenu className="gap-1">
               {navItems.map((item, index) => {
@@ -290,7 +285,10 @@ function AppSidebarContent({
                                 isActive={location.pathname === "/sample-bill"}
                                 className="h-8 rounded-sm"
                               >
-                                <Link to="/sample-bill" onClick={handleNavClick}>
+                                <Link
+                                  to="/sample-bill"
+                                  onClick={handleNavClick}
+                                >
                                   <span className="text-sm">
                                     Quotation Bill
                                   </span>
@@ -341,14 +339,6 @@ function AppSidebarContent({
               </p>
             </div>
             <div className="group-data-[collapsible=icon]:hidden">
-              <SidebarTrigger
-                className="h-7 w-7"
-                aria-label="Toggle sidebar"
-              />
-            </div>
-          </div>
-          <div className="flex items-center justify-between gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center">
-            <div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col">
               <Button
                 variant="ghost"
                 size="icon"
@@ -362,6 +352,7 @@ function AppSidebarContent({
                   <Sun className="size-4" />
                 )}
               </Button>
+              <SidebarTrigger className="h-7 w-7" aria-label="Toggle sidebar" />
               <Button
                 variant="ghost"
                 size="icon"
@@ -371,12 +362,6 @@ function AppSidebarContent({
               >
                 <LogOut className="size-4" />
               </Button>
-            </div>
-            <div className="group-data-[collapsible=expanded]:hidden group-data-[collapsible=icon]:mt-2">
-              <SidebarTrigger
-                className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-colors"
-                aria-label="Toggle sidebar"
-              />
             </div>
           </div>
         </div>
@@ -533,9 +518,7 @@ export function Layout({ children }: LayoutProps) {
             scrollbarGutter: "stable both-edges",
           }}
         >
-          <div className="p-3 sm:p-4 md:p-6 lg:p-8 w-full">
-            {children}
-          </div>
+          <div className="p-3 sm:p-4 md:p-6 lg:p-8 w-full">{children}</div>
         </main>
       </div>
     </SidebarProvider>
