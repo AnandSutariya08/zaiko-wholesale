@@ -76,6 +76,9 @@ function AppSidebarContent({
   user,
   onNavClick,
   onReorder,
+  theme,
+  toggleTheme,
+  handleLogout,
 }: {
   navItems: { path: string; icon: React.ElementType; label: string }[];
   isActive: (path: string) => boolean;
@@ -83,6 +86,9 @@ function AppSidebarContent({
   user: any;
   onNavClick: () => void;
   onReorder: (path: string, direction: "up" | "down") => void;
+  theme: string;
+  toggleTheme: () => void;
+  handleLogout: () => void;
 }) {
   const { isMobile, setOpenMobile } = useSidebar();
   const [manageMode, setManageMode] = useState(false);
@@ -321,23 +327,57 @@ function AppSidebarContent({
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border/40 p-2">
-        <div className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
-          <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[8px] font-bold text-primary shrink-0">
-            {user.name.charAt(0).toUpperCase()}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
+            <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[8px] font-bold text-primary shrink-0">
+              {user.name.charAt(0).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
+              <p className="text-[10px] font-medium text-sidebar-foreground truncate">
+                {user.name}
+              </p>
+              <p className="text-[8px] text-sidebar-foreground/50 truncate uppercase tracking-wider">
+                {user.role}
+              </p>
+            </div>
+            <div className="group-data-[collapsible=icon]:hidden">
+              <SidebarTrigger
+                className="h-7 w-7"
+                aria-label="Toggle sidebar"
+              />
+            </div>
           </div>
-          <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
-            <p className="text-[10px] font-medium text-sidebar-foreground truncate">
-              {user.name}
-            </p>
-            <p className="text-[8px] text-sidebar-foreground/50 truncate uppercase tracking-wider">
-              {user.role}
-            </p>
-          </div>
-          <div className="group-data-[collapsible=icon]:hidden">
-            <SidebarTrigger
-              className="h-7 w-7"
-              aria-label="Toggle sidebar"
-            />
+          <div className="flex items-center justify-between gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center">
+            <div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleTheme}
+                aria-label="Toggle theme"
+                className="h-7 w-7 rounded-md"
+              >
+                {theme === "light" ? (
+                  <Moon className="size-3.5" />
+                ) : (
+                  <Sun className="size-3.5" />
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleLogout}
+                aria-label="Logout"
+                className="h-7 w-7 rounded-md text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                <LogOut className="size-3.5" />
+              </Button>
+            </div>
+            <div className="group-data-[collapsible=expanded]:hidden group-data-[collapsible=icon]:mt-1">
+              <SidebarTrigger
+                className="h-7 w-7"
+                aria-label="Toggle sidebar"
+              />
+            </div>
           </div>
         </div>
       </SidebarFooter>
@@ -477,6 +517,9 @@ export function Layout({ children }: LayoutProps) {
           user={user}
           onNavClick={() => {}}
           onReorder={handleReorder}
+          theme={theme}
+          toggleTheme={toggleTheme}
+          handleLogout={handleLogout}
         />
         <SidebarRail />
       </Sidebar>
