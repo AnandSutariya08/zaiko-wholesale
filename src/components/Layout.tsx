@@ -144,10 +144,11 @@ function AppSidebarContent({
           </div>
         </div>
 
-        <SidebarContent className="flex-1 overflow-y-auto px-2 py-2 pb-10 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary/20 hover:[&::-webkit-scrollbar-thumb]:bg-primary/40 [&::-webkit-scrollbar-track]:bg-transparent">
-          <SidebarGroup className="p-0">
-            <SidebarGroupContent>
-              <SidebarMenu className="gap-1">
+        <SidebarContent className="flex-1 overflow-y-auto px-2 py-2 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary/20 hover:[&::-webkit-scrollbar-thumb]:bg-primary/40 [&::-webkit-scrollbar-track]:bg-transparent">
+          <div className="pb-32">
+            <SidebarGroup className="p-0">
+              <SidebarGroupContent>
+                <SidebarMenu className="gap-1">
                 {navItems.map((item, index) => {
                 const Icon = item.icon;
                 const active = isActive(item.path);
@@ -329,9 +330,10 @@ function AppSidebarContent({
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-      </SidebarContent>
-    </div>
-      <SidebarFooter className="sticky bottom-0 border-t border-sidebar-border/40 p-2 bg-sidebar z-10">
+      </div>
+    </SidebarContent>
+  </div>
+    <SidebarFooter className="sticky bottom-0 border-t border-sidebar-border/40 p-2 bg-sidebar z-10">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-3">
             <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary shrink-0 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:text-xs">
