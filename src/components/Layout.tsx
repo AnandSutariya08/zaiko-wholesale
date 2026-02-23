@@ -326,7 +326,7 @@ function AppSidebarContent({
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border/40 p-2">
         <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
+          <div className="flex items-center gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-3">
             <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[8px] font-bold text-primary shrink-0">
               {user.name.charAt(0).toUpperCase()}
             </div>
@@ -338,7 +338,7 @@ function AppSidebarContent({
                 {user.role}
               </p>
             </div>
-            <div className="group-data-[collapsible=icon]:hidden">
+            <div className="flex items-center group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2">
               <Button
                 variant="ghost"
                 size="icon"
@@ -352,7 +352,7 @@ function AppSidebarContent({
                   <Sun className="size-4" />
                 )}
               </Button>
-              <SidebarTrigger className="h-7 w-7" aria-label="Toggle sidebar" />
+              <SidebarTrigger className="h-7 w-7 group-data-[collapsible=icon]:hidden" aria-label="Toggle sidebar" />
               <Button
                 variant="ghost"
                 size="icon"
