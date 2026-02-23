@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useRef } from 'react';
 import { BillForm } from '@/components/BillForm';
-import { ArrowLeft, Plus, Search, Calendar, FileText, Eye, Edit, Trash2, IndianRupee, User, Loader2, MessageCircle } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Calendar, FileText, Eye, Edit, Trash2, IndianRupee, User, Loader2, MessageCircle, Share2, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { getBills, deleteBill, updateBillPayment } from '@/lib/storage';
+import { getBills, deleteBill, updateBillPayment, getCompanyProfile } from '@/lib/storage';
 import { Bill, PaymentMethod } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,9 @@ import { formatCurrency, formatDate } from '@/lib/billUtils';
 import { toast } from 'sonner';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { PaymentDialog } from '@/components/PaymentDialog';
+import { pdf } from '@react-pdf/renderer';
+import { BillPDF } from '@/components/BillView';
+import QRCode from "qrcode";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +37,7 @@ export default function GSTBill() {
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
 
   useEffect(() => {
     loadBills();
@@ -49,6 +53,60 @@ export default function GSTBill() {
       toast.error('Failed to load bills');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGenerateEBill = async (bill: Bill, action: 'download' | 'share') => {
+    try {
+      setGeneratingId(bill.id);
+      const company = await getCompanyProfile();
+      
+      let qrDataURL = "";
+      const upiId = bill.bankAccount?.upiId || company.upiId;
+      if (upiId) {
+        const upiLink = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(company.name)}&am=${bill.total}&cu=INR`;
+        qrDataURL = await QRCode.toDataURL(upiLink);
+      }
+
+      const blob = await pdf(
+        <BillPDF 
+          bill={bill} 
+          company={company} 
+          qrDataURL={qrDataURL} 
+        />
+      ).toBlob();
+      
+      const file = new File([blob], `${bill.billNumber}.pdf`, { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+
+      if (action === 'download') {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${bill.billNumber}.pdf`;
+        link.click();
+        toast.success('E-bill downloaded successfully');
+      } else if (action === 'share') {
+        if (navigator.share) {
+          await navigator.share({
+            title: `Bill ${bill.billNumber}`,
+            text: `Please find the e-bill for ${bill.billNumber}`,
+            files: [file]
+          });
+        } else {
+          // Fallback to WhatsApp link if Web Share API is not supported
+          const phone = bill.client.phone?.replace(/\D/g, "");
+          const billLink = `${window.location.origin}/view/bill/${bill.id}`;
+          const text = encodeURIComponent(`Hello ${bill.client.name}, please find your bill ${bill.billNumber} here: ${billLink}`);
+          window.open(`https://wa.me/${phone}?text=${text}`, "_blank");
+        }
+      }
+      
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error generating E-bill:', error);
+      toast.error('Failed to generate E-bill');
+    } finally {
+      setGeneratingId(null);
     }
   };
 
@@ -205,6 +263,17 @@ export default function GSTBill() {
                         <Badge variant="default" className="bg-green-600 text-white h-8">✓ Paid</Badge>
                       )}
                       <div className="flex gap-2">
+                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" 
+                          disabled={generatingId === bill.id}
+                          onClick={() => handleGenerateEBill(bill, 'download')}>
+                          {generatingId === bill.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                          E-Bill
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-8 w-8 p-0" title="Share E-Bill"
+                          disabled={generatingId === bill.id}
+                          onClick={() => handleGenerateEBill(bill, 'share')}>
+                          <Share2 className="h-3.5 w-3.5 text-blue-600" />
+                        </Button>
                         <Button variant="outline" size="sm" className="h-8 w-8 p-0" title="Share on WhatsApp"
                           onClick={() => {
                             const phone = bill.client.phone?.replace(/\D/g, "");
