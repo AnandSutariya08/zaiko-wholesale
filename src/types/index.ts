@@ -219,6 +219,18 @@ export interface SampleBill {
   bankAccountId?: string;
   bankAccount?: BankAccount;
   isSample: true; // Flag to identify sample bills
+  isSample: true; // Flag to identify sample bills
+}
+
+export interface EWayBillDetails {
+  transporterName?: string;
+  transporterId?: string;
+  approxDistance?: number;
+  modeOfTransport?: "Road" | "Rail" | "Air" | "Ship";
+  vehicleNumber?: string;
+  vehicleType?: "Regular" | "ODC";
+  transDocNo?: string;
+  transDocDate?: string;
 }
 
 export interface InventoryTransaction {
