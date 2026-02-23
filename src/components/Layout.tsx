@@ -101,43 +101,29 @@ function AppSidebarContent({
 
   return (
     <>
-      <SidebarHeader className="border-b border-sidebar-border/40 p-4">
-        <div className="flex items-center gap-3">
-          <div className="shrink-0 group-data-[collapsible=icon]:mx-auto">
-            {company?.logo ? (
-              <img
-                src={company.logo}
-                alt="Logo"
-                className="h-8 w-8 object-contain rounded-md"
-              />
-            ) : (
-              <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center">
-                <Sparkles className="h-4 w-4 text-primary" />
-              </div>
-            )}
-          </div>
-          <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
-            <h2 className="font-bold text-sidebar-foreground truncate text-base tracking-tight">
-              {company?.name || "Invoice Mitra"}
-            </h2>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden shrink-0 h-8 w-8 rounded-md"
-            onClick={() => isMobile && setOpenMobile(false)}
-            aria-label="Close menu"
-          >
-            <X className="size-4" />
-          </Button>
-        </div>
-      </SidebarHeader>
-      <SidebarContent className="px-2 py-4">
+      <SidebarContent className="px-2 py-2">
         <SidebarGroup className="p-0">
-          <div className="px-3 mb-2 flex items-center justify-between group-data-[collapsible=icon]:hidden">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50">
-              Menu
-            </span>
+          <div className="px-3 py-4 flex items-center justify-between group-data-[collapsible=icon]:hidden">
+            <div className="flex items-center gap-3">
+              <div className="shrink-0">
+                {company?.logo ? (
+                  <img
+                    src={company.logo}
+                    alt="Logo"
+                    className="h-6 w-6 object-contain rounded-md"
+                  />
+                ) : (
+                  <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center">
+                    <Sparkles className="h-3 w-3 text-primary" />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="font-bold text-sidebar-foreground truncate text-sm tracking-tight">
+                  {company?.name || "Invoice Mitra"}
+                </h2>
+              </div>
+            </div>
             {manageMode && (
               <Button
                 variant="ghost"
@@ -148,6 +134,12 @@ function AppSidebarContent({
                 <X className="size-3" />
               </Button>
             )}
+          </div>
+          <div className="px-3 mb-2 flex items-center justify-between group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center group-data-[collapsible=expanded]:hidden">
+             <SidebarTrigger
+              className="h-8 w-8"
+              aria-label="Toggle sidebar"
+            />
           </div>
           <SidebarGroupContent>
             <SidebarMenu className="gap-1">
@@ -328,18 +320,24 @@ function AppSidebarContent({
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="border-t border-sidebar-border/40 p-4 group-data-[collapsible=icon]:hidden">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
+      <SidebarFooter className="border-t border-sidebar-border/40 p-2">
+        <div className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
+          <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[8px] font-bold text-primary shrink-0">
             {user.name.charAt(0).toUpperCase()}
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-sidebar-foreground truncate">
+          <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
+            <p className="text-[10px] font-medium text-sidebar-foreground truncate">
               {user.name}
             </p>
-            <p className="text-[10px] text-sidebar-foreground/50 truncate uppercase tracking-wider">
+            <p className="text-[8px] text-sidebar-foreground/50 truncate uppercase tracking-wider">
               {user.role}
             </p>
+          </div>
+          <div className="group-data-[collapsible=icon]:hidden">
+            <SidebarTrigger
+              className="h-7 w-7"
+              aria-label="Toggle sidebar"
+            />
           </div>
         </div>
       </SidebarFooter>
@@ -483,44 +481,6 @@ export function Layout({ children }: LayoutProps) {
         <SidebarRail />
       </Sidebar>
       <div className="flex flex-1 flex-col min-h-0 min-w-0">
-        {/* Header */}
-        <header className="sticky top-0 z-40 h-14 shrink-0 bg-background/95 backdrop-blur-sm border-b border-border/50 flex items-center justify-between px-3 sm:px-4 md:px-6 gap-2">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <SidebarTrigger
-              className="-ml-1 h-9 w-9 sm:h-10 sm:w-10"
-              aria-label="Toggle sidebar"
-            />
-            <div className="min-w-0 flex-1 md:hidden">
-              <h1 className="font-semibold text-base text-foreground truncate">
-                {company?.name || "Invoice Mitra"}
-              </h1>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              aria-label="Toggle theme"
-              className="h-9 w-9 sm:h-10 sm:w-10"
-            >
-              {theme === "light" ? (
-                <Moon className="size-4 sm:size-5" />
-              ) : (
-                <Sun className="size-4 sm:size-5" />
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleLogout}
-              aria-label="Logout"
-              className="h-9 w-9 sm:h-10 sm:w-10 text-destructive"
-            >
-              <LogOut className="size-4 sm:size-5" />
-            </Button>
-          </div>
-        </header>
         {/* Main Content */}
         <main
           className="relative flex-1 overflow-y-auto overflow-x-hidden"
