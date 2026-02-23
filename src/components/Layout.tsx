@@ -116,11 +116,11 @@ function AppSidebarContent({
                   <img
                     src={company.logo}
                     alt="Logo"
-                    className="h-6 w-6 object-contain rounded-md"
+                    className="h-7 w-7 object-contain rounded-md"
                   />
                 ) : (
-                  <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center">
-                    <Sparkles className="h-3 w-3 text-primary" />
+                  <div className="h-7 w-7 rounded-md bg-primary/10 flex items-center justify-center">
+                    <Sparkles className="h-4 w-4 text-primary" />
                   </div>
                 )}
               </div>
@@ -141,9 +141,9 @@ function AppSidebarContent({
               </Button>
             )}
           </div>
-          <div className="px-3 mb-2 flex items-center justify-between group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center group-data-[collapsible=expanded]:hidden">
+          <div className="px-3 mb-2 flex items-center justify-between group-data-[collapsible=icon]:hidden">
              <SidebarTrigger
-              className="h-8 w-8"
+              className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-colors"
               aria-label="Toggle sidebar"
             />
           </div>
@@ -159,9 +159,9 @@ function AppSidebarContent({
                     size="default"
                     onDoubleClick={handleDoubleClick}
                     className={cn(
-                      "rounded-md px-3 h-10 transition-all duration-200 relative group/btn",
+                      "rounded-lg px-3 h-10 transition-all duration-200 relative group/btn",
                       active && !manageMode
-                        ? "bg-primary text-primary-foreground font-medium shadow-sm"
+                        ? "bg-primary/10 text-primary font-semibold shadow-none border-l-2 border-primary rounded-l-none"
                         : "hover:bg-sidebar-accent text-sidebar-foreground/70",
                       manageMode &&
                         "border border-dashed border-primary/30 bg-primary/5",
@@ -354,12 +354,12 @@ function AppSidebarContent({
                 size="icon"
                 onClick={toggleTheme}
                 aria-label="Toggle theme"
-                className="h-7 w-7 rounded-md"
+                className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors"
               >
                 {theme === "light" ? (
-                  <Moon className="size-3.5" />
+                  <Moon className="size-4" />
                 ) : (
-                  <Sun className="size-3.5" />
+                  <Sun className="size-4" />
                 )}
               </Button>
               <Button
@@ -367,14 +367,14 @@ function AppSidebarContent({
                 size="icon"
                 onClick={handleLogout}
                 aria-label="Logout"
-                className="h-7 w-7 rounded-md text-destructive hover:text-destructive hover:bg-destructive/10"
+                className="h-8 w-8 rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10 transition-colors"
               >
-                <LogOut className="size-3.5" />
+                <LogOut className="size-4" />
               </Button>
             </div>
-            <div className="group-data-[collapsible=expanded]:hidden group-data-[collapsible=icon]:mt-1">
+            <div className="group-data-[collapsible=expanded]:hidden group-data-[collapsible=icon]:mt-2">
               <SidebarTrigger
-                className="h-7 w-7"
+                className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-colors"
                 aria-label="Toggle sidebar"
               />
             </div>
