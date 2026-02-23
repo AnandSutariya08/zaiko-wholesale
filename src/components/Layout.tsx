@@ -107,9 +107,9 @@ function AppSidebarContent({
 
   return (
     <>
-      <SidebarContent className="px-2 py-2">
-        <SidebarGroup className="p-0">
-          <div className="px-3 py-4 flex items-center justify-between group-data-[collapsible=icon]:hidden">
+      <div className="flex flex-col h-full">
+        <div className="sticky top-0 z-10 bg-sidebar border-b border-sidebar-border/50 group-data-[collapsible=icon]:hidden">
+          <div className="px-3 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="shrink-0">
                 {company?.logo ? (
@@ -122,7 +122,8 @@ function AppSidebarContent({
                   <div className="h-7 w-7 rounded-md bg-primary/10 flex items-center justify-center">
                     <Sparkles className="h-4 w-4 text-primary" />
                   </div>
-                )}
+                )
+              }
               </div>
               <div className="flex-1 min-w-0">
                 <h2 className="font-bold text-sidebar-foreground truncate text-sm tracking-tight">
@@ -141,10 +142,13 @@ function AppSidebarContent({
               </Button>
             )}
           </div>
+        </div>
 
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-1">
-              {navItems.map((item, index) => {
+        <SidebarContent className="flex-1 overflow-y-auto px-2 py-2 custom-scrollbar">
+          <SidebarGroup className="p-0">
+            <SidebarGroupContent>
+              <SidebarMenu className="gap-1">
+                {navItems.map((item, index) => {
                 const Icon = item.icon;
                 const active = isActive(item.path);
 
@@ -324,7 +328,8 @@ function AppSidebarContent({
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="border-t border-sidebar-border/40 p-2">
+    </div>
+      <SidebarFooter className="sticky bottom-0 border-t border-sidebar-border/40 p-2 bg-sidebar z-10">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-3">
             <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary shrink-0 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:text-xs">
