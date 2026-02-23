@@ -144,7 +144,7 @@ function AppSidebarContent({
           </div>
         </div>
 
-        <SidebarContent className="flex-1 overflow-y-auto px-2 py-2 custom-scrollbar pb-20">
+        <SidebarContent className="flex-1 overflow-y-auto px-2 py-2 pb-20 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary/20 hover:[&::-webkit-scrollbar-thumb]:bg-primary/40 [&::-webkit-scrollbar-track]:bg-transparent">
           <SidebarGroup className="p-0">
             <SidebarGroupContent>
               <SidebarMenu className="gap-1">
