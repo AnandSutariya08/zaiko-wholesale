@@ -1,10 +1,10 @@
 import { useRef, useEffect, useState } from 'react';
 import { BillForm } from '@/components/BillForm';
-import { ArrowLeft, Plus, Search, Calendar, FileText, Eye, Edit, Trash2, IndianRupee, User, Loader2, MessageCircle, Share2, Download } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Calendar, FileText, Eye, Edit, Trash2, IndianRupee, User, Loader2, MessageCircle, Share2, Download, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { getBills, deleteBill, updateBillPayment, getCompanyProfile } from '@/lib/storage';
-import { Bill, PaymentMethod } from '@/types';
+import { Bill, PaymentMethod, EWayBillDetails } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +14,8 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { PaymentDialog } from '@/components/PaymentDialog';
 import { pdf } from '@react-pdf/renderer';
 import { BillPDF } from '@/components/BillView';
+import { EWayBillPDF } from '@/components/EWayBillPDF';
+import { EWayBillDialog } from '@/components/EWayBillDialog';
 import QRCode from "qrcode";
 import {
   AlertDialog,
@@ -36,6 +38,7 @@ export default function GSTBill() {
   const [dateFilter, setDateFilter] = useState('');
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [ewayDialogOpen, setEwayDialogOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
 
@@ -53,6 +56,36 @@ export default function GSTBill() {
       toast.error('Failed to load bills');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGenerateEWayBill = async (details: EWayBillDetails) => {
+    if (!selectedBill) return;
+    try {
+      setGeneratingId(selectedBill.id);
+      setEwayDialogOpen(false);
+      const company = await getCompanyProfile();
+
+      const blob = await pdf(
+        <EWayBillPDF 
+          bill={selectedBill} 
+          company={company} 
+          ewayDetails={details} 
+        />
+      ).toBlob();
+      
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `EWayBill-${selectedBill.billNumber}.pdf`;
+      link.click();
+      toast.success('Official E-Way Bill (Form GST EWB-01) generated');
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error generating E-Way Bill:', error);
+      toast.error('Failed to generate E-Way Bill');
+    } finally {
+      setGeneratingId(null);
     }
   };
 
@@ -263,6 +296,12 @@ export default function GSTBill() {
                         <Badge variant="default" className="bg-green-600 text-white h-8">✓ Paid</Badge>
                       )}
                       <div className="flex gap-2">
+                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs text-blue-600 border-blue-200 hover:bg-blue-50" 
+                          disabled={generatingId === bill.id}
+                          onClick={() => { setSelectedBill(bill); setEwayDialogOpen(true); }}>
+                          <Truck className="h-3.5 w-3.5" />
+                          E-Way Bill
+                        </Button>
                         <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" 
                           disabled={generatingId === bill.id}
                           onClick={() => handleGenerateEBill(bill, 'download')}>
@@ -311,6 +350,13 @@ export default function GSTBill() {
           open={paymentDialogOpen}
           onOpenChange={setPaymentDialogOpen}
           onPaymentCollected={handlePaymentCollected}
+        />
+      )}
+      {selectedBill && (
+        <EWayBillDialog
+          open={ewayDialogOpen}
+          onOpenChange={setEwayDialogOpen}
+          onGenerate={handleGenerateEWayBill}
         />
       )}
       </div>

@@ -219,7 +219,6 @@ export interface SampleBill {
   bankAccountId?: string;
   bankAccount?: BankAccount;
   isSample: true; // Flag to identify sample bills
-  isSample: true; // Flag to identify sample bills
 }
 
 export interface EWayBillDetails {

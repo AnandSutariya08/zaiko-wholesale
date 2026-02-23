@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getBills, getCompanyProfile } from '@/lib/storage';
-import { Bill } from '@/types';
+import { Bill, EWayBillDetails } from '@/types';
 import { BillView, BillPDF } from '@/components/BillView';
+import { EWayBillPDF } from '@/components/EWayBillPDF';
+import { EWayBillDialog } from '@/components/EWayBillDialog';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Edit, Download, Share2, Loader2 } from 'lucide-react';
+import { ArrowLeft, Edit, Download, Share2, Loader2, Truck } from 'lucide-react';
 import { pdf } from '@react-pdf/renderer';
 import QRCode from "qrcode";
 import { toast } from 'sonner';
@@ -14,6 +16,7 @@ export default function BillDetail() {
   const navigate = useNavigate();
   const [bill, setBill] = useState<Bill | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [ewayDialogOpen, setEwayDialogOpen] = useState(false);
 
   useEffect(() => {
     const loadBill = async () => {
@@ -29,6 +32,36 @@ export default function BillDetail() {
     };
     loadBill();
   }, [id, navigate]);
+
+  const handleGenerateEWayBill = async (details: EWayBillDetails) => {
+    if (!bill) return;
+    try {
+      setGenerating(true);
+      setEwayDialogOpen(false);
+      const company = await getCompanyProfile();
+
+      const blob = await pdf(
+        <EWayBillPDF 
+          bill={bill} 
+          company={company} 
+          ewayDetails={details} 
+        />
+      ).toBlob();
+      
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `EWayBill-${bill.billNumber}.pdf`;
+      link.click();
+      toast.success('Official E-Way Bill (Form GST EWB-01) generated');
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error generating E-Way Bill:', error);
+      toast.error('Failed to generate E-Way Bill');
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const handleGenerateEBill = async (action: 'download' | 'share') => {
     if (!bill) return;
@@ -96,6 +129,10 @@ export default function BillDetail() {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
+          <Button variant="outline" onClick={() => setEwayDialogOpen(true)} disabled={generating} className="flex-1 sm:flex-initial text-blue-600 border-blue-200">
+            <Truck className="h-4 w-4 mr-2" />
+            E-Way Bill
+          </Button>
           <Button variant="outline" onClick={() => handleGenerateEBill('download')} disabled={generating} className="flex-1 sm:flex-initial">
             {generating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
             E-Bill
@@ -113,6 +150,12 @@ export default function BillDetail() {
       </div>
 
       <BillView bill={bill} />
+      
+      <EWayBillDialog 
+        open={ewayDialogOpen}
+        onOpenChange={setEwayDialogOpen}
+        onGenerate={handleGenerateEWayBill}
+      />
     </div>
   );
 }
