@@ -223,7 +223,9 @@ function AppSidebarContent({
                     >
                       <SidebarMenuItem>
                         <CollapsibleTrigger asChild>
-                          {menuButton}
+                          <Link to="/bills" onClick={handleNavClick}>
+                            {menuButton}
+                          </Link>
                         </CollapsibleTrigger>
                         <CollapsibleContent>
                           <SidebarMenuSub className="ml-4 border-l border-sidebar-border pl-2 space-y-0.5 mt-1">
