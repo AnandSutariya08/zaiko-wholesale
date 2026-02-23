@@ -144,7 +144,7 @@ function AppSidebarContent({
           </div>
         </div>
 
-        <SidebarContent className="flex-1 overflow-y-auto px-2 py-2 custom-scrollbar">
+        <SidebarContent className="flex-1 overflow-y-auto px-2 py-2 custom-scrollbar pb-20">
           <SidebarGroup className="p-0">
             <SidebarGroupContent>
               <SidebarMenu className="gap-1">
