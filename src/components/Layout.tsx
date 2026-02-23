@@ -163,9 +163,9 @@ function AppSidebarContent({
                     )}
                   >
                     {manageMode ? (
-                      <GripVertical className="size-3.5 shrink-0 text-primary/50" />
+                      <GripVertical className="size-4 shrink-0 text-primary/50" />
                     ) : (
-                      <Icon className="size-4 shrink-0" />
+                      <Icon className="size-5 shrink-0 group-data-[collapsible=icon]:size-6" />
                     )}
                     <span className="ml-2 flex-1 truncate">{item.label}</span>
 
