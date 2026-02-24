@@ -1,21 +1,12 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { getBills, deleteBill, updateBillPayment } from "@/lib/storage";
-import { getCompanyProfile, saveCompanyProfile } from "@/lib/firebaseService";
+import { getCompanyProfile } from "@/lib/firebaseService";
 import { Bill, PaymentMethod, CompanyProfile } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/billUtils";
 import {
@@ -34,9 +25,11 @@ import {
   Download,
   Share2,
   MessageCircle,
+  RotateCcw,
+  SlidersHorizontal,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import { PaymentDialog } from "@/components/PaymentDialog";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { BillPDF } from "@/components/BillView";
@@ -53,20 +46,38 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function Bills() {
+  const location = useLocation();
+  const resolveTabFromPath = (pathname: string): string => {
+    if (pathname.startsWith("/bills/gst")) return "gst";
+    if (pathname.startsWith("/bills/non-gst")) return "non-gst";
+    if (pathname.startsWith("/bills/international")) return "international";
+    return "all";
+  };
   const [loading, setLoading] = useState(true);
   const [company, setCompany] = useState<CompanyProfile | null>(null);
-  const [updatingGst, setUpdatingGst] = useState(false);
   const [bills, setBills] = useState<Bill[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedDate, setSelectedDate] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("date-desc");
-  const [activeTab, setActiveTab] = useState("all");
+  const [activeTab, setActiveTab] = useState(() =>
+    resolveTabFromPath(location.pathname),
+  );
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [showFilters, setShowFilters] = useState(false);
   const pageSize = 10;
 
   useEffect(() => {
@@ -75,7 +86,11 @@ export default function Bills() {
 
   useEffect(() => {
     setPage(1);
-  }, [searchTerm, statusFilter, sortBy, activeTab]);
+  }, [searchTerm, selectedDate, statusFilter, sortBy, activeTab]);
+
+  useEffect(() => {
+    setActiveTab(resolveTabFromPath(location.pathname));
+  }, [location.pathname]);
 
   const loadData = async () => {
     try {
@@ -94,24 +109,19 @@ export default function Bills() {
     }
   };
 
-  const toggleGst = async (enabled: boolean) => {
-    if (!company) return;
-    try {
-      setUpdatingGst(true);
-      const updatedProfile = { ...company, gstEnabled: enabled };
-      await saveCompanyProfile(updatedProfile);
-      setCompany(updatedProfile);
-      toast.success(`GST Billing ${enabled ? "enabled" : "disabled"}`);
-    } catch (error) {
-      console.error("Error updating GST setting:", error);
-      toast.error("Failed to update GST setting");
-    } finally {
-      setUpdatingGst(false);
-    }
-  };
-
   const getFilteredBills = () => {
     let filtered = [...bills];
+
+    // Date filter first: then search works on selected-date bills
+    if (selectedDate) {
+      filtered = filtered.filter((bill) => {
+        const d = new Date(bill.date);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}` === selectedDate;
+      });
+    }
 
     // Search filter
     if (searchTerm) {
@@ -157,6 +167,73 @@ export default function Bills() {
   };
 
   const filteredBills = getFilteredBills();
+  const pendingCount = filteredBills.filter(
+    (bill) => bill.paymentStatus === "pending",
+  ).length;
+  const paidCount = filteredBills.filter(
+    (bill) => bill.paymentStatus === "paid",
+  ).length;
+  const overdueCount = filteredBills.filter(
+    (bill) => bill.paymentStatus === "overdue",
+  ).length;
+  const totalSales = filteredBills.reduce((sum, bill) => sum + bill.total, 0);
+  const totalPaid = filteredBills.reduce(
+    (sum, bill) => sum + (bill.paidAmount || 0),
+    0,
+  );
+  const totalPending = filteredBills.reduce(
+    (sum, bill) => sum + (bill.total - (bill.paidAmount || 0)),
+    0,
+  );
+  const totalReturn = filteredBills.reduce(
+    (sum, bill) =>
+      sum +
+      (bill.returns?.reduce((rSum, r) => rSum + (r.totalReturnValue || 0), 0) ||
+        0),
+    0,
+  );
+  const tabLabelMap: Record<string, string> = {
+    all: "All Bills",
+    gst: "GST Bills",
+    "non-gst": "Non-GST",
+    international: "International",
+  };
+  const pageTitleMap: Record<string, string> = {
+    all: "All Bills",
+    gst: "GST Bills",
+    "non-gst": "Non-GST Bills",
+    international: "International Bills",
+  };
+  const pageSubtitleMap: Record<string, string> = {
+    all: "Manage and track all invoices",
+    gst: "Manage GST invoices",
+    "non-gst": "Manage non-GST invoices",
+    international: "Manage international invoices",
+  };
+  const createBillLabelMap: Record<string, string> = {
+    all: "Create Bill",
+    gst: "Create GST Bill",
+    "non-gst": "Create Non-GST Bill",
+    international: "Create International Bill",
+  };
+  const createBillPathMap: Record<string, string> = {
+    all: "/bills/new",
+    gst: "/bills/new?mode=gst",
+    "non-gst": "/bills/new?mode=non-gst",
+    international: "/bills/new?mode=international",
+  };
+  const statusLabelMap: Record<string, string> = {
+    all: "All Status",
+    paid: "Paid",
+    pending: "Pending",
+    overdue: "Overdue",
+  };
+  const sortLabelMap: Record<string, string> = {
+    "date-desc": "Date (Newest)",
+    "date-asc": "Date (Oldest)",
+    "amount-desc": "Amount (High to Low)",
+    "amount-asc": "Amount (Low to High)",
+  };
   const totalPages = Math.max(1, Math.ceil(filteredBills.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const pagedBills = filteredBills.slice(
@@ -209,7 +286,7 @@ export default function Bills() {
     return (
       <Badge
         variant={variants[status as keyof typeof variants]}
-        className="text-xs"
+        className="inline-flex h-8 items-center rounded-full px-3 text-[12px] font-medium"
       >
         {labels[status as keyof typeof labels]}
       </Badge>
@@ -228,118 +305,310 @@ export default function Bills() {
   }
 
   return (
-    <div className="h-[calc(100dvh-8.5rem)] w-full overflow-hidden sm:h-[calc(100dvh-9.5rem)]">
-      <div className="relative flex h-full min-h-0 flex-col rounded-[28px] border border-border/70 bg-background p-3 shadow-sm sm:p-5 lg:p-6">
-      <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background/95 p-3 backdrop-blur sm:p-4">
-      <div className="page-header-controls">
-        <div className="page-header-title min-w-0 flex-1">
-          <div className="page-header-icon">
-            <Receipt className="h-5 w-5 md:h-6 md:w-6" />
+    <div className="flex h-full min-h-0 w-full flex-col gap-2 overflow-hidden">
+      <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background p-2 shadow-sm sm:p-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-center justify-start gap-3 sm:gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-border">
+              <Receipt className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 text-left">
+              <h1 className="truncate text-2xl font-semibold leading-tight sm:text-3xl">
+                {pageTitleMap[activeTab] || "Bills"}
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                {pageSubtitleMap[activeTab] || "Manage and track your invoices"}
+              </p>
+            </div>
           </div>
-          <div>
-          <h1 className="text-2xl font-bold text-foreground">Bills</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage and track your invoices
-          </p>
-          </div>
-        </div>
-        {/* <div className="flex items-center space-x-2 bg-card border px-3 py-2 rounded-md shadow-sm">
-          <Switch
-            id="gst-toggle"
-            checked={company?.gstEnabled || false}
-            onCheckedChange={toggleGst}
-            disabled={updatingGst || !company}
-          />
-          <Label htmlFor="gst-toggle" className="text-sm font-medium cursor-pointer">
-            GST {company?.gstEnabled ? 'ON' : 'OFF'}
-          </Label>
-        </div> */}
-      </div>
-      </div>
 
-      <div className="mt-4 flex-1 min-h-0 rounded-2xl border border-border/70 bg-background/60 p-2 sm:p-3">
-      <div className="h-full overflow-y-auto space-y-4 pr-1 sm:pr-2">
-
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-          <TabsList className="grid grid-cols-4 w-full sm:w-[500px]">
-            <TabsTrigger value="all">All Bills</TabsTrigger>
-            <TabsTrigger value="gst">GST Bills</TabsTrigger>
-            <TabsTrigger value="non-gst">Non-GST</TabsTrigger>
-            <TabsTrigger value="international">International</TabsTrigger>
-          </TabsList>
-
-          {/* <div className="flex gap-2 w-full sm:w-auto">
-            {activeTab === "gst" ? (
-              <Link to="/gst-bill" className="flex-1 sm:flex-initial">
-                <Button className="w-full gap-2">
-                  <Plus className="h-4 w-4" />
-                  Create GST Bill
+          <div className="flex w-full flex-col items-stretch gap-2 rounded-xl border border-border/60 bg-muted/20 p-1.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-start lg:w-auto lg:justify-end">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-10 w-full items-center gap-2 rounded-lg bg-background sm:w-auto"
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                  Manage
                 </Button>
-              </Link>
-            ) : activeTab === "non-gst" ? (
-              <Link to="/non-gst-bill" className="flex-1 sm:flex-initial">
-                <Button className="w-full gap-2">
-                  <Plus className="h-4 w-4" />
-                  Create Non-GST Bill
-                </Button>
-              </Link>
-            ) : (
-              <Link to="/bills/new" className="flex-1 sm:flex-initial">
-                <Button className="w-full gap-2">
-                  <Plus className="h-4 w-4" />
-                  Create Bill
+              </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-64 max-h-[60vh] overflow-y-auto overscroll-contain"
+            >
+                <DropdownMenuLabel>Bill Type</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => setActiveTab("all")}>
+                  {activeTab === "all" ? "* " : ""}All Bills
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveTab("gst")}>
+                  {activeTab === "gst" ? "* " : ""}GST Bills
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveTab("non-gst")}>
+                  {activeTab === "non-gst" ? "* " : ""}Non-GST
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveTab("international")}>
+                  {activeTab === "international" ? "* " : ""}International
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Payment Status</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => setStatusFilter("all")}>
+                  {statusFilter === "all" ? "* " : ""}All Status
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("paid")}>
+                  {statusFilter === "paid" ? "* " : ""}Paid
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("pending")}>
+                  {statusFilter === "pending" ? "* " : ""}Pending
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("overdue")}>
+                  {statusFilter === "overdue" ? "* " : ""}Overdue
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Sort</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => setSortBy("date-desc")}>
+                  {sortBy === "date-desc" ? "* " : ""}Date (Newest)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortBy("date-asc")}>
+                  {sortBy === "date-asc" ? "* " : ""}Date (Oldest)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortBy("amount-desc")}>
+                  {sortBy === "amount-desc" ? "* " : ""}Amount (High to Low)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortBy("amount-asc")}>
+                  {sortBy === "amount-asc" ? "* " : ""}Amount (Low to High)
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    setActiveTab("all");
+                    setStatusFilter("all");
+                    setSortBy("date-desc");
+                    setSearchTerm("");
+                    setSelectedDate("");
+                  }}
+                >
+                  <RotateCcw className="mr-2 h-3.5 w-3.5" />
+                  Reset All
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-10 w-full items-center gap-2 rounded-lg bg-background sm:w-auto"
+            >
+              <FileText className="h-4 w-4" />
+              {filteredBills.length} Bills
+            </Button>
+            {activeTab !== "all" && (
+              <Link to={createBillPathMap[activeTab] || "/bills/new"} className="w-full sm:w-auto">
+                <Button size="sm" className="h-10 w-full rounded-lg px-4 shadow-sm sm:w-auto">
+                  <Plus className="mr-2 h-4 w-4" />
+                  {createBillLabelMap[activeTab] || "Create Bill"}
                 </Button>
               </Link>
             )}
-          </div> */}
+          </div>
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 rounded-2xl border border-border/70 bg-background/60 p-2 sm:p-3">
+      <div className="h-full overflow-y-auto space-y-4 pr-1 sm:pr-2">
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <div className="mb-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">
+              {tabLabelMap[activeTab]} - {statusLabelMap[statusFilter]} - {sortLabelMap[sortBy]}
+              {selectedDate ? ` - ${selectedDate}` : ""}
+            </p>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge variant="secondary" className="rounded-md px-2 py-0.5 text-[11px]">
+                Pending {pendingCount}
+              </Badge>
+              <Badge variant="secondary" className="rounded-md px-2 py-0.5 text-[11px]">
+                Paid {paidCount}
+              </Badge>
+              <Badge variant="secondary" className="rounded-md px-2 py-0.5 text-[11px]">
+                Overdue {overdueCount}
+              </Badge>
+            </div>
+          </div>
         </div>
 
-        {/* Unified Search and Filter UI */}
-        <Card className="mb-6">
-          <CardContent className="pt-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search number, client, phone..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 h-10 border-2"
+        <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-4">
+          <Card className="rounded-2xl border-primary/30 ">
+            <CardContent className="px-4 py-3.5 sm:px-5 sm:py-4">
+              <p className="text-[10px] font-semibold uppercase leading-none tracking-[0.14em] text-muted-foreground/90">
+                Total Sales
+              </p>
+              <p className="mt-2 text-[20px] font-semibold leading-none tracking-tight text-foreground tabular-nums">
+                {formatCurrency(totalSales)}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="rounded-2xl border-emerald-300/60 ">
+            <CardContent className="px-4 py-3.5 sm:px-5 sm:py-4">
+              <p className="text-[10px] font-semibold uppercase leading-none tracking-[0.14em] text-muted-foreground/90">
+                Total Paid
+              </p>
+              <p className="mt-2 text-[20px] font-semibold leading-none tracking-tight text-emerald-700 tabular-nums">
+                {formatCurrency(totalPaid)}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="rounded-2xl border-amber-300/60 ">
+            <CardContent className="px-4 py-3.5 sm:px-5 sm:py-4">
+              <p className="text-[10px] font-semibold uppercase leading-none tracking-[0.14em] text-muted-foreground/90">
+                Total Pending
+              </p>
+              <p className="mt-2 text-[20px] font-semibold leading-none tracking-tight text-amber-700 tabular-nums">
+                {formatCurrency(totalPending)}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="rounded-2xl border-rose-300/60 ">
+            <CardContent className="px-4 py-3.5 sm:px-5 sm:py-4">
+              <p className="text-[10px] font-semibold uppercase leading-none tracking-[0.14em] text-muted-foreground/90">
+                Total Return
+              </p>
+              <p className="mt-2 text-[20px] font-semibold leading-none tracking-tight text-rose-700 tabular-nums">
+                {formatCurrency(totalReturn)}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+        <Card className="mb-4 overflow-hidden border border-border/70 bg-gradient-to-br from-slate-50/80 via-background to-sky-50/70 shadow-sm">
+          <CardContent className="p-3 sm:p-5">
+            <button
+              type="button"
+              onClick={() => setShowFilters((prev) => !prev)}
+              className="flex w-full items-center justify-between gap-3 rounded-2xl border border-border/70 bg-background/90 px-4 py-3 text-left transition hover:border-primary/30"
+            >
+              <div className="min-w-0 space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+                    <Filter className="h-4 w-4 text-primary" />
+                  </span>
+                  <p className="text-base font-semibold">Search & Filters</p>
+                </div>
+                <p className="truncate text-xs text-muted-foreground">
+                  {tabLabelMap[activeTab]} - {statusLabelMap[statusFilter]} - {sortLabelMap[sortBy]}
+                  {selectedDate ? ` - ${selectedDate}` : ""}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="h-8 rounded-lg px-3 text-xs font-semibold">
+                  {filteredBills.length} Results
+                </Badge>
+                <ChevronDown
+                  className={`h-5 w-5 transition-transform ${showFilters ? "rotate-180" : ""}`}
                 />
               </div>
+            </button>
 
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-10 border-2">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="overdue">Overdue</SelectItem>
-                </SelectContent>
-              </Select>
+            {showFilters && (
+              <div className="mt-4 space-y-3 rounded-2xl border border-border/60 bg-background/70 p-3 sm:p-4">
+                <div className="grid gap-3 md:grid-cols-12">
+                  <div className="relative md:col-span-8">
+                    <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by bill number, client name, or phone..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="h-12 rounded-xl border border-border/70 bg-white pl-12 text-base shadow-sm transition focus-visible:ring-2 focus-visible:ring-primary/30"
+                    />
+                  </div>
 
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="h-10 border-2">
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="date-desc">Date (Newest)</SelectItem>
-                  <SelectItem value="date-asc">Date (Oldest)</SelectItem>
-                  <SelectItem value="amount-desc">
-                    Amount (High to Low)
-                  </SelectItem>
-                  <SelectItem value="amount-asc">
-                    Amount (Low to High)
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                  <div className="md:col-span-4">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        className="h-12 rounded-xl border border-border/70 bg-white text-sm shadow-sm"
+                      />
+                      {selectedDate && (
+                        <Button
+                          variant="outline"
+                          className="h-12 rounded-xl px-3"
+                          onClick={() => setSelectedDate("")}
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="h-10 rounded-xl bg-background">
+                        {tabLabelMap[activeTab]}
+                        <ChevronDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-44">
+                      <DropdownMenuItem onClick={() => setActiveTab("all")}>All Bills</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setActiveTab("gst")}>GST Bills</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setActiveTab("non-gst")}>Non-GST</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setActiveTab("international")}>International</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="h-10 rounded-xl bg-background">
+                        {statusLabelMap[statusFilter]}
+                        <ChevronDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-44">
+                      <DropdownMenuItem onClick={() => setStatusFilter("all")}>All Status</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setStatusFilter("paid")}>Paid</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setStatusFilter("pending")}>Pending</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setStatusFilter("overdue")}>Overdue</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="h-10 rounded-xl bg-background">
+                        {sortLabelMap[sortBy]}
+                        <ChevronDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-52">
+                      <DropdownMenuItem onClick={() => setSortBy("date-desc")}>Date (Newest)</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSortBy("date-asc")}>Date (Oldest)</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSortBy("amount-desc")}>Amount (High to Low)</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSortBy("amount-asc")}>Amount (Low to High)</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <Button
+                    variant="ghost"
+                    className="h-10 rounded-xl px-3 text-sm"
+                    onClick={() => {
+                      setActiveTab("all");
+                      setStatusFilter("all");
+                      setSortBy("date-desc");
+                      setSearchTerm("");
+                      setSelectedDate("");
+                    }}
+                  >
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Reset
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
+
 
         <TabsContent value={activeTab} className="mt-0">
           <div className="space-y-3">
@@ -365,91 +634,101 @@ export default function Bills() {
               pagedBills.map((bill) => (
                 <Card
                   key={bill.id}
-                  className="hover:shadow-md transition-shadow border-l-4"
-                  style={{
-                    borderLeftColor:
-                      bill.paymentStatus === "paid"
-                        ? "#10b981"
-                        : bill.paymentStatus === "overdue"
-                          ? "#ef4444"
-                          : "#f59e0b",
-                  }}
+                  className={`group overflow-hidden rounded-2xl border shadow-sm ring-1 ring-transparent transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:ring-primary/10 ${
+                    bill.paymentStatus === "paid"
+                      ? "border-emerald-200/80 bg-gradient-to-br from-emerald-50/70 via-background to-background"
+                      : bill.paymentStatus === "overdue"
+                        ? "border-rose-200/80 bg-gradient-to-br from-rose-50/70 via-background to-background"
+                        : "border-sky-200/80 bg-gradient-to-br from-sky-50/80 via-background to-background"
+                  }`}
                 >
-                  <CardContent className="p-4">
-                    <div className="flex flex-col gap-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <span className="font-bold text-lg">
+                  <CardContent className="p-3.5 pb-5 sm:p-4 sm:pb-6">
+                    <div className="space-y-3">
+                      <div className="min-w-0">
+                        <div className="mb-2 flex min-h-[48px] items-center justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 self-center text-sm text-muted-foreground">
+                              <User className="h-3.5 w-3.5 shrink-0" />
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium leading-none text-foreground/90">
+                                  {bill.client.name}
+                                </p>
+                                {bill.client.phone && (
+                                  <p className="mt-1 text-xs leading-none text-muted-foreground/80">
+                                    {bill.client.phone}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1.5 self-center">
+                            <span className="inline-flex h-8 items-center rounded-lg bg-foreground/[0.04] px-2.5 text-sm font-semibold tracking-tight">
                               {bill.billNumber}
                             </span>
                             {getStatusBadge(bill.paymentStatus)}
                             {bill.totalTax > 0 && (
                               <Badge
                                 variant="outline"
-                                className="text-[10px] uppercase"
+                                className="inline-flex h-8 items-center rounded-full border-primary/30 bg-primary/5 px-2 text-[10px] uppercase"
                               >
                                 GST
                               </Badge>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <User className="h-3 w-3" />
-                            <span className="font-medium truncate">
-                              {bill.client.name}
-                            </span>
-                          </div>
                         </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className="text-primary text-xl font-bold">
-                            {formatCurrency(bill.total)}
-                          </p>
-                        </div>
-                      </div>
 
-                      <div className="flex items-center justify-between text-xs sm:text-sm border-t pt-2">
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-1 text-muted-foreground">
-                            <Calendar className="h-3 w-3" />
-                            <span>{formatDate(bill.date)}</span>
+                        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                          <div className="rounded-xl border border-border/60 bg-background/90 px-3 py-2.5 shadow-sm">
+                            <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Date</p>
+                            <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-foreground">
+                              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                              {formatDate(bill.date)}
+                            </p>
                           </div>
-                        </div>
-                        {bill.paymentStatus !== "paid" && (
-                          <div className="flex items-center gap-1 text-orange-600 font-semibold">
-                            <IndianRupee className="h-3.5 w-3.5" />
-                            <span>
-                              Pending:{" "}
+                          <div className="rounded-xl border border-emerald-200/60 bg-emerald-50/50 px-3 py-2.5">
+                            <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Paid</p>
+                            <p className="mt-1 text-base font-bold text-foreground">
+                              {formatCurrency(bill.paidAmount)}
+                            </p>
+                          </div>
+                          <div className="rounded-xl border border-amber-200/60 bg-amber-50/50 px-3 py-2.5">
+                            <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Pending</p>
+                            <p className="mt-1 text-base font-bold text-foreground">
                               {formatCurrency(bill.total - bill.paidAmount)}
-                            </span>
+                            </p>
                           </div>
-                        )}
+                          <div className="rounded-xl border border-sky-200/60 bg-sky-50/50 px-3 py-2.5">
+                            <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Bill Total</p>
+                            <p className="mt-1 text-base font-bold text-foreground">
+                              {formatCurrency(bill.total)}
+                            </p>
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="flex items-center justify-between gap-2 border-t pt-2">
+                      <div className="flex flex-col gap-2 border-y border-border/60 py-3 sm:flex-row sm:items-center sm:justify-between">
                         {bill.paymentStatus !== "paid" ? (
                           <Button
                             variant="default"
                             size="sm"
                             onClick={() => openPaymentDialog(bill)}
-                            className="h-8 gap-1.5 text-xs"
+                            className="h-9 w-full gap-1.5 rounded-xl px-4 text-sm shadow-sm sm:w-auto"
                           >
                             <IndianRupee className="h-3.5 w-3.5" />
-                            Collect
+                            Collect Payment
                           </Button>
                         ) : (
-                          <Badge
-                            variant="default"
-                            className="bg-green-600 text-white h-8"
-                          >
-                            ✓ Paid
+                          <Badge variant="default" className="h-7 w-fit rounded-full bg-green-600 text-white">
+                            Paid
                           </Badge>
                         )}
 
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-1.5 rounded-xl border border-border/60 bg-background/90 p-1.5">
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-8 w-8 p-0"
+                            className="h-8 w-8 rounded-lg p-0 bg-background/80 hover:bg-primary/5"
                             title="Download Bill"
                             onClick={async () => {
                               toast.info("Generating PDF...");
@@ -475,7 +754,7 @@ export default function Bills() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-8 w-8 p-0"
+                            className="h-8 w-8 rounded-lg p-0 bg-background/80 hover:bg-primary/5"
                             title="Share on WhatsApp"
                             onClick={() => {
                               const phone = bill.client.phone?.replace(/\D/g, "");
@@ -494,7 +773,7 @@ export default function Bills() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-8 w-8 p-0"
+                            className="h-8 w-8 rounded-lg p-0 bg-background/80 hover:bg-primary/5"
                             title="Share Bill"
                             onClick={() => {
                               const publicUrl = `${window.location.origin}/view/bill/${bill.id}`;
@@ -516,7 +795,7 @@ export default function Bills() {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-8 w-8 p-0"
+                              className="h-8 w-8 rounded-lg p-0 bg-background/80 hover:bg-primary/5"
                             >
                               <Eye className="h-3.5 w-3.5" />
                             </Button>
@@ -525,7 +804,7 @@ export default function Bills() {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-8 w-8 p-0"
+                              className="h-8 w-8 rounded-lg p-0 bg-background/80 hover:bg-primary/5"
                               disabled={bill.paymentStatus === "paid"}
                             >
                               <Edit className="h-3.5 w-3.5" />
@@ -536,7 +815,7 @@ export default function Bills() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="h-8 w-8 p-0 text-destructive"
+                                className="h-8 w-8 rounded-lg p-0 text-destructive bg-background/80 hover:bg-destructive/10"
                                 disabled={
                                   deletingId === bill.id || bill.paidAmount > 0
                                 }
@@ -613,7 +892,6 @@ export default function Bills() {
           onPaymentCollected={handlePaymentCollected}
         />
       )}
-      </div>
       </div>
       </div>
     </div>

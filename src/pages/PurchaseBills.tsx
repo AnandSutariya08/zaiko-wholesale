@@ -4,6 +4,7 @@ import {
   getPurchaseBills,
   getProducts,
   savePurchaseBill,
+  saveVendor,
   deletePurchaseBill,
   updatePurchaseBillPayment,
   deletePurchaseBillPayment,
@@ -87,6 +88,12 @@ import {
   BookOpen,
   Download,
   MoreVertical,
+  Plus,
+  Filter,
+  Receipt,
+  SlidersHorizontal,
+  ChevronDown,
+  User,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -94,6 +101,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { PurchaseBillPDF } from "@/components/PurchaseBillPDF";
@@ -117,6 +125,7 @@ function PurchaseBills() {
   const [gstFilter, setGstFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("date-desc");
   const [page, setPage] = useState(1);
+  const [showFilters, setShowFilters] = useState(false);
   const pageSize = 10;
   const [isExtracting, setIsExtracting] = useState(false);
   const [selectedBill, setSelectedBill] = useState<PurchaseBill | null>(null);
@@ -314,6 +323,55 @@ function PurchaseBills() {
   const [vendors, setVendors] = useState<Vendor[]>([]);
 
   const [products, setProducts] = useState<any[]>([]);
+  const [manualCreateOpen, setManualCreateOpen] = useState(false);
+  const manualImageInputRef = useRef<HTMLInputElement>(null);
+  const [manualVendorMode, setManualVendorMode] = useState<"select" | "create">(
+    "select",
+  );
+  const [manualVendorForm, setManualVendorForm] = useState({
+    name: "",
+    address: "",
+    gstin: "",
+    phone: "",
+    email: "",
+  });
+  const [manualBill, setManualBill] = useState<{
+    billImage: string;
+    vendorId?: string;
+    vendorName: string;
+    vendorAddress?: string;
+    vendorGstin?: string;
+    billNumber?: string;
+    billDate: string;
+    dueDate?: string;
+    paymentTerms?: number;
+    notes?: string;
+    items: PurchaseBillItem[];
+  }>({
+    billImage: "",
+    vendorId: undefined,
+    vendorName: "",
+    vendorAddress: "",
+    vendorGstin: "",
+    billNumber: "",
+    billDate: new Date().toISOString().split("T")[0],
+    dueDate: "",
+    paymentTerms: 0,
+    notes: "",
+    items: [
+      {
+        description: "",
+        hsnCode: "",
+        quantity: 1,
+        unit: "pcs",
+        rate: 0,
+        amount: 0,
+        gstRate: 0,
+        gstAmount: 0,
+        whereToBuy: "",
+      },
+    ],
+  });
 
   useEffect(() => {
     // Update overdue status on load
@@ -518,6 +576,26 @@ function PurchaseBills() {
     (currentPage - 1) * pageSize,
     currentPage * pageSize,
   );
+  const gstLabelMap: Record<string, string> = {
+    all: "All Bills",
+    gst: "GST Bills",
+    "non-gst": "Non-GST Bills",
+  };
+  const statusLabelMap: Record<string, string> = {
+    all: "All Status",
+    paid: "Paid",
+    pending: "Pending",
+    overdue: "Overdue",
+    overpaid: "Overpaid",
+  };
+  const sortLabelMap: Record<string, string> = {
+    "date-desc": "Date (Newest)",
+    "date-asc": "Date (Oldest)",
+    "due-date": "Due Date",
+    "amount-desc": "Amount (High to Low)",
+    "amount-asc": "Amount (Low to High)",
+    vendor: "Vendor Name",
+  };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -664,6 +742,331 @@ function PurchaseBills() {
       });
     } finally {
       setIsExtracting(false);
+    }
+  };
+
+  const resetManualCreate = () => {
+    setManualVendorMode("select");
+    setManualVendorForm({
+      name: "",
+      address: "",
+      gstin: "",
+      phone: "",
+      email: "",
+    });
+    setManualBill({
+      billImage: "",
+      vendorId: undefined,
+      vendorName: "",
+      vendorAddress: "",
+      vendorGstin: "",
+      billNumber: "",
+      billDate: new Date().toISOString().split("T")[0],
+      dueDate: "",
+      paymentTerms: 0,
+      notes: "",
+      items: [
+        {
+          description: "",
+          hsnCode: "",
+          quantity: 1,
+          unit: "pcs",
+          rate: 0,
+          amount: 0,
+          gstRate: 0,
+          gstAmount: 0,
+          whereToBuy: "",
+        },
+      ],
+    });
+  };
+
+  const openManualCreate = () => {
+    resetManualCreate();
+    setManualCreateOpen(true);
+  };
+
+  const updateManualItem = (
+    index: number,
+    field: keyof PurchaseBillItem,
+    value: any,
+  ) => {
+    const items = [...manualBill.items];
+    const item = { ...items[index] };
+    (item as any)[field] = value;
+
+    if (field === "quantity" || field === "rate") {
+      item.amount = item.quantity * item.rate;
+      item.gstAmount = (item.amount * (item.gstRate || 0)) / 100;
+    }
+    if (field === "gstRate") {
+      item.gstAmount = (item.amount * (value || 0)) / 100;
+    }
+
+    items[index] = item;
+    setManualBill((prev) => ({ ...prev, items }));
+  };
+
+  const handleManualProductSelect = (index: number, product: any) => {
+    const items = [...manualBill.items];
+    const item = { ...items[index] };
+
+    item.description = product.name;
+    item.hsnCode = product.hsnCode || item.hsnCode || "";
+    item.rate = product.purchasePrice ?? item.rate;
+    item.gstRate = product.gstRate ?? item.gstRate ?? 0;
+    item.unit = product.unit || item.unit || "pcs";
+    item.amount = item.quantity * item.rate;
+    item.gstAmount = (item.amount * (item.gstRate || 0)) / 100;
+
+    items[index] = item;
+    setManualBill((prev) => ({ ...prev, items }));
+  };
+
+  const addManualItemRow = () => {
+    setManualBill((prev) => ({
+      ...prev,
+      items: [
+        ...prev.items,
+        {
+          description: "",
+          hsnCode: "",
+          quantity: 1,
+          unit: "pcs",
+          rate: 0,
+          amount: 0,
+          gstRate: 0,
+          gstAmount: 0,
+          whereToBuy: prev.vendorName || "",
+        },
+      ],
+    }));
+  };
+
+  const removeManualItemRow = (index: number) => {
+    setManualBill((prev) => ({
+      ...prev,
+      items: prev.items.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleManualImageSelect = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Error",
+        description: "Please select an image file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCompressing(true);
+    try {
+      const compressedBase64 = await compressFile(file, 900);
+      const sizeKB = getBase64SizeKB(compressedBase64);
+      if (sizeKB > 1000) {
+        toast({
+          title: "Image Too Large",
+          description: `Image is ${sizeKB.toFixed(0)} KB. Please try another image.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setManualBill((prev) => ({ ...prev, billImage: compressedBase64 }));
+      toast({
+        title: "Image Added",
+        description: "Bill image attached successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to process image",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCompressing(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleSaveManualBill = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+
+    try {
+      let finalVendorId = manualBill.vendorId;
+      let finalVendorName = manualBill.vendorName?.trim() || "";
+      let finalVendorAddress = manualBill.vendorAddress?.trim() || "";
+      let finalVendorGstin = manualBill.vendorGstin?.trim() || "";
+
+      if (manualVendorMode === "select") {
+        if (!finalVendorId) {
+          toast({
+            title: "Vendor Required",
+            description: "Please select a vendor or switch to Create Vendor.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const selectedVendor = vendors.find((v) => v.id === finalVendorId);
+        if (!selectedVendor) {
+          toast({
+            title: "Invalid Vendor",
+            description: "Selected vendor was not found.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        finalVendorName = selectedVendor.name;
+        finalVendorAddress = selectedVendor.address || "";
+        finalVendorGstin = selectedVendor.gstin || "";
+      } else {
+        const name = manualVendorForm.name.trim();
+        if (!name) {
+          toast({
+            title: "Vendor Name Required",
+            description: "Enter vendor name to create a vendor.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const newVendor: Vendor = {
+          id: crypto.randomUUID(),
+          name,
+          address: manualVendorForm.address.trim(),
+          gstin: manualVendorForm.gstin.trim().toUpperCase(),
+          phone: manualVendorForm.phone.trim(),
+          email: manualVendorForm.email.trim(),
+          createdAt: new Date().toISOString(),
+        };
+
+        await saveVendor(newVendor);
+        await loadVendors();
+        finalVendorId = newVendor.id;
+        finalVendorName = newVendor.name;
+        finalVendorAddress = newVendor.address;
+        finalVendorGstin = newVendor.gstin;
+      }
+
+      const cleanedItems = manualBill.items
+        .map((item) => {
+          const description = item.description.trim();
+          const quantity = Number(item.quantity) || 0;
+          const rate = Number(item.rate) || 0;
+          const gstRate = Number(item.gstRate) || 0;
+          const amount = quantity * rate;
+          const gstAmount = (amount * gstRate) / 100;
+          return {
+            ...item,
+            description,
+            quantity,
+            rate,
+            gstRate,
+            amount,
+            gstAmount,
+            unit: item.unit?.trim() || "pcs",
+            whereToBuy: item.whereToBuy || finalVendorName,
+          };
+        })
+        .filter((item) => item.description && item.quantity > 0);
+
+      if (cleanedItems.length === 0) {
+        toast({
+          title: "Items Required",
+          description: "Add at least one valid item with quantity greater than 0.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const subtotal = cleanedItems.reduce((sum, item) => sum + item.amount, 0);
+      const totalTax = cleanedItems.reduce(
+        (sum, item) => sum + (item.gstAmount || 0),
+        0,
+      );
+      const total = subtotal + totalTax;
+
+      if (
+        manualBill.billNumber?.trim() &&
+        (await isPurchaseBillDuplicate(
+          manualBill.billNumber.trim(),
+          finalVendorName,
+        ))
+      ) {
+        toast({
+          title: "Duplicate Bill",
+          description: `Bill #${manualBill.billNumber.trim()} from ${finalVendorName} already exists.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const billDateValue = manualBill.billDate
+        ? new Date(manualBill.billDate)
+        : new Date();
+      const billDateIso = billDateValue.toISOString();
+
+      let dueDateIso: string | undefined;
+      if (manualBill.dueDate) {
+        dueDateIso = new Date(manualBill.dueDate).toISOString();
+      } else if ((manualBill.paymentTerms || 0) > 0) {
+        const d = new Date(billDateIso);
+        d.setDate(d.getDate() + (manualBill.paymentTerms || 0));
+        dueDateIso = d.toISOString();
+      }
+
+      const now = new Date().toISOString();
+      const newBill: PurchaseBill = {
+        id: crypto.randomUUID(),
+        billImage: manualBill.billImage || "",
+        vendorId: finalVendorId,
+        vendorName: finalVendorName,
+        vendorAddress: finalVendorAddress,
+        vendorGstin: finalVendorGstin,
+        billNumber: manualBill.billNumber?.trim() || undefined,
+        billDate: billDateIso,
+        dueDate: dueDateIso,
+        paymentTerms: manualBill.paymentTerms || 0,
+        notes: manualBill.notes?.trim() || undefined,
+        items: cleanedItems,
+        subtotal,
+        totalTax,
+        total,
+        paymentStatus: "pending",
+        paidAmount: 0,
+        payments: [],
+        extractionErrors: [],
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      await savePurchaseBill(newBill);
+      await loadBills();
+      setManualCreateOpen(false);
+      resetManualCreate();
+      setSelectedBill(newBill);
+
+      toast({
+        title: "Success",
+        description: "Purchase bill created successfully",
+      });
+    } catch (error) {
+      console.error("Error creating purchase bill manually:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create purchase bill",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1211,6 +1614,17 @@ function PurchaseBills() {
     );
   };
 
+  const manualSubtotal = manualBill.items.reduce(
+    (sum, item) => sum + (item.amount || 0),
+    0,
+  );
+  const manualTaxTotal = manualBill.items.reduce(
+    (sum, item) => sum + (item.gstAmount || 0),
+    0,
+  );
+  const manualGrandTotal = manualSubtotal + manualTaxTotal;
+  const manualSelectedVendor = vendors.find((v) => v.id === manualBill.vendorId);
+
   if (loading) {
     return (
       <div className="min-h-screen">
@@ -1225,23 +1639,30 @@ function PurchaseBills() {
   }
 
   return (
-    <div className="h-[calc(100dvh-8.5rem)] w-full overflow-hidden sm:h-[calc(100dvh-9.5rem)]">
-      <div className="relative flex h-full min-h-0 flex-col rounded-[28px] border border-border/70 bg-background p-3 shadow-sm sm:p-5 lg:p-6">
-      {/* Header */}
-      <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background/95 p-3 backdrop-blur sm:p-4">
-      <div className="page-header-controls">
-        <div className="page-header-title">
-          <div className="page-header-icon">
-            <FileText className="h-5 w-5 md:h-6 md:w-6" />
+    <div className="flex h-full min-h-0 w-full flex-col gap-3 overflow-hidden">
+      <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-gradient-to-br from-background via-background to-slate-50/40 p-3 shadow-sm sm:p-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-center justify-start gap-3 sm:gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-border">
+              <Receipt className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 text-left">
+              <h1 className="truncate text-2xl font-semibold leading-tight sm:text-3xl">
+                Purchase Bills
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                AI-powered bill extraction with validation
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="page-title">Purchase Bills</h1>
-            <p className="page-subtitle">
-              AI-powered bill extraction with validation
-            </p>
-          </div>
-        </div>
-        <div className="page-header-actions">
+
+          <input
+            ref={manualImageInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleManualImageSelect}
+          />
           <input
             ref={fileInputRef}
             type="file"
@@ -1257,147 +1678,267 @@ function PurchaseBills() {
             className="hidden"
             onChange={handleFileSelect}
           />
-          <Button
-            size="sm"
-            className="page-header-btn"
-            variant="outline"
-            onClick={() => cameraInputRef.current?.click()}
-            disabled={isExtracting || isCompressing || loading}
-          >
-            {isCompressing ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Camera className="h-4 w-4 mr-2" />
-            )}
-            {isCompressing ? "Processing..." : "Camera"}
-          </Button>
-          <Button
-            size="sm"
-            className="page-header-btn"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isExtracting || isCompressing || loading}
-          >
-            {isCompressing ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : isExtracting ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Upload className="h-4 w-4 mr-2" />
-            )}
-            {isCompressing
-              ? "Processing..."
-              : isExtracting
-                ? "Extracting..."
-                : "Upload Bill"}
-          </Button>
+
+          <div className="grid w-full grid-cols-2 gap-2 rounded-xl border border-border/60 bg-muted/25 p-2 sm:grid-cols-3 lg:flex lg:w-auto lg:flex-wrap lg:items-center lg:justify-end">
+            {/* <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-10 w-full items-center gap-2 rounded-xl bg-background lg:w-auto"
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                  Manage
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-64 max-h-[60vh] overflow-y-auto overscroll-contain"
+              >
+                <DropdownMenuLabel>Bill Type</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => setGstFilter("all")}>
+                  {gstFilter === "all" ? "* " : ""}All Bills
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setGstFilter("gst")}>
+                  {gstFilter === "gst" ? "* " : ""}GST Bills
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setGstFilter("non-gst")}>
+                  {gstFilter === "non-gst" ? "* " : ""}Non-GST Bills
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Payment Status</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => setStatusFilter("all")}>
+                  {statusFilter === "all" ? "* " : ""}All Status
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("paid")}>
+                  {statusFilter === "paid" ? "* " : ""}Paid
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("pending")}>
+                  {statusFilter === "pending" ? "* " : ""}Pending
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("overdue")}>
+                  {statusFilter === "overdue" ? "* " : ""}Overdue
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("overpaid")}>
+                  {statusFilter === "overpaid" ? "* " : ""}Overpaid
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Sort</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => setSortBy("date-desc")}>
+                  {sortBy === "date-desc" ? "* " : ""}Date (Newest)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortBy("date-asc")}>
+                  {sortBy === "date-asc" ? "* " : ""}Date (Oldest)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortBy("due-date")}>
+                  {sortBy === "due-date" ? "* " : ""}Due Date
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortBy("amount-desc")}>
+                  {sortBy === "amount-desc" ? "* " : ""}Amount (High to Low)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortBy("amount-asc")}>
+                  {sortBy === "amount-asc" ? "* " : ""}Amount (Low to High)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortBy("vendor")}>
+                  {sortBy === "vendor" ? "* " : ""}Vendor Name
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    setGstFilter("all");
+                    setStatusFilter("all");
+                    setSortBy("date-desc");
+                    setSearchTerm("");
+                  }}
+                >
+                  <RotateCcw className="mr-2 h-3.5 w-3.5" />
+                  Reset All
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-10 w-full items-center gap-2 rounded-xl bg-background lg:w-auto"
+            >
+              <FileText className="h-4 w-4" />
+              {filteredBills.length} Bills
+            </Button> */}
+
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-10 w-full rounded-xl px-4 shadow-sm lg:w-auto"
+              onClick={openManualCreate}
+              disabled={isExtracting || isCompressing || loading}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Create Manually
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-10 w-full rounded-xl px-4 shadow-sm lg:w-auto"
+              onClick={() => cameraInputRef.current?.click()}
+              disabled={isExtracting || isCompressing || loading}
+            >
+              {isCompressing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Camera className="mr-2 h-4 w-4" />
+              )}
+              {isCompressing ? "Processing..." : "Camera"}
+            </Button>
+            <Button
+              size="sm"
+              className="col-span-2 h-10 w-full rounded-xl px-4 shadow-sm sm:col-span-3 lg:col-span-1 lg:w-auto"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isExtracting || isCompressing || loading}
+            >
+              {isCompressing || isExtracting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="mr-2 h-4 w-4" />
+              )}
+              {isCompressing
+                ? "Processing..."
+                : isExtracting
+                  ? "Extracting..."
+                  : "Upload Bill"}
+            </Button>
+          </div>
         </div>
       </div>
-      </div>
 
-      <div className="mt-4 flex-1 min-h-0 rounded-2xl border border-border/70 bg-background/60 p-2 sm:p-3">
-      <div className="h-full overflow-y-auto space-y-6 pr-1 sm:pr-2">
+      <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-border/70 bg-background/70 p-2 sm:p-4">
+      <div className="h-full overflow-y-auto space-y-5 pr-1 sm:pr-2">
 
       {/* Summary Tiles */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card className="bg-primary/5 border-primary/20 shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-4">
-            <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1 flex items-center gap-1">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5 shadow-sm">
+          <CardContent className="p-3 sm:p-4">
+            <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase text-muted-foreground">
               <BookOpen className="h-3 w-3 text-primary" /> Total Purchase
             </p>
-            <p className="text-xl font-bold truncate">
-              {formatCurrency(stats.totalPurchase)}
-            </p>
+            <p className="truncate text-xl font-bold">{formatCurrency(stats.totalPurchase)}</p>
           </CardContent>
         </Card>
-        <Card className="bg-emerald-50 border-emerald-200 shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-4">
-            <p className="text-[10px] text-emerald-600 uppercase font-bold mb-1 flex items-center gap-1">
+        <Card className="border-emerald-200 bg-gradient-to-br from-emerald-100/60 to-emerald-50 shadow-sm">
+          <CardContent className="p-3 sm:p-4">
+            <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase text-emerald-600">
               <CheckCircle className="h-3 w-3" /> Amount Paid
             </p>
-            <p className="text-xl font-bold text-emerald-700 truncate">
-              {formatCurrency(stats.totalPaid)}
-            </p>
+            <p className="truncate text-xl font-bold text-emerald-700">{formatCurrency(stats.totalPaid)}</p>
           </CardContent>
         </Card>
-        <Card className="bg-orange-50 border-orange-200 shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-4">
-            <p className="text-[10px] text-orange-600 uppercase font-bold mb-1 flex items-center gap-1">
+        <Card className="border-orange-200 bg-gradient-to-br from-orange-100/60 to-orange-50 shadow-sm">
+          <CardContent className="p-3 sm:p-4">
+            <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase text-orange-600">
               <Clock className="h-3 w-3" /> Remaining to Pay
             </p>
-            <p className="text-xl font-bold text-orange-700 truncate">
-              {formatCurrency(stats.amountRemaining)}
-            </p>
+            <p className="truncate text-xl font-bold text-orange-700">{formatCurrency(stats.amountRemaining)}</p>
           </CardContent>
         </Card>
-        <Card className="bg-rose-50 border-rose-200 shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-4">
-            <p className="text-[10px] text-rose-600 uppercase font-bold mb-1 flex items-center gap-1">
+        <Card className="border-rose-200 bg-gradient-to-br from-rose-100/60 to-rose-50 shadow-sm">
+          <CardContent className="p-3 sm:p-4">
+            <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase text-rose-600">
               <RotateCcw className="h-3 w-3" /> Total Return
             </p>
-            <p className="text-xl font-bold text-rose-700 truncate">
-              {formatCurrency(stats.totalReturns)}
-            </p>
+            <p className="truncate text-xl font-bold text-rose-700">{formatCurrency(stats.totalReturns)}</p>
           </CardContent>
         </Card>
-        <Card className="bg-blue-50 border-blue-200 shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-4">
-            <p className="text-[10px] text-blue-600 uppercase font-bold mb-1 flex items-center gap-1">
+        <Card className="col-span-2 border-blue-200 bg-gradient-to-br from-blue-100/60 to-blue-50 shadow-sm lg:col-span-1">
+          <CardContent className="p-3 sm:p-4">
+            <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase text-blue-600">
               <IndianRupee className="h-3 w-3" /> Return Collected
             </p>
-            <p className="text-xl font-bold text-blue-700 truncate">
+            <p className="truncate text-xl font-bold text-blue-700">
               {formatCurrency(stats.totalReturnCollected)}
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search vendor, bill number, items..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-[140px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="paid">Paid</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="overdue">Overdue</SelectItem>
-            <SelectItem value="overpaid">Overpaid</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={gstFilter} onValueChange={setGstFilter}>
-          <SelectTrigger className="w-full sm:w-[140px]">
-            <SelectValue placeholder="GST Type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Bills</SelectItem>
-            <SelectItem value="gst">GST Bills</SelectItem>
-            <SelectItem value="non-gst">Non-GST Bills</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger className="w-full sm:w-[160px]">
-            <SelectValue placeholder="Sort by" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="date-desc">Newest First</SelectItem>
-            <SelectItem value="date-asc">Oldest First</SelectItem>
-            <SelectItem value="due-date">Due Date</SelectItem>
-            <SelectItem value="amount-desc">Amount (High)</SelectItem>
-            <SelectItem value="amount-asc">Amount (Low)</SelectItem>
-            <SelectItem value="vendor">Vendor Name</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <Card className="mb-1 overflow-hidden border border-border/70 bg-gradient-to-r from-background via-slate-50/60 to-sky-50/40 dark:via-background dark:to-slate-900/20">
+        <CardContent className="p-3 sm:p-5">
+          <button
+            type="button"
+            onClick={() => setShowFilters((prev) => !prev)}
+            className="flex w-full items-center justify-between gap-3 rounded-xl border border-border/70 bg-background/80 px-3 py-3 text-left transition hover:bg-background"
+          >
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-primary" />
+                <p className="text-sm font-medium">Search & Filters</p>
+              </div>
+              <p className="truncate text-xs text-muted-foreground">
+                {gstLabelMap[gstFilter]} - {statusLabelMap[statusFilter]} - {sortLabelMap[sortBy]}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="h-8 rounded-lg px-3 text-xs font-semibold">
+                {filteredBills.length} Results
+              </Badge>
+              <ChevronDown
+                className={`h-4 w-4 transition-transform ${showFilters ? "rotate-180" : ""}`}
+              />
+            </div>
+          </button>
+
+          {showFilters && (
+            <div className="mx-auto mt-3 w-full max-w-4xl space-y-3">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search vendor, bill number, items..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="h-12 rounded-2xl border border-border/70 bg-white pl-12 text-base shadow-sm transition focus-visible:ring-2 focus-visible:ring-primary/30 dark:bg-background/90"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <Select value={gstFilter} onValueChange={setGstFilter}>
+                  <SelectTrigger className="h-9 w-[170px] rounded-xl bg-background/90">
+                    <SelectValue placeholder="Bill Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Bills</SelectItem>
+                    <SelectItem value="gst">GST Bills</SelectItem>
+                    <SelectItem value="non-gst">Non-GST Bills</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="h-9 w-[170px] rounded-xl bg-background/90">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="overdue">Overdue</SelectItem>
+                    <SelectItem value="overpaid">Overpaid</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger className="h-9 w-[200px] rounded-xl bg-background/90">
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="date-desc">Date (Newest)</SelectItem>
+                    <SelectItem value="date-asc">Date (Oldest)</SelectItem>
+                    <SelectItem value="due-date">Due Date</SelectItem>
+                    <SelectItem value="amount-desc">Amount (High to Low)</SelectItem>
+                    <SelectItem value="amount-asc">Amount (Low to High)</SelectItem>
+                    <SelectItem value="vendor">Vendor Name</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Loading State */}
       {isExtracting && (
@@ -1417,14 +1958,14 @@ function PurchaseBills() {
 
       {/* Bills List */}
       {filteredBills.length === 0 && !isExtracting ? (
-        <Card>
+        <Card className="border-2 border-dashed">
           <CardContent className="py-12 text-center">
             <FileText className="h-12 w-12 mx-auto text-muted-foreground/50" />
             <p className="mt-4 text-muted-foreground">
               No purchase bills found
             </p>
             <p className="text-sm text-muted-foreground">
-              Upload a bill image to get started
+              Upload a bill image or create a bill manually to get started
             </p>
           </CardContent>
         </Card>
@@ -1433,24 +1974,34 @@ function PurchaseBills() {
           {pagedBills.map((bill) => (
             <Card
               key={bill.id}
-              className={`hover:shadow-md transition-shadow ${
+              className={`group overflow-hidden rounded-2xl border shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${
                 isOverdue(bill) || bill.paymentStatus === "overdue"
-                  ? "border-destructive/50 bg-destructive/5"
-                  : ""
+                  ? "border-rose-200/70 bg-gradient-to-br from-rose-50/60 via-background to-background"
+                  : bill.paymentStatus === "paid"
+                    ? "border-emerald-200/70 bg-gradient-to-br from-emerald-50/60 via-background to-background"
+                    : "border-sky-200/70 bg-gradient-to-br from-sky-50/70 via-background to-background"
               }`}
             >
-              <CardContent className="p-4">
-                <div className="flex flex-col sm:flex-row gap-4">
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex flex-col gap-3 sm:flex-row">
                   {/* Bill Image Thumbnail */}
                   <div
-                    className="w-full sm:w-20 h-20 bg-muted rounded-lg overflow-hidden cursor-pointer flex-shrink-0"
-                    onClick={() => setViewImageBill(bill)}
+                    className="h-20 w-full cursor-pointer overflow-hidden rounded-xl bg-muted sm:w-20"
+                    onClick={() => {
+                      if (bill.billImage) setViewImageBill(bill);
+                    }}
                   >
-                    <img
-                      src={bill.billImage}
-                      alt="Bill"
-                      className="w-full h-full object-cover"
-                    />
+                    {bill.billImage ? (
+                      <img
+                        src={bill.billImage}
+                        alt="Bill"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                        <ImageIcon className="h-5 w-5" />
+                      </div>
+                    )}
                   </div>
 
                   {/* Bill Info */}
@@ -1540,7 +2091,7 @@ function PurchaseBills() {
                       )}
                     </div>
 
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t mt-4 pt-4">
+                    <div className="mt-4 flex flex-col justify-between gap-4 border-t pt-4 sm:flex-row sm:items-center">
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                         <div className="flex items-center gap-2">
                           <span className="text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-wider font-bold">
@@ -1627,25 +2178,25 @@ function PurchaseBills() {
                           )}
                       </div>
 
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-2 self-end sm:self-auto">
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-foreground"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 w-8 rounded-lg bg-background/80 p-0 hover:bg-primary/5"
                           onClick={() => setSelectedBill(bill)}
                           title="View Details"
                         >
-                          <Eye className="h-4 w-4" />
+                          <Eye className="h-3.5 w-3.5" />
                         </Button>
 
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
+                              variant="outline"
+                              size="sm"
+                              className="h-8 w-8 rounded-lg bg-background/80 p-0 hover:bg-primary/5"
                             >
-                              <MoreVertical className="h-4 w-4" />
+                              <MoreVertical className="h-3.5 w-3.5" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-48">
@@ -1708,9 +2259,10 @@ function PurchaseBills() {
                             <DropdownMenuItem
                               onClick={() => setViewImageBill(bill)}
                               className="gap-2"
+                              disabled={!bill.billImage}
                             >
                               <ImageIcon className="h-4 w-4" />
-                              View Bill Image
+                              {bill.billImage ? "View Bill Image" : "No Bill Image"}
                             </DropdownMenuItem>
 
                             <DropdownMenuSeparator />
@@ -1766,9 +2318,11 @@ function PurchaseBills() {
             </Card>
           ))}
           {filteredBills.length > pageSize && (
-            <div className="flex items-center justify-between border-t border-border pt-3">
-              <p className="text-sm text-muted-foreground">
-                Page {currentPage} of {totalPages}
+            <div className="mt-6 flex flex-col items-start justify-between gap-2 px-2 sm:flex-row sm:items-center">
+              <p className="text-xs text-muted-foreground">
+                Showing {(currentPage - 1) * pageSize + 1} to{" "}
+                {Math.min(currentPage * pageSize, filteredBills.length)} of{" "}
+                {filteredBills.length}
               </p>
               <div className="flex gap-2">
                 <Button
@@ -1777,7 +2331,7 @@ function PurchaseBills() {
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
                 >
-                  Prev
+                  Previous
                 </Button>
                 <Button
                   variant="outline"
@@ -1792,6 +2346,505 @@ function PurchaseBills() {
           )}
         </div>
       )}
+
+      {/* Manual Create Dialog */}
+      <Dialog
+        open={manualCreateOpen}
+        onOpenChange={(open) => {
+          setManualCreateOpen(open);
+          if (!open) resetManualCreate();
+        }}
+      >
+        <DialogContent
+          className="w-[100vw] sm:w-[95vw] lg:w-[92vw] max-w-6xl
+          h-[100dvh] sm:h-[92vh] max-h-[100dvh] sm:max-h-[92vh]
+          left-0 top-0 translate-x-0 translate-y-0
+          sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%]
+          rounded-none sm:rounded-xl p-0 flex flex-col gap-0"
+        >
+          <DialogHeader className="px-4 sm:px-6 py-4 border-b bg-background sticky top-0 z-10 pt-[calc(env(safe-area-inset-top)+1rem)]">
+            <DialogTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <span className="text-xl font-bold">New Purchase Bill</span>
+              <span className="text-xs font-normal text-muted-foreground">
+                Quick flow: Vendor, Bill Details, Items, Save
+              </span>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+            <div className="xl:col-span-8 space-y-4">
+            <Card className="border-primary/20 bg-primary/[0.03]">
+              <CardContent className="pt-4">
+                <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+                  <Badge variant="outline" className="px-2 py-1">
+                    1 Vendor
+                  </Badge>
+                  <Badge variant="outline" className="px-2 py-1">
+                    2 Bill Info
+                  </Badge>
+                  <Badge variant="outline" className="px-2 py-1">
+                    3 Items
+                  </Badge>
+                  <Badge variant="outline" className="px-2 py-1">
+                    4 Review and Save
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Optional Bill Attachment</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => manualImageInputRef.current?.click()}
+                    disabled={isCompressing}
+                  >
+                    {isCompressing ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Upload className="h-4 w-4 mr-2" />
+                    )}
+                    {manualBill.billImage ? "Replace Image" : "Upload Image"}
+                  </Button>
+                  {manualBill.billImage && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() =>
+                        setManualBill((prev) => ({ ...prev, billImage: "" }))
+                      }
+                    >
+                      Remove Image
+                    </Button>
+                  )}
+                </div>
+                {manualBill.billImage ? (
+                  <img
+                    src={manualBill.billImage}
+                    alt="Bill preview"
+                    className="w-full max-h-64 object-contain rounded-md border bg-muted/30"
+                  />
+                ) : (
+                  <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                    Continue without image if you do not have a bill photo.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">1. Vendor</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="inline-flex items-center gap-2 rounded-lg border bg-muted/30 p-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={manualVendorMode === "select" ? "default" : "outline"}
+                    onClick={() => setManualVendorMode("select")}
+                  >
+                    Select Vendor
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={manualVendorMode === "create" ? "default" : "outline"}
+                    onClick={() => setManualVendorMode("create")}
+                  >
+                    Create Vendor
+                  </Button>
+                </div>
+
+                {manualVendorMode === "select" ? (
+                  <div className="space-y-1">
+                    <Label>Vendor *</Label>
+                    <Select
+                      value={manualBill.vendorId || ""}
+                      onValueChange={(val) => {
+                        if (val === "__create_vendor__") {
+                          setManualVendorMode("create");
+                          return;
+                        }
+                        const vendor = vendors.find((v) => v.id === val);
+                        setManualBill((prev) => ({
+                          ...prev,
+                          vendorId: val,
+                          vendorName: vendor?.name || "",
+                          vendorAddress: vendor?.address || "",
+                          vendorGstin: vendor?.gstin || "",
+                          items: prev.items.map((it) => ({
+                            ...it,
+                            whereToBuy: it.whereToBuy || vendor?.name || "",
+                          })),
+                        }));
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select vendor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {vendors.map((v) => (
+                          <SelectItem key={v.id} value={v.id}>
+                            {v.name}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="__create_vendor__">
+                          + Create new vendor
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label>Vendor Name *</Label>
+                      <Input
+                        value={manualVendorForm.name}
+                        onChange={(e) =>
+                          setManualVendorForm((prev) => ({
+                            ...prev,
+                            name: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>GSTIN</Label>
+                      <Input
+                        value={manualVendorForm.gstin}
+                        onChange={(e) =>
+                          setManualVendorForm((prev) => ({
+                            ...prev,
+                            gstin: e.target.value.toUpperCase(),
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Phone</Label>
+                      <Input
+                        value={manualVendorForm.phone}
+                        onChange={(e) =>
+                          setManualVendorForm((prev) => ({
+                            ...prev,
+                            phone: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Email</Label>
+                      <Input
+                        value={manualVendorForm.email}
+                        onChange={(e) =>
+                          setManualVendorForm((prev) => ({
+                            ...prev,
+                            email: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1 md:col-span-2">
+                      <Label>Address</Label>
+                      <Textarea
+                        rows={2}
+                        value={manualVendorForm.address}
+                        onChange={(e) =>
+                          setManualVendorForm((prev) => ({
+                            ...prev,
+                            address: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">2. Bill Details</CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="space-y-1">
+                  <Label>Bill Number</Label>
+                  <Input
+                    value={manualBill.billNumber || ""}
+                    onChange={(e) =>
+                      setManualBill((prev) => ({
+                        ...prev,
+                        billNumber: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Bill Date *</Label>
+                  <Input
+                    type="date"
+                    value={manualBill.billDate}
+                    onChange={(e) =>
+                      setManualBill((prev) => ({
+                        ...prev,
+                        billDate: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Due Date</Label>
+                  <Input
+                    type="date"
+                    value={manualBill.dueDate || ""}
+                    onChange={(e) =>
+                      setManualBill((prev) => ({
+                        ...prev,
+                        dueDate: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Payment Terms (Days)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={manualBill.paymentTerms || 0}
+                    onChange={(e) =>
+                      setManualBill((prev) => ({
+                        ...prev,
+                        paymentTerms: parseInt(e.target.value) || 0,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1 md:col-span-2 lg:col-span-4">
+                  <Label>Notes</Label>
+                  <Textarea
+                    rows={2}
+                    value={manualBill.notes || ""}
+                    onChange={(e) =>
+                      setManualBill((prev) => ({
+                        ...prev,
+                        notes: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center justify-between">
+                  <span>3. Items</span>
+                  <Button type="button" variant="outline" size="sm" onClick={addManualItemRow}>
+                    <PackagePlus className="h-4 w-4 mr-2" />
+                    Add Item
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {manualBill.items.map((item, index) => (
+                  <div key={index} className="rounded-lg border p-3 bg-muted/10 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium">Item {index + 1}</p>
+                      {manualBill.items.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => removeManualItemRow(index)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label>Description *</Label>
+                        <ProductAutocomplete
+                          products={products}
+                          value={item.description}
+                          onChange={(val) =>
+                            updateManualItem(index, "description", val)
+                          }
+                          onSelect={(product) =>
+                            handleManualProductSelect(index, product)
+                          }
+                          placeholder="Item / Product name"
+                          type="name"
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>HSN</Label>
+                        <ProductAutocomplete
+                          products={products}
+                          value={item.hsnCode || ""}
+                          onChange={(val) => updateManualItem(index, "hsnCode", val)}
+                          onSelect={(product) =>
+                            handleManualProductSelect(index, product)
+                          }
+                          placeholder="HSN"
+                          type="hsn"
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Quantity *</Label>
+                        <Input
+                          type="number"
+                          value={item.quantity}
+                          onChange={(e) =>
+                            updateManualItem(
+                              index,
+                              "quantity",
+                              parseFloat(e.target.value) || 0,
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Unit</Label>
+                        <Input
+                          value={item.unit}
+                          onChange={(e) => updateManualItem(index, "unit", e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Rate *</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={item.rate}
+                          onChange={(e) =>
+                            updateManualItem(
+                              index,
+                              "rate",
+                              parseFloat(e.target.value) || 0,
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>GST %</Label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          value={item.gstRate || 0}
+                          onChange={(e) =>
+                            updateManualItem(
+                              index,
+                              "gstRate",
+                              parseFloat(e.target.value) || 0,
+                            )
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm bg-background border rounded-md px-3 py-2">
+                      <div className="text-muted-foreground">
+                        Amount: <span className="font-semibold text-foreground">{formatCurrency(item.amount || 0)}</span>
+                      </div>
+                      <div className="text-muted-foreground">
+                        Tax: <span className="font-semibold text-foreground">{formatCurrency(item.gstAmount || 0)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+            </div>
+            <div className="xl:col-span-4 space-y-4">
+              <Card className="xl:sticky xl:top-4">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">4. Review</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="rounded-md bg-muted/30 p-3 text-sm">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Vendor</p>
+                    <p className="font-semibold mt-1">
+                      {manualVendorMode === "create"
+                        ? manualVendorForm.name || "New vendor"
+                        : manualSelectedVendor?.name || "Not selected"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-md bg-muted/30 p-3 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Bill Date</span>
+                      <span className="font-medium">{manualBill.billDate || "-"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Bill Number</span>
+                      <span className="font-medium">{manualBill.billNumber || "-"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Items</span>
+                      <span className="font-medium">{manualBill.items.length}</span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-md border p-3 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Subtotal</span>
+                      <span className="font-medium">{formatCurrency(manualSubtotal)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Tax</span>
+                      <span className="font-medium">{formatCurrency(manualTaxTotal)}</span>
+                    </div>
+                    <div className="flex justify-between text-base font-bold pt-2 border-t">
+                      <span>Total</span>
+                      <span className="text-primary">{formatCurrency(manualGrandTotal)}</span>
+                    </div>
+                  </div>
+
+                  {manualBill.billImage ? (
+                    <img
+                      src={manualBill.billImage}
+                      alt="Bill preview"
+                      className="w-full h-36 object-cover rounded-md border"
+                    />
+                  ) : (
+                    <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+                      No image attached
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+            </div>
+          </div>
+          <div className="shrink-0 border-t bg-background px-4 sm:px-6 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setManualCreateOpen(false);
+                  resetManualCreate();
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="button" onClick={handleSaveManualBill} loading={isSaving}>
+                Create Purchase Bill
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Image View Dialog */}
       <Dialog
@@ -1810,12 +2863,16 @@ function PurchaseBills() {
             <DialogTitle>Original Bill Image</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-[calc(env(safe-area-inset-bottom)+2rem)]">
-            {viewImageBill && (
+            {viewImageBill?.billImage ? (
               <img
                 src={viewImageBill.billImage}
                 alt="Bill"
                 className="w-full rounded-lg"
               />
+            ) : (
+              <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
+                No bill image uploaded for this purchase bill.
+              </div>
             )}
           </div>
         </DialogContent>
@@ -2813,14 +3870,21 @@ function PurchaseBills() {
                     Added to Inventory
                   </Badge>
                 )}
-                <Button
-                  variant="outline"
-                  size="default"
-                  onClick={() => setViewImageBill(selectedBill)}
-                >
-                  <Image className="h-4 w-4 mr-2" />
-                  View Original Bill
-                </Button>
+                {selectedBill.billImage ? (
+                  <Button
+                    variant="outline"
+                    size="default"
+                    onClick={() => setViewImageBill(selectedBill)}
+                  >
+                    <Image className="h-4 w-4 mr-2" />
+                    View Original Bill
+                  </Button>
+                ) : (
+                  <Button variant="outline" size="default" disabled>
+                    <Image className="h-4 w-4 mr-2" />
+                    No Bill Image
+                  </Button>
+                )}
                 <Button
                   size="default"
                   variant={
@@ -3499,7 +4563,6 @@ function PurchaseBills() {
           </div>
         </DialogContent>
       </Dialog>
-      </div>
       </div>
       </div>
     </div>

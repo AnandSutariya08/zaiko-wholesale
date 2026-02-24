@@ -41,6 +41,10 @@ import {
   XCircle,
   AlertTriangle,
   FileText,
+  Filter,
+  Clock,
+  IndianRupee,
+  Boxes,
 } from "lucide-react";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 
@@ -322,6 +326,31 @@ export default function Returns() {
     (sum, item) => sum + item.quantity * item.costPrice,
     0
   );
+  const totalGoodReturns = returns.reduce(
+    (sum, r) =>
+      sum +
+      r.items
+        .filter((i) => i.condition === "good")
+        .reduce((itemSum, i) => itemSum + i.quantity, 0),
+    0
+  );
+  const totalBadReturns = returns.reduce(
+    (sum, r) =>
+      sum +
+      r.items
+        .filter((i) => i.condition === "bad")
+        .reduce((itemSum, i) => itemSum + i.quantity, 0),
+    0
+  );
+  const returnableBills = bills.filter((bill) => {
+    const billReturnedQty = returnedQuantities[bill.id] || {};
+    const totalReturned = bill.items.reduce(
+      (sum, item) => sum + (billReturnedQty[item.productId] || 0),
+      0
+    );
+    const totalSold = bill.items.reduce((sum, item) => sum + item.quantity, 0);
+    return totalReturned < totalSold;
+  }).length;
 
   
   if (loading) {
@@ -333,106 +362,111 @@ export default function Returns() {
   }
 
   return (
-    <div className="h-[calc(100dvh-8.5rem)] w-full overflow-hidden sm:h-[calc(100dvh-9.5rem)]">
-      <div className="relative flex h-full min-h-0 flex-col rounded-2xl border border-border/70 bg-background p-2 shadow-sm sm:p-3 md:p-4">
-      <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background/95 p-3 backdrop-blur sm:p-4">
-      <div className="page-header-controls">
-        <div className="page-header-title">
-          <div className="page-header-icon">
-            <RotateCcw className="h-5 w-5 md:h-6 md:w-6" />
+    <div className="flex h-full min-h-0 w-full flex-col gap-3 overflow-hidden">
+      <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-gradient-to-br from-background via-background to-slate-50/40 p-3 shadow-sm sm:p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-center justify-start gap-3 sm:gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-border">
+              <RotateCcw className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 text-left">
+              <h1 className="truncate text-2xl font-semibold leading-tight sm:text-3xl">
+                Returns
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Process sales returns and manage deadstock
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">
-              Returns Management
-            </h1>
-            <p className="text-muted-foreground text-xs sm:text-sm mt-1">
-              Process returns and manage deadstock
-            </p>
+          <div className="grid w-full grid-cols-3 gap-2 rounded-xl border border-border/70 bg-muted/30 p-2 lg:w-auto">
+            <Button
+              variant={activeTab === "create" ? "default" : "outline"}
+              onClick={() => setActiveTab("create")}
+              className="h-10 rounded-xl px-3 text-sm"
+            >
+              Process
+            </Button>
+            <Button
+              variant={activeTab === "history" ? "default" : "outline"}
+              onClick={() => setActiveTab("history")}
+              className="h-10 rounded-xl px-3 text-sm"
+            >
+              History
+            </Button>
+            <Button
+              variant={activeTab === "deadstock" ? "default" : "outline"}
+              onClick={() => setActiveTab("deadstock")}
+              className="h-10 rounded-xl px-3 text-sm"
+            >
+              Deadstock
+            </Button>
           </div>
         </div>
       </div>
-      </div>
 
-      <div className="mt-3 flex-1 min-h-0 rounded-2xl border border-border/70 bg-background/60 p-2 sm:p-3">
-      <div className="h-full overflow-y-auto space-y-4 sm:space-y-6">
+      <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-border/70 bg-background/70 p-2 sm:p-4">
+      <div className="h-full overflow-y-auto space-y-5 pr-1 sm:pr-2">
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
-            <CardTitle className="section-title">
-              Total Returns
-            </CardTitle>
-            <RotateCcw className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
-          </CardHeader>
-          <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
-            <div className="text-xl sm:text-2xl font-bold">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <Card className="border-slate-200 bg-gradient-to-br from-slate-100/70 to-slate-50 shadow-sm">
+          <CardContent className="p-3 sm:p-4">
+            <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-slate-600">
+              <Boxes className="h-3 w-3 text-slate-500" /> Total Returns
+            </p>
+            <p className="truncate text-lg font-bold text-slate-900 sm:text-xl dark:text-slate-100">
               {returns.length}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border-emerald-500/20">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
-            <CardTitle className="section-title text-emerald-600 dark:text-emerald-400">
-              Good Returns
-            </CardTitle>
-            <Package className="h-3 w-3 sm:h-4 sm:w-4 text-emerald-500 flex-shrink-0" />
-          </CardHeader>
-          <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
-            <div className="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-              {returns.reduce(
-                (sum, r) =>
-                  sum + r.items.filter((i) => i.condition === "good").length,
-                0
-              )}{" "}
-              items
-            </div>
-            <p className="text-xs text-muted-foreground">Back to inventory</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-red-500/10 to-red-600/5 border-red-500/20">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
-            <CardTitle className="section-title text-red-600 dark:text-red-400">
-              Deadstock Loss
-            </CardTitle>
-            <PackageX className="h-3 w-3 sm:h-4 sm:w-4 text-red-500 flex-shrink-0" />
-          </CardHeader>
-          <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
-            <div className="text-xl sm:text-2xl font-bold text-red-600 dark:text-red-400 break-words">
-              {formatCurrency(totalDeadstockLoss)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {deadstock.length} items
             </p>
           </CardContent>
         </Card>
-      </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 border-b border-border overflow-x-auto pb-2 -mb-2 scrollbar-hide">
-        <Button
-          variant={activeTab === "create" ? "default" : "ghost"}
-          onClick={() => setActiveTab("create")}
-          className="text-xs sm:text-sm px-3 sm:px-4 whitespace-nowrap"
-        >
-          Process Return
-        </Button>
-        <Button
-          variant={activeTab === "history" ? "default" : "ghost"}
-          onClick={() => setActiveTab("history")}
-          className="text-xs sm:text-sm px-3 sm:px-4 whitespace-nowrap"
-        >
-          Return History
-        </Button>
-        <Button
-          variant={activeTab === "deadstock" ? "default" : "ghost"}
-          onClick={() => setActiveTab("deadstock")}
-          className="text-xs sm:text-sm px-3 sm:px-4 whitespace-nowrap"
-        >
-          Deadstock
-        </Button>
+        <Card className="border-emerald-200 bg-gradient-to-br from-emerald-100/60 to-emerald-50 shadow-sm">
+          <CardContent className="p-3 sm:p-4">
+            <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+              <Package className="h-3 w-3" /> Good Returns
+            </p>
+            <p className="truncate text-lg font-bold text-emerald-700 sm:text-xl dark:text-emerald-400">
+              {totalGoodReturns} items
+            </p>
+            <p className="text-[11px] text-muted-foreground">Back to inventory</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-orange-200 bg-gradient-to-br from-orange-100/60 to-orange-50 shadow-sm">
+          <CardContent className="p-3 sm:p-4">
+            <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-orange-600 dark:text-orange-400">
+              <Clock className="h-3 w-3" /> Returnable Bills
+            </p>
+            <p className="truncate text-lg font-bold text-orange-700 sm:text-xl dark:text-orange-400">
+              {returnableBills}
+            </p>
+            <p className="text-[11px] text-muted-foreground">Ready to process</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-rose-200 bg-gradient-to-br from-rose-100/60 to-rose-50 shadow-sm">
+          <CardContent className="p-3 sm:p-4">
+            <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-rose-600 dark:text-rose-400">
+              <PackageX className="h-3 w-3" /> Bad Returns
+            </p>
+            <p className="truncate text-lg font-bold text-rose-700 sm:text-xl dark:text-rose-400">
+              {totalBadReturns} items
+            </p>
+            <p className="text-[11px] text-muted-foreground">Moved to deadstock</p>
+          </CardContent>
+        </Card>
+
+        <Card className="col-span-2 border-blue-200 bg-gradient-to-br from-blue-100/60 to-blue-50 shadow-sm lg:col-span-1">
+          <CardContent className="p-3 sm:p-4">
+            <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-blue-600 dark:text-blue-400">
+              <IndianRupee className="h-3 w-3" /> Deadstock Loss
+            </p>
+            <p className="truncate text-lg font-bold text-blue-700 sm:text-xl dark:text-blue-400">
+              {formatCurrency(totalDeadstockLoss)}
+            </p>
+            <p className="text-[11px] text-muted-foreground">{deadstock.length} items</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Create Return Tab */}
@@ -500,7 +534,7 @@ export default function Returns() {
                             </Badge>
                           </div>
                           <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                            {formatDate(bill.date)} • {bill.items.length} items
+                            {formatDate(bill.date)} - {bill.items.length} items
                           </p>
                         </div>
                         <div className="text-left sm:text-right flex flex-row sm:flex-col gap-2 sm:gap-0 items-center sm:items-end">
@@ -551,7 +585,7 @@ export default function Returns() {
                             {ret.billNumber}
                           </span>
                           <span className="text-muted-foreground text-xs sm:text-sm">
-                            •
+                            -
                           </span>
                           <span className="text-muted-foreground text-xs sm:text-sm truncate">
                             {ret.clientName}
@@ -645,7 +679,7 @@ export default function Returns() {
                           {item.productName}
                         </span>
                         <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                          Qty: {item.quantity} ×{" "}
+                          Qty: {item.quantity} x{" "}
                           {formatCurrency(item.costPrice)}
                         </p>
                         <p className="text-xs sm:text-sm text-red-600 dark:text-red-400 mt-1 break-words">
@@ -846,10 +880,11 @@ export default function Returns() {
       </Dialog>
       </div>
       </div>
-      </div>
     </div>
   );
 }
+
+
 
 
 

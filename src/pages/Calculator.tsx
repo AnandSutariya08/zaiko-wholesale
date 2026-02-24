@@ -234,16 +234,17 @@ const CalculatorPage = () => {
   }, [display, equation]);
 
   return (
-    <div className="flex flex-col gap-4 p-4 md:p-6 max-w-5xl mx-auto">
+    <div className="flex h-full min-h-0 w-full flex-col gap-3 overflow-hidden">
       {/* Header Section */}
-      <div className="bg-card rounded-xl border shadow-sm p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-gradient-to-br from-background via-background to-slate-50/40 p-3 shadow-sm sm:p-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-primary/10 rounded-lg border border-primary/20">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-border">
             <CalcIcon className="w-6 h-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight">Calculator</h1>
-            <p className="text-xs text-muted-foreground">
+            <h1 className="truncate text-2xl font-semibold leading-tight sm:text-3xl">Calculator</h1>
+            <p className="text-sm text-muted-foreground">
               Financial precision for your business
             </p>
           </div>
@@ -263,7 +264,10 @@ const CalculatorPage = () => {
           </Button>
         </div>
       </div>
+      </div>
 
+      <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-border/70 bg-background/70 p-2 sm:p-4">
+        <div className="h-full overflow-y-auto pr-1 sm:pr-2">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Main Calculator Body */}
         <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-4">
@@ -642,6 +646,8 @@ const CalculatorPage = () => {
               </CardContent>
             </Card>
           )}
+        </div>
+      </div>
         </div>
       </div>
     </div>

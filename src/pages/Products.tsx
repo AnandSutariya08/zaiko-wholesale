@@ -27,12 +27,13 @@ import {
   deleteProduct,
   getCompanyProfile,
   addStockToProduct,
+  getVendors,
   getProductTransactions,
   getInventoryTransactions,
   getBills,
   getBillReturns,
 } from "@/lib/storage";
-import { Product } from "@/types";
+import { Product, Vendor } from "@/types";
 import {
   Plus,
   Edit,
@@ -93,6 +94,9 @@ export default function Products() {
   const [isAddStockOpen, setIsAddStockOpen] = useState(false);
   const [addingStock, setAddingStock] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string>("");
+  const [selectedStockVendorId, setSelectedStockVendorId] =
+    useState<string>("");
+  const [vendors, setVendors] = useState<Vendor[]>([]);
   const [stockFormData, setStockFormData] = useState({
     quantity: "",
     purchasePrice: "",
@@ -144,6 +148,7 @@ export default function Products() {
   useEffect(() => {
     loadProducts();
     loadCompanyProfile();
+    loadVendors();
   }, []);
 
   useEffect(() => {
@@ -243,6 +248,15 @@ export default function Products() {
       toast.error("Failed to load products");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadVendors = async () => {
+    try {
+      const data = await getVendors();
+      setVendors(data);
+    } catch (error) {
+      console.error("Error loading vendors:", error);
     }
   };
 
@@ -369,10 +383,17 @@ export default function Products() {
 
   const resetStockForm = () => {
     setSelectedProductId("");
+    setSelectedStockVendorId("");
     setStockFormData({
       quantity: "",
       purchasePrice: "",
     });
+  };
+
+  const handleStockProductChange = (productId: string) => {
+    setSelectedProductId(productId);
+    const selectedProduct = products.find((p) => p.id === productId);
+    setSelectedStockVendorId(selectedProduct?.vendorId || "");
   };
 
   const handleAddStock = async (e: React.FormEvent) => {
@@ -383,6 +404,7 @@ export default function Products() {
     }
     const quantityNum = parseFloat(stockFormData.quantity) || 0;
     const purchasePriceNum = parseFloat(stockFormData.purchasePrice) || 0;
+    const selectedProduct = products.find((p) => p.id === selectedProductId);
 
     if (quantityNum <= 0) {
       toast.error("Quantity must be greater than 0");
@@ -392,9 +414,30 @@ export default function Products() {
       toast.error("Purchase price must be greater than 0");
       return;
     }
+    if (vendors.length > 0 && !selectedStockVendorId) {
+      toast.error("Please select a vendor");
+      return;
+    }
 
     setAddingStock(true);
     try {
+      if (selectedProduct && selectedStockVendorId) {
+        const selectedVendor = vendors.find(
+          (v) => v.id === selectedStockVendorId,
+        );
+        if (
+          selectedProduct.vendorId !== selectedStockVendorId ||
+          (selectedVendor && selectedProduct.whereToBuy !== selectedVendor.name)
+        ) {
+          await saveProduct({
+            ...selectedProduct,
+            vendorId: selectedStockVendorId,
+            whereToBuy:
+              selectedVendor?.name || selectedProduct.whereToBuy || "",
+          });
+        }
+      }
+
       await addStockToProduct(selectedProductId, quantityNum, purchasePriceNum);
       await loadProducts();
       await loadAveragePrices();
@@ -710,21 +753,22 @@ export default function Products() {
   }
 
   return (
-    <div className="h-[calc(100dvh-8.5rem)] w-full overflow-hidden sm:h-[calc(100dvh-9.5rem)]">
-      <div className="relative flex h-full min-h-0 flex-col rounded-[28px] border border-border/70 bg-background p-3 shadow-sm sm:p-5 lg:p-6">
-        <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background/95 p-3 backdrop-blur sm:p-4">
-          <div className="page-header-controls">
-            <div className="page-header-title">
-              <div className="page-header-icon">
-                <Package className="h-5 w-5 md:h-6 md:w-6" />
+    <div className="flex h-full min-h-0 w-full flex-col gap-3 overflow-hidden">
+      <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-gradient-to-br from-background via-background to-slate-50/40 p-3 shadow-sm sm:p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 items-center justify-start gap-3 sm:gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-border">
+                <Package className="h-5 w-5" />
               </div>
-              <div>
-                <h1 className="page-title">Products</h1>
-                <p className="page-subtitle">Manage your product inventory</p>
+              <div className="min-w-0 text-left">
+                <h1 className="truncate text-2xl font-semibold leading-tight sm:text-3xl">
+                  Products
+                </h1>
+                <p className="text-sm text-muted-foreground">Manage your product inventory</p>
               </div>
             </div>
 
-            <div className="hidden sm:flex page-header-actions">
+            <div className="hidden w-full items-center gap-2 sm:flex lg:w-auto">
               <ProductForm
                 open={isOpen}
                 onOpenChange={(open) => {
@@ -738,7 +782,7 @@ export default function Products() {
               />
               <Button
                 size="sm"
-                className="page-header-btn"
+                className="h-10 rounded-xl px-3 text-sm"
                 onClick={() => setIsOpen(true)}
               >
                 <Plus className="h-4 w-4 mr-2" />
@@ -753,10 +797,10 @@ export default function Products() {
                 }}
               >
                 <DialogTrigger asChild>
-                  <Button size="sm" variant="outline" className="page-header-btn">
+                  {/* <Button size="sm" variant="outline" className="page-header-btn">
                     <PlusCircle className="h-4 w-4 mr-2" />
                     Add Stock
-                  </Button>
+                  </Button> */}
                 </DialogTrigger>
                 <DialogContent className="dialog-form-content sm:max-w-[500px]">
                   <DialogHeader className="dialog-form-header">
@@ -770,7 +814,7 @@ export default function Products() {
                       <Label>Select Product *</Label>
                       <Select
                         value={selectedProductId}
-                        onValueChange={setSelectedProductId}
+                        onValueChange={handleStockProductChange}
                         required
                       >
                         <SelectTrigger>
@@ -789,10 +833,30 @@ export default function Products() {
                           Current stock:{" "}
                           {products.find((p) => p.id === selectedProductId)
                             ?.stock || 0}{" "}
-                          {products.find((p) => p.id === selectedProductId)?.unit ||
-                            ""}
+                          {products.find((p) => p.id === selectedProductId)
+                            ?.unit || ""}
                         </p>
                       )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Vendor *</Label>
+                      <Select
+                        value={selectedStockVendorId}
+                        onValueChange={setSelectedStockVendorId}
+                        disabled={!selectedProductId}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select vendor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {vendors.map((vendor) => (
+                            <SelectItem key={vendor.id} value={vendor.id}>
+                              {vendor.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -920,601 +984,647 @@ export default function Products() {
             </div>
           </div>
         </div>
-        <div className="mt-4 flex-1 min-h-0 rounded-2xl border border-border/70 bg-background/60 p-2 sm:p-3">
-          <div className="h-full overflow-y-auto space-y-6 pr-1 sm:pr-2">
-
-      <div className="flex flex-col gap-2">
-        <div className="relative w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-          <Input
-            type="text"
-            placeholder="Search by name or HSN code..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-9 text-sm w-full"
-          />
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Select
-            value={stockSortOrder}
-            onValueChange={(value: any) => setStockSortOrder(value)}
-          >
-            <SelectTrigger className="h-9 flex-1 min-w-[130px] text-sm">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Default</SelectItem>
-              <SelectItem value="name-asc">Name: A → Z</SelectItem>
-              <SelectItem value="name-desc">Name: Z → A</SelectItem>
-              <SelectItem value="stock-low-to-high">
-                Stock: Low → High
-              </SelectItem>
-              <SelectItem value="stock-high-to-low">
-                Stock: High → Low
-              </SelectItem>
-              <SelectItem value="value-high-to-low">
-                Value: High → Low
-              </SelectItem>
-              <SelectItem value="value-low-to-high">
-                Value: Low → High
-              </SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={avgPriceFilter} onValueChange={setAvgPriceFilter}>
-            <SelectTrigger className="h-9 flex-1 min-w-[130px] text-sm">
-              <SelectValue placeholder="Avg Price" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Time Avg</SelectItem>
-              <SelectItem value="last3">Last 3 Bills</SelectItem>
-              <SelectItem value="last5">Last 5 Bills</SelectItem>
-              <SelectItem value="1month">Last 1 Month</SelectItem>
-              <SelectItem value="3month">Last 3 Months</SelectItem>
-              <SelectItem value="6month">Last 6 Months</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <div className="flex sm:hidden items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-9 px-3">
-                  <Download className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handleDownloadExcel}>
-                  <FileSpreadsheet className="h-4 w-4 mr-2" />
-                  Excel
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <PDFDownloadLink
-                    document={
-                      <ProductsPDF
-                        products={products}
-                        stats={stats}
-                        averagePrices={averagePrices}
-                        currentAveragePrices={currentAveragePrices}
-                        stockValues={Object.fromEntries(
-                          products.map((p) => [p.id, getStockValue(p)]),
-                        )}
-                        companyProfile={companyProfile}
-                      />
-                    }
-                    fileName={`Inventory_Report_${new Date().toISOString().split("T")[0]}.pdf`}
-                    className="flex items-center w-full px-2 py-1.5 text-sm cursor-pointer"
-                  >
-                    {({ loading }: { loading: boolean }) => (
-                      <>
-                        <FilePdf className="h-4 w-4 mr-2" />
-                        {loading ? "Preparing..." : "PDF"}
-                      </>
-                    )}
-                  </PDFDownloadLink>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-
-        <div className="flex sm:hidden items-center gap-2">
-          <ProductForm
-            open={isOpen}
-            onOpenChange={(open) => {
-              setIsOpen(open);
-              if (!open) resetForm();
-            }}
-            onSuccess={() => {
-              loadProducts();
-            }}
-            product={editingProduct}
-          />
-          <Button
-            size="sm"
-            className="flex-1 h-9"
-            onClick={() => setIsOpen(true)}
-          >
-            <Plus className="h-4 w-4 mr-1.5" />
-            Create
-          </Button>
-
-          <Dialog
-            open={isAddStockOpen}
-            onOpenChange={(open) => {
-              setIsAddStockOpen(open);
-              if (!open) resetStockForm();
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button size="sm" variant="outline" className="flex-1 h-9">
-                <PlusCircle className="h-4 w-4 mr-1.5" />
-                Add Stock
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="dialog-form-content sm:max-w-[500px]">
-              <DialogHeader className="dialog-form-header">
-                <DialogTitle>Add Stock</DialogTitle>
-              </DialogHeader>
-              <form
-                onSubmit={handleAddStock}
-                className="dialog-form-body space-y-4"
-              >
-                <div className="space-y-2">
-                  <Label>Select Product *</Label>
-                  <Select
-                    value={selectedProductId}
-                    onValueChange={setSelectedProductId}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose a product" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {products.map((product) => (
-                        <SelectItem key={product.id} value={product.id}>
-                          {product.name} ({product.hsnCode})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {selectedProductId && (
-                    <p className="text-xs text-muted-foreground">
-                      Current stock:{" "}
-                      {products.find((p) => p.id === selectedProductId)
-                        ?.stock || 0}{" "}
-                      {products.find((p) => p.id === selectedProductId)?.unit ||
-                        ""}
-                    </p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Quantity *</Label>
-                    <Input
-                      required
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      value={stockFormData.quantity}
-                      onChange={(e) =>
-                        setStockFormData({
-                          ...stockFormData,
-                          quantity: e.target.value,
-                        })
-                      }
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Purchase Price *</Label>
-                    <Input
-                      required
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      value={stockFormData.purchasePrice}
-                      onChange={(e) =>
-                        setStockFormData({
-                          ...stockFormData,
-                          purchasePrice: e.target.value,
-                        })
-                      }
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-
-                <div className="border-t pt-4">
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Product not found?
-                  </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => {
-                      setIsAddStockOpen(false);
-                      setIsOpen(true);
-                    }}
-                  >
-                    Create New Product
-                  </Button>
-                </div>
-
-                <div className="dialog-form-footer flex gap-2 justify-end">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setIsAddStockOpen(false);
-                      resetStockForm();
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={addingStock || !selectedProductId}
-                  >
-                    {addingStock ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Adding...
-                      </>
-                    ) : (
-                      "Add Stock"
-                    )}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        {searchQuery && (
-          <p className="text-xs text-muted-foreground">
-            {filteredProducts.length}{" "}
-            {filteredProducts.length === 1 ? "product" : "products"} found
-          </p>
-        )}
-      </div>
-
-      {products.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-200 dark:border-blue-800">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Total Products
-                  </p>
-                  <p className="text-2xl font-bold mt-1">
-                    {stats.totalProducts}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {roundToTwoDecimals(stats.totalStock).toFixed(2)} total
-                    stock
-                  </p>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-blue-500/10 flex items-center justify-center">
-                  <Package className="h-6 w-6 text-blue-600" />
-                </div>
+        <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-border/70 bg-background/70 p-2 sm:p-4">
+          <div className="h-full overflow-y-auto space-y-5 pr-1 sm:pr-2">
+            <div className="flex flex-col gap-2">
+              <div className="relative w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Input
+                  type="text"
+                  placeholder="Search by name or HSN code..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 h-9 text-sm w-full"
+                />
               </div>
-            </CardContent>
-          </Card>
 
-          <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border-emerald-200 dark:border-emerald-800">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Inventory Value
-                  </p>
-                  <p className="text-2xl font-bold text-emerald-600 mt-1">
-                    {formatCurrency(stats.totalInventoryValue)}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    At purchase price
-                  </p>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                  <DollarSign className="h-6 w-6 text-emerald-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              <div className="flex flex-wrap items-center gap-2">
+                <Select
+                  value={stockSortOrder}
+                  onValueChange={(value: any) => setStockSortOrder(value)}
+                >
+                  <SelectTrigger className="h-9 flex-1 min-w-[130px] text-sm">
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Default</SelectItem>
+                    <SelectItem value="name-asc">Name: A → Z</SelectItem>
+                    <SelectItem value="name-desc">Name: Z → A</SelectItem>
+                    <SelectItem value="stock-low-to-high">
+                      Stock: Low → High
+                    </SelectItem>
+                    <SelectItem value="stock-high-to-low">
+                      Stock: High → Low
+                    </SelectItem>
+                    <SelectItem value="value-high-to-low">
+                      Value: High → Low
+                    </SelectItem>
+                    <SelectItem value="value-low-to-high">
+                      Value: Low → High
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
 
-          <Card className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-200 dark:border-purple-800">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    With Commission
-                  </p>
-                  <p className="text-2xl font-bold text-purple-600 mt-1">
-                    {formatCurrency(stats.totalValueWithCommission)}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Potential selling value
-                  </p>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-purple-500/10 flex items-center justify-center">
-                  <Calculator className="h-6 w-6 text-purple-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                <Select
+                  value={avgPriceFilter}
+                  onValueChange={setAvgPriceFilter}
+                >
+                  <SelectTrigger className="h-9 flex-1 min-w-[130px] text-sm">
+                    <SelectValue placeholder="Avg Price" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Time Avg</SelectItem>
+                    <SelectItem value="last3">Last 3 Bills</SelectItem>
+                    <SelectItem value="last5">Last 5 Bills</SelectItem>
+                    <SelectItem value="1month">Last 1 Month</SelectItem>
+                    <SelectItem value="3month">Last 3 Months</SelectItem>
+                    <SelectItem value="6month">Last 6 Months</SelectItem>
+                  </SelectContent>
+                </Select>
 
-          <Card className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border-orange-200 dark:border-orange-800">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Profit Potential
-                  </p>
-                  <p className="text-2xl font-bold text-orange-600 mt-1">
-                    {formatCurrency(stats.totalProfitPotential)}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {stats.averageMarginPercent > 0
-                      ? `${roundToTwoDecimals(stats.averageMarginPercent).toFixed(1)}% margin`
-                      : "No margin"}
-                  </p>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-orange-500/10 flex items-center justify-center">
-                  <TrendingUp className="h-6 w-6 text-orange-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {products.length === 0 ? (
-        <Card>
-          <CardContent className="text-center py-12">
-            <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p className="text-muted-foreground mb-4">No products added yet</p>
-            <Button onClick={() => setIsOpen(true)}>
-              Add your first product
-            </Button>
-          </CardContent>
-        </Card>
-      ) : filteredProducts.length === 0 ? (
-        <Card>
-          <CardContent className="text-center py-12">
-            <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p className="text-muted-foreground mb-4">
-              No products found matching your search
-            </p>
-            <Button variant="outline" onClick={() => setSearchQuery("")}>
-              Clear Search
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {pagedProducts.map((product) => {
-            const sellingPrice = roundToTwoDecimals(
-              product.sellingPrice || product.price || 0,
-            );
-            const purchasePrice = roundToTwoDecimals(
-              product.purchasePrice || 0,
-            );
-            const currentAvgPurchasePrice = roundToTwoDecimals(
-              getEffectivePrice(product),
-            );
-            const margin = roundToTwoDecimals(
-              sellingPrice - currentAvgPurchasePrice,
-            );
-            const marginPercent =
-              currentAvgPurchasePrice > 0
-                ? roundToTwoDecimals((margin / currentAvgPurchasePrice) * 100)
-                : 0;
-            // Computed inline — no state lookup needed
-            const stockValue = roundToTwoDecimals(getStockValue(product));
-            const stockValueWithCommission = roundToTwoDecimals(
-              product.stock *
-                calculateSellingPriceFromCommission(
-                  currentAvgPurchasePrice,
-                  companyProfile?.commissionSettings,
-                ),
-            );
-            const profitPotential = roundToTwoDecimals(
-              stockValueWithCommission - stockValue,
-            );
-
-            return (
-              <Card
-                key={product.id}
-                className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-primary overflow-hidden"
-              >
-                <div className="flex gap-3 p-4 pb-2">
-                  <div className="w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-muted border">
-                    {product.imageUrl ? (
-                      <img
-                        src={product.imageUrl}
-                        alt={product.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Package className="h-8 w-8 text-muted-foreground/40" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-1">
-                      <h3 className="text-base font-bold leading-tight line-clamp-2">
-                        {product.name}
-                      </h3>
-                      <div className="flex gap-1 flex-shrink-0">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => handleEdit(product)}
+                <div className="flex sm:hidden items-center gap-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-9 px-3">
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={handleDownloadExcel}>
+                        <FileSpreadsheet className="h-4 w-4 mr-2" />
+                        Excel
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <PDFDownloadLink
+                          document={
+                            <ProductsPDF
+                              products={products}
+                              stats={stats}
+                              averagePrices={averagePrices}
+                              currentAveragePrices={currentAveragePrices}
+                              stockValues={Object.fromEntries(
+                                products.map((p) => [p.id, getStockValue(p)]),
+                              )}
+                              companyProfile={companyProfile}
+                            />
+                          }
+                          fileName={`Inventory_Report_${new Date().toISOString().split("T")[0]}.pdf`}
+                          className="flex items-center w-full px-2 py-1.5 text-sm cursor-pointer"
                         >
-                          <Edit className="h-3.5 w-3.5" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>
-                                Delete Product
-                              </AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to delete {product.name}?
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDelete(product.id)}
-                              >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <span className="text-xs bg-muted px-2 py-0.5 rounded font-mono">
-                        {product.hsnCode}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        GST: {product.gstRate}%
-                      </span>
-                    </div>
-                  </div>
+                          {({ loading }: { loading: boolean }) => (
+                            <>
+                              <FilePdf className="h-4 w-4 mr-2" />
+                              {loading ? "Preparing..." : "PDF"}
+                            </>
+                          )}
+                        </PDFDownloadLink>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
+              </div>
 
-                <CardContent className="pt-2 space-y-3">
-                  <div className="bg-muted/50 p-3 rounded-lg">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium text-muted-foreground">
-                        Stock
-                      </span>
-                      <span
-                        className={`text-lg font-bold ${
-                          product.stock < 10
-                            ? "text-orange-600"
-                            : "text-emerald-600"
-                        }`}
-                      >
-                        {product.stock % 1 === 0
-                          ? product.stock
-                          : roundToTwoDecimals(product.stock).toFixed(2)}{" "}
-                        {product.unit}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-xs text-muted-foreground">
-                      <span>Avg Purchase Price</span>
-                      <span className="font-medium">
-                        {formatCurrency(
-                          averagePrices[product.id] || purchasePrice,
-                        )}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-xs text-muted-foreground mt-1">
-                      <span>Weight</span>
-                      <span className="font-medium">
-                        {product.weight != null ? product.weight : "N/A"}{" "}
-                        {product.weightUnit || ""}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-xs text-muted-foreground mt-1">
-                      <span>Bought from where</span>
-                      <span className="font-medium">
-                        {product.whereToBuy || "N/A"}
-                      </span>
-                    </div>
-                  </div>
-
-                  {currentAvgPurchasePrice > 0 && (
-                    <div className="bg-gradient-to-r from-emerald-500/10 to-blue-500/10 p-3 rounded-lg space-y-2 border border-emerald-200/50">
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="font-medium">Current Avg Price</span>
-                        <span className="font-medium">
-                          {formatCurrency(currentAvgPurchasePrice)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-muted-foreground">
-                          Stock Value
-                        </span>
-                        <span className="font-medium">
-                          {formatCurrency(stockValue)}
-                        </span>
-                      </div>
-                      {companyProfile?.commissionSettings && (
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-muted-foreground">
-                            Selling Price
-                          </span>
-                          <span className="font-medium text-purple-600">
-                            {formatCurrency(sellingPrice)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                  onClick={() => {
-                    setHistoryProduct(product);
+              <div className="flex sm:hidden items-center gap-2">
+                <ProductForm
+                  open={isOpen}
+                  onOpenChange={(open) => {
+                    setIsOpen(open);
+                    if (!open) resetForm();
                   }}
-                  >
-                    <History className="h-4 w-4 mr-2" />
-                    View Detailed History
+                  onSuccess={() => {
+                    loadProducts();
+                  }}
+                  product={editingProduct}
+                />
+                <Button
+                  size="sm"
+                  className="flex-1 h-9"
+                  onClick={() => setIsOpen(true)}
+                >
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Create
+                </Button>
+
+                <Dialog
+                  open={isAddStockOpen}
+                  onOpenChange={(open) => {
+                    setIsAddStockOpen(open);
+                    if (!open) resetStockForm();
+                  }}
+                >
+                  <DialogTrigger asChild>
+                    <Button size="sm" variant="outline" className="flex-1 h-9">
+                      <PlusCircle className="h-4 w-4 mr-1.5" />
+                      Add Stock
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="dialog-form-content sm:max-w-[500px]">
+                    <DialogHeader className="dialog-form-header">
+                      <DialogTitle>Add Stock</DialogTitle>
+                    </DialogHeader>
+                    <form
+                      onSubmit={handleAddStock}
+                      className="dialog-form-body space-y-4"
+                    >
+                      <div className="space-y-2">
+                        <Label>Select Product *</Label>
+                        <Select
+                          value={selectedProductId}
+                          onValueChange={handleStockProductChange}
+                          required
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Choose a product" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {products.map((product) => (
+                              <SelectItem key={product.id} value={product.id}>
+                                {product.name} ({product.hsnCode})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {selectedProductId && (
+                          <p className="text-xs text-muted-foreground">
+                            Current stock:{" "}
+                            {products.find((p) => p.id === selectedProductId)
+                              ?.stock || 0}{" "}
+                            {products.find((p) => p.id === selectedProductId)
+                              ?.unit || ""}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Vendor *</Label>
+                        <Select
+                          value={selectedStockVendorId}
+                          onValueChange={setSelectedStockVendorId}
+                          disabled={!selectedProductId}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select vendor" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {vendors.map((vendor) => (
+                              <SelectItem key={vendor.id} value={vendor.id}>
+                                {vendor.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Quantity *</Label>
+                          <Input
+                            required
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            value={stockFormData.quantity}
+                            onChange={(e) =>
+                              setStockFormData({
+                                ...stockFormData,
+                                quantity: e.target.value,
+                              })
+                            }
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Purchase Price *</Label>
+                          <Input
+                            required
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            value={stockFormData.purchasePrice}
+                            onChange={(e) =>
+                              setStockFormData({
+                                ...stockFormData,
+                                purchasePrice: e.target.value,
+                              })
+                            }
+                            placeholder="0.00"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="border-t pt-4">
+                        <p className="text-sm text-muted-foreground mb-2">
+                          Product not found?
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => {
+                            setIsAddStockOpen(false);
+                            setIsOpen(true);
+                          }}
+                        >
+                          Create New Product
+                        </Button>
+                      </div>
+
+                      <div className="dialog-form-footer flex gap-2 justify-end">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setIsAddStockOpen(false);
+                            resetStockForm();
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="submit"
+                          disabled={addingStock || !selectedProductId}
+                        >
+                          {addingStock ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Adding...
+                            </>
+                          ) : (
+                            "Add Stock"
+                          )}
+                        </Button>
+                      </div>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </div>
+
+              {searchQuery && (
+                <p className="text-xs text-muted-foreground">
+                  {filteredProducts.length}{" "}
+                  {filteredProducts.length === 1 ? "product" : "products"} found
+                </p>
+              )}
+            </div>
+
+            {products.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card className="border-blue-200 bg-gradient-to-br from-blue-500/10 to-blue-600/5 dark:border-blue-800">
+                  <CardContent className="flex h-full min-h-[124px] flex-col justify-between p-4 sm:p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Total Products
+                      </p>
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-500/10">
+                        <Package className="h-5 w-5 text-blue-600" />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-2xl font-bold leading-none">{stats.totalProducts}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {roundToTwoDecimals(stats.totalStock).toFixed(2)} total stock
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-emerald-200 bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 dark:border-emerald-800">
+                  <CardContent className="flex h-full min-h-[124px] flex-col justify-between p-4 sm:p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Inventory Value
+                      </p>
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/10">
+                        <DollarSign className="h-5 w-5 text-emerald-600" />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-2xl font-bold leading-none text-emerald-600">
+                        {formatCurrency(stats.totalInventoryValue)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">At purchase price</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-purple-200 bg-gradient-to-br from-purple-500/10 to-purple-600/5 dark:border-purple-800">
+                  <CardContent className="flex h-full min-h-[124px] flex-col justify-between p-4 sm:p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-medium text-muted-foreground">
+                        With Commission
+                      </p>
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-purple-500/10">
+                        <Calculator className="h-5 w-5 text-purple-600" />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-2xl font-bold leading-none text-purple-600">
+                        {formatCurrency(stats.totalValueWithCommission)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Potential selling value</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-orange-200 bg-gradient-to-br from-orange-500/10 to-orange-600/5 dark:border-orange-800">
+                  <CardContent className="flex h-full min-h-[124px] flex-col justify-between p-4 sm:p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Profit Potential
+                      </p>
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-orange-500/10">
+                        <TrendingUp className="h-5 w-5 text-orange-600" />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-2xl font-bold leading-none text-orange-600">
+                        {formatCurrency(stats.totalProfitPotential)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {stats.averageMarginPercent > 0
+                          ? `${roundToTwoDecimals(stats.averageMarginPercent).toFixed(1)}% margin`
+                          : "No margin"}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {products.length === 0 ? (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p className="text-muted-foreground mb-4">
+                    No products added yet
+                  </p>
+                  <Button onClick={() => setIsOpen(true)}>
+                    Add your first product
                   </Button>
                 </CardContent>
               </Card>
-            );
-          })}
-        </div>
-      )}
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 pt-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={currentPage === 1}
-          >
-            Previous
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            Page {currentPage} of {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={currentPage === totalPages}
-          >
-            Next
-          </Button>
-        </div>
-      )}
+            ) : filteredProducts.length === 0 ? (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p className="text-muted-foreground mb-4">
+                    No products found matching your search
+                  </p>
+                  <Button variant="outline" onClick={() => setSearchQuery("")}>
+                    Clear Search
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {pagedProducts.map((product) => {
+                  const sellingPrice = roundToTwoDecimals(
+                    product.sellingPrice || product.price || 0,
+                  );
+                  const purchasePrice = roundToTwoDecimals(
+                    product.purchasePrice || 0,
+                  );
+                  const currentAvgPurchasePrice = roundToTwoDecimals(
+                    getEffectivePrice(product),
+                  );
+                  const margin = roundToTwoDecimals(
+                    sellingPrice - currentAvgPurchasePrice,
+                  );
+                  const marginPercent =
+                    currentAvgPurchasePrice > 0
+                      ? roundToTwoDecimals(
+                          (margin / currentAvgPurchasePrice) * 100,
+                        )
+                      : 0;
+                  const productVendorName =
+                    vendors.find((v) => v.id === product.vendorId)?.name ||
+                    product.whereToBuy ||
+                    "N/A";
+                  // Computed inline — no state lookup needed
+                  const stockValue = roundToTwoDecimals(getStockValue(product));
+                  const stockValueWithCommission = roundToTwoDecimals(
+                    product.stock *
+                      calculateSellingPriceFromCommission(
+                        currentAvgPurchasePrice,
+                        companyProfile?.commissionSettings,
+                      ),
+                  );
+                  const profitPotential = roundToTwoDecimals(
+                    stockValueWithCommission - stockValue,
+                  );
+
+                  return (
+                    <Card
+                      key={product.id}
+                      className="group relative overflow-hidden border border-border/70 bg-gradient-to-br from-background via-background to-primary/5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-xl"
+                    >
+                      <div className="pointer-events-none absolute -right-14 -top-14 h-28 w-28 rounded-full bg-primary/10 blur-2xl" />
+                      <div className="pointer-events-none absolute -bottom-16 -left-16 h-32 w-32 rounded-full bg-cyan-500/10 blur-2xl" />
+
+                      <div className="relative flex gap-3 p-4 pb-3">
+                        <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl border border-border/70 bg-muted/50">
+                          {product.imageUrl ? (
+                            <img
+                              src={product.imageUrl}
+                              alt={product.name}
+                              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center">
+                              <Package className="h-8 w-8 text-muted-foreground/40" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <h3 className="text-base font-bold leading-tight line-clamp-2">
+                              {product.name}
+                            </h3>
+                            <div className="flex flex-shrink-0 gap-1 rounded-xl border border-border/60 bg-background/85 p-1 backdrop-blur">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                                onClick={() => handleEdit(product)}
+                              >
+                                <Edit className="h-3.5 w-3.5" />
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                      Delete Product
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to delete{" "}
+                                      {product.name}?
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>
+                                      Cancel
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleDelete(product.id)}
+                                    >
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </div>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <span className="rounded-md border border-border/70 bg-muted px-2 py-0.5 font-mono text-xs">
+                              {product.hsnCode}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              GST: {product.gstRate}%
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <CardContent className="relative space-y-3 pt-0">
+                        <div className="rounded-xl border border-border/70 bg-muted/35 p-3">
+                          <div className="mb-2 flex items-center justify-between">
+                            <span className="text-sm font-medium text-muted-foreground">
+                              Stock
+                            </span>
+                            <span
+                              className={`text-lg font-bold leading-none ${
+                                product.stock < 10
+                                  ? "text-orange-600"
+                                  : "text-emerald-600"
+                              }`}
+                            >
+                              {product.stock % 1 === 0
+                                ? product.stock
+                                : roundToTwoDecimals(product.stock).toFixed(
+                                    2,
+                                  )}{" "}
+                              {product.unit}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <span>Avg Purchase Price</span>
+                            <span className="font-medium">
+                              {formatCurrency(
+                                averagePrices[product.id] || purchasePrice,
+                              )}
+                            </span>
+                          </div>
+                          <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
+                            <span>Weight</span>
+                            <span className="font-medium">
+                              {product.weight != null ? product.weight : "N/A"}{" "}
+                              {product.weightUnit || ""}
+                            </span>
+                          </div>
+                          <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
+                            <span>Vendor</span>
+                            <span className="max-w-[65%] truncate font-medium text-right">
+                              {productVendorName}
+                            </span>
+                          </div>
+                        </div>
+
+                        {currentAvgPurchasePrice > 0 && (
+                          <div className="space-y-2 rounded-xl border border-emerald-200/50 bg-gradient-to-r from-emerald-500/10 to-blue-500/10 p-3">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="font-medium">
+                                Current Avg Price
+                              </span>
+                              <span className="font-medium">
+                                {formatCurrency(currentAvgPurchasePrice)}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">
+                                Stock Value
+                              </span>
+                              <span className="font-medium">
+                                {formatCurrency(stockValue)}
+                              </span>
+                            </div>
+                            {companyProfile?.commissionSettings && (
+                              <>
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">
+                                  Selling Price
+                                </span>
+                                <span className="font-medium text-purple-600">
+                                  {formatCurrency(sellingPrice)}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">
+                                  Profit Potential
+                                </span>
+                                <span className="font-medium text-emerald-600">
+                                  {formatCurrency(profitPotential)}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                <span>Margin %</span>
+                                <span className="font-medium">{marginPercent.toFixed(2)}%</span>
+                              </div>
+                              </>
+                            )}
+                          </div>
+                        )}
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full border-border/70 bg-background/90 hover:bg-primary/5"
+                          onClick={() => {
+                            setHistoryProduct(product);
+                          }}
+                        >
+                          <History className="h-4 w-4 mr-2" />
+                          View Detailed History
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            )}
           </div>
-        </div>
       </div>
     </div>
   );
