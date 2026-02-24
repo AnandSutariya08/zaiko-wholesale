@@ -388,35 +388,30 @@ export default function BillCreators() {
     ];
 
     return (
-      <div className="h-[calc(100dvh-8.5rem)] w-full overflow-hidden sm:h-[calc(100dvh-9.5rem)]">
-        <div className="relative h-full w-full overflow-hidden rounded-[28px] border border-primary/20 bg-gradient-to-br from-background via-background to-primary/10 p-3 shadow-sm sm:p-5 lg:p-6">
-          <div className="pointer-events-none absolute -right-14 -top-16 h-40 w-40 rounded-full bg-primary/10 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-20 -left-20 h-52 w-52 rounded-full bg-cyan-500/10 blur-3xl" />
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/25 to-transparent" />
-          <div className="relative flex h-full min-h-0 flex-col">
-            <div className="rounded-2xl border border-border/70 bg-background/90 p-3 backdrop-blur sm:p-4">
-              <div className="flex items-center gap-3 sm:gap-4">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9 border-border/70 bg-background/90 sm:h-10 sm:w-10"
-                  onClick={() => setSelectedCreator(null)}
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
-                <div className="min-w-0">
-                  <h1 className="truncate text-lg font-semibold leading-tight sm:text-2xl">
-                    Bills by {selectedCreator}
-                  </h1>
-                  <p className="text-xs text-muted-foreground sm:text-sm">
-                    Performance overview and bill history
-                  </p>
-                </div>
-              </div>
+      <div className="flex h-full min-h-0 w-full flex-col gap-3 overflow-hidden">
+        <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-gradient-to-br from-background via-background to-slate-50/40 p-3 shadow-sm sm:p-4">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 border-border/70 bg-background/90 sm:h-10 sm:w-10"
+              onClick={() => setSelectedCreator(null)}
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="min-w-0">
+              <h1 className="truncate text-lg font-semibold leading-tight sm:text-2xl">
+                Bills by {selectedCreator}
+              </h1>
+              <p className="text-xs text-muted-foreground sm:text-sm">
+                Performance overview and bill history
+              </p>
             </div>
+          </div>
+        </div>
 
-            <div className="mt-4 flex-1 min-h-0 rounded-2xl border border-border/70 bg-background/60 p-2 sm:p-3">
-              <div className="h-full overflow-y-auto space-y-5 px-2 sm:px-3">
+        <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-border/70 bg-background/70 p-2 sm:p-4">
+          <div className="h-full overflow-y-auto space-y-5 px-2 sm:px-3">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               <Card className="bg-primary/5 border-primary/20 shadow-sm">
                 <CardContent className="p-4">
@@ -465,7 +460,10 @@ export default function BillCreators() {
               </h2>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
                 {ALL_PAYMENT_METHODS.map((method) => (
-                  <Card key={method} className="bg-muted/30 border-border/50 shadow-none">
+                  <Card
+                    key={method}
+                    className="bg-muted/30 border-border/50 shadow-none"
+                  >
                     <CardContent className="p-3">
                       <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight truncate">
                         {method}
@@ -483,50 +481,57 @@ export default function BillCreators() {
               <div className="flex w-full flex-col items-start gap-3 sm:flex-row sm:items-center">
                 <div className="flex w-full gap-2">
                   <div className="relative w-full flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search bills..."
-                className="h-10 w-full pl-10"
-                value={billSearchTerm}
-                onChange={(e) => setBillSearchTerm(e.target.value)}
-              />
-            </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon" className="h-10 w-10 shrink-0">
-                  <ArrowUpDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() => {
-                    setSortBy("date");
-                    setSortOrder(sortOrder === "desc" ? "asc" : "desc");
-                  }}
-                >
-                  Sort by Date{" "}
-                  {sortBy === "date" && (sortOrder === "desc" ? "↓" : "↑")}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setSortBy("amount");
-                    setSortOrder(sortOrder === "desc" ? "asc" : "desc");
-                  }}
-                >
-                  Sort by Amount{" "}
-                  {sortBy === "amount" && (sortOrder === "desc" ? "↓" : "↑")}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setSortBy("client");
-                    setSortOrder(sortOrder === "desc" ? "asc" : "desc");
-                  }}
-                >
-                  Sort by Client{" "}
-                  {sortBy === "client" && (sortOrder === "desc" ? "↓" : "↑")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search bills..."
+                      className="h-10 w-full pl-10"
+                      value={billSearchTerm}
+                      onChange={(e) => setBillSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-10 w-10 shrink-0"
+                      >
+                        <ArrowUpDown className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setSortBy("date");
+                          setSortOrder(sortOrder === "desc" ? "asc" : "desc");
+                        }}
+                      >
+                        Sort by Date{" "}
+                        {sortBy === "date" &&
+                          (sortOrder === "desc" ? "↓" : "↑")}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setSortBy("amount");
+                          setSortOrder(sortOrder === "desc" ? "asc" : "desc");
+                        }}
+                      >
+                        Sort by Amount{" "}
+                        {sortBy === "amount" &&
+                          (sortOrder === "desc" ? "↓" : "↑")}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setSortBy("client");
+                          setSortOrder(sortOrder === "desc" ? "asc" : "desc");
+                        }}
+                      >
+                        Sort by Client{" "}
+                        {sortBy === "client" &&
+                          (sortOrder === "desc" ? "↓" : "↑")}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             </div>
@@ -562,7 +567,10 @@ export default function BillCreators() {
                                 {bill.billNumber}
                               </span>
                               {"isSample" in bill && (
-                                <Badge variant="outline" className="text-[10px]">
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px]"
+                                >
                                   Sample
                                 </Badge>
                               )}
@@ -588,14 +596,18 @@ export default function BillCreators() {
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-center">
                           <div className="flex items-center gap-2 text-xs text-muted-foreground sm:text-sm">
                             <Calendar className="h-3.5 w-3.5" />
-                            <span>{new Date(bill.date).toLocaleDateString()}</span>
+                            <span>
+                              {new Date(bill.date).toLocaleDateString()}
+                            </span>
                           </div>
                           <div className="text-left sm:text-center">
                             <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
                               Type
                             </p>
                             <p className="text-xs font-semibold sm:text-sm">
-                              {"isSample" in bill ? "Sample Bill" : "Regular Bill"}
+                              {"isSample" in bill
+                                ? "Sample Bill"
+                                : "Regular Bill"}
                             </p>
                           </div>
                           <div className="text-left sm:text-right">
@@ -613,358 +625,380 @@ export default function BillCreators() {
                 ))
               )}
             </div>
-            </div>
           </div>
         </div>
-      </div>
       </div>
     );
   }
 
   return (
-    <div className="h-[calc(100dvh-8.5rem)] w-full overflow-hidden sm:h-[calc(100dvh-9.5rem)]">
-      <div className="relative flex h-full min-h-0 flex-col rounded-[28px] border border-border/70 bg-background p-3 shadow-sm sm:p-5 lg:p-6">
-      <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background/95 p-3 backdrop-blur sm:p-4">
-      <div className="page-header-controls">
-        <div className="page-header-title">
-          <div className="page-header-icon">
-            <User className="h-5 w-5 md:h-6 md:w-6" />
+    <div className="flex h-full min-h-0 w-full flex-col gap-3 overflow-hidden">
+      <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-gradient-to-br from-background via-background to-slate-50/40 p-3 shadow-sm sm:p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-center justify-start gap-3 sm:gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-border">
+              <User className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 text-left">
+              <h1 className="truncate text-2xl font-semibold leading-tight sm:text-3xl">
+                Bill Creators
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Manage and view performance of bill creators
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="page-title">Bill Creators</h1>
-            <p className="page-subtitle">
-              Manage and view performance of bill creators
-            </p>
-          </div>
-        </div>
-        <Button
-          size="sm"
-          className="page-header-btn"
-          onClick={() => setIsAddDialogOpen(true)}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Creator
-        </Button>
-      </div>
-      </div>
-
-      <div className="mt-4 flex-1 min-h-0 rounded-2xl border border-border/70 bg-background/60 p-2 sm:p-3">
-      <div className="h-full overflow-y-auto space-y-6 pr-1 sm:pr-2">
-
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search creators..."
-          className="pl-10"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        {filteredCreators.map((creator) => (
-          <Card
-            key={creator.id}
-            className="group relative cursor-pointer overflow-hidden border-border/70 bg-gradient-to-br from-background via-background to-sky-500/5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-xl"
-            onClick={() => setSelectedCreator(creator.name)}
+          <Button
+            size="sm"
+            className="h-10 rounded-xl px-3 text-sm"
+            onClick={() => setIsAddDialogOpen(true)}
           >
-            <div className="pointer-events-none absolute -right-12 -top-12 h-28 w-28 rounded-full bg-sky-500/10 blur-2xl" />
-            <div className="pointer-events-none absolute -bottom-16 -left-16 h-32 w-32 rounded-full bg-blue-500/10 blur-2xl" />
-            <CardHeader className="relative pb-2">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/20 transition-colors group-hover:bg-primary/15">
-                    <User className="h-5 w-5 text-primary" />
+            <Plus className="h-4 w-4 mr-2" />
+            Add Creator
+          </Button>
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-border/70 bg-background/70 p-2 sm:p-4">
+        <div className="h-full overflow-y-auto space-y-5 pr-1 sm:pr-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search creators..."
+              className="pl-10"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {filteredCreators.map((creator) => (
+              <Card
+                key={creator.id}
+                className="group relative cursor-pointer overflow-hidden border-border/70 bg-gradient-to-br from-background via-background to-sky-500/5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-xl"
+                onClick={() => setSelectedCreator(creator.name)}
+              >
+                <div className="pointer-events-none absolute -right-12 -top-12 h-28 w-28 rounded-full bg-sky-500/10 blur-2xl" />
+                <div className="pointer-events-none absolute -bottom-16 -left-16 h-32 w-32 rounded-full bg-blue-500/10 blur-2xl" />
+                <CardHeader className="relative pb-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/20 transition-colors group-hover:bg-primary/15">
+                        <User className="h-5 w-5 text-primary" />
+                      </div>
+                      <CardTitle className="flex items-center gap-2 truncate text-base">
+                        <span className="truncate">{creator.name}</span>
+                        {creator.type && (
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px] font-medium"
+                          >
+                            {creator.type}
+                          </Badge>
+                        )}
+                      </CardTitle>
+                      <CardDescription className="mt-1 text-xs">
+                        View bills and performance
+                      </CardDescription>
+                    </div>
+                    <div className="flex gap-1 rounded-xl border border-border/60 bg-background/85 p-1 backdrop-blur">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                        onClick={(e) => openEditDialog(creator, e)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        onClick={(e) => openDeleteDialog(creator, e)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <CardTitle className="flex items-center gap-2 truncate text-base">
-                    <span className="truncate">{creator.name}</span>
-                    {creator.type && (
-                      <Badge variant="secondary" className="text-[10px] font-medium">
-                        {creator.type}
-                      </Badge>
-                    )}
-                  </CardTitle>
-                  <CardDescription className="mt-1 text-xs">
-                    View bills and performance
-                  </CardDescription>
+                </CardHeader>
+                <CardContent className="relative pt-0">
+                  <div className="rounded-xl border border-border/60 bg-muted/25 p-2">
+                    <Button
+                      variant="secondary"
+                      className="h-9 w-full justify-between rounded-lg bg-background text-primary shadow-sm hover:bg-background"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (creator.type === "Expo" && creator.expoId) {
+                          navigate(`/expo-dashboard/${creator.expoId}`);
+                        } else {
+                          setSelectedCreator(creator.name);
+                        }
+                      }}
+                    >
+                      {creator.type === "Expo"
+                        ? "View Expo Dashboard"
+                        : "View History"}
+                      <Receipt className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            {filteredCreators.length === 0 && (
+              <div className="col-span-full py-20 text-center">
+                <p className="text-muted-foreground">No creators found.</p>
+                <Button
+                  className="mt-4"
+                  onClick={() => setIsAddDialogOpen(true)}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Creator
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogContent className="dialog-form-content max-w-md">
+              <DialogHeader className="dialog-form-header">
+                <DialogTitle>Add New Creator</DialogTitle>
+                <DialogDescription>
+                  Enter the name and password of the new bill creator.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="dialog-form-body space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Creator Name</Label>
+                  <Input
+                    id="name"
+                    placeholder="Creator name"
+                    value={newCreatorName}
+                    onChange={(e) => setNewCreatorName(e.target.value)}
+                  />
                 </div>
-                <div className="flex gap-1 rounded-xl border border-border/60 bg-background/85 p-1 backdrop-blur">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:bg-primary/10 hover:text-primary"
-                    onClick={(e) => openEditDialog(creator, e)}
+                <div className="space-y-2">
+                  <Label htmlFor="type">User Type</Label>
+                  <select
+                    id="type"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={newCreatorType}
+                    onChange={(e) => setNewCreatorType(e.target.value as any)}
                   >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                    onClick={(e) => openDeleteDialog(creator, e)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                    <option value="Creator">Creator</option>
+                    <option value="Employee">Employee</option>
+                    <option value="CA">CA</option>
+                    <option value="Expo">Expo</option>
+                  </select>
+                </div>
+                {newCreatorType === "Expo" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="expoId">Expo ID</Label>
+                    <Input
+                      id="expoId"
+                      placeholder="e.g. EXPO-001"
+                      value={newExpoId}
+                      onChange={(e) => setNewExpoId(e.target.value)}
+                    />
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showNewPassword ? "text" : "password"}
+                      placeholder="Password"
+                      value={newCreatorPassword}
+                      onChange={(e) => setNewCreatorPassword(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleAddCreator()}
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                    >
+                      {showNewPassword ? (
+                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <Label>Permissions</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {PERMISSION_OPTIONS.map((opt) => (
+                      <div
+                        key={opt.path}
+                        className="flex items-center space-x-2"
+                      >
+                        <Checkbox
+                          id={`new-perm-${opt.path}`}
+                          checked={newCreatorPermissions.includes(opt.path)}
+                          onCheckedChange={() =>
+                            togglePermission(opt.path, "add")
+                          }
+                        />
+                        <label
+                          htmlFor={`new-perm-${opt.path}`}
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          {opt.label}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </CardHeader>
-            <CardContent className="relative pt-0">
-              <div className="rounded-xl border border-border/60 bg-muted/25 p-2">
+              <DialogFooter className="dialog-form-footer">
                 <Button
-                  variant="secondary"
-                  className="h-9 w-full justify-between rounded-lg bg-background text-primary shadow-sm hover:bg-background"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (creator.type === "Expo" && creator.expoId) {
-                      navigate(`/expo-dashboard/${creator.expoId}`);
-                    } else {
-                      setSelectedCreator(creator.name);
+                  variant="outline"
+                  onClick={() => setIsAddDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleAddCreator}>Add</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent className="dialog-form-content max-w-md">
+              <DialogHeader className="dialog-form-header">
+                <DialogTitle>Edit Creator</DialogTitle>
+                <DialogDescription>
+                  Update the creator's details.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="dialog-form-body space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-name">Creator Name</Label>
+                  <Input
+                    id="edit-name"
+                    placeholder="Creator name"
+                    value={editedCreatorName}
+                    onChange={(e) => setEditedCreatorName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-type">User Type</Label>
+                  <select
+                    id="edit-type"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={editedCreatorType}
+                    onChange={(e) =>
+                      setEditedCreatorType(e.target.value as any)
                     }
-                  }}
-                >
-                  {creator.type === "Expo"
-                    ? "View Expo Dashboard"
-                    : "View History"}
-                  <Receipt className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-        {filteredCreators.length === 0 && (
-          <div className="col-span-full py-20 text-center">
-            <p className="text-muted-foreground">No creators found.</p>
-            <Button className="mt-4" onClick={() => setIsAddDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Creator
-            </Button>
-          </div>
-        )}
-      </div>
-
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="dialog-form-content max-w-md">
-          <DialogHeader className="dialog-form-header">
-            <DialogTitle>Add New Creator</DialogTitle>
-            <DialogDescription>
-              Enter the name and password of the new bill creator.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="dialog-form-body space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Creator Name</Label>
-              <Input
-                id="name"
-                placeholder="Creator name"
-                value={newCreatorName}
-                onChange={(e) => setNewCreatorName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="type">User Type</Label>
-              <select
-                id="type"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                value={newCreatorType}
-                onChange={(e) => setNewCreatorType(e.target.value as any)}
-              >
-                <option value="Creator">Creator</option>
-                <option value="Employee">Employee</option>
-                <option value="CA">CA</option>
-                <option value="Expo">Expo</option>
-              </select>
-            </div>
-            {newCreatorType === "Expo" && (
-              <div className="space-y-2">
-                <Label htmlFor="expoId">Expo ID</Label>
-                <Input
-                  id="expoId"
-                  placeholder="e.g. EXPO-001"
-                  value={newExpoId}
-                  onChange={(e) => setNewExpoId(e.target.value)}
-                />
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showNewPassword ? "text" : "password"}
-                  placeholder="Password"
-                  value={newCreatorPassword}
-                  onChange={(e) => setNewCreatorPassword(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleAddCreator()}
-                  className="pr-10"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowNewPassword(!showNewPassword)}
-                >
-                  {showNewPassword ? (
-                    <EyeOff className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </Button>
-              </div>
-            </div>
-            <div className="space-y-3">
-              <Label>Permissions</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {PERMISSION_OPTIONS.map((opt) => (
-                  <div key={opt.path} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`new-perm-${opt.path}`}
-                      checked={newCreatorPermissions.includes(opt.path)}
-                      onCheckedChange={() => togglePermission(opt.path, "add")}
+                  >
+                    <option value="Creator">Creator</option>
+                    <option value="Employee">Employee</option>
+                    <option value="CA">CA</option>
+                    <option value="Expo">Expo</option>
+                  </select>
+                </div>
+                {editedCreatorType === "Expo" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-expoId">Expo ID</Label>
+                    <Input
+                      id="edit-expoId"
+                      placeholder="e.g. EXPO-001"
+                      value={editedExpoId}
+                      onChange={(e) => setEditedExpoId(e.target.value)}
                     />
-                    <label
-                      htmlFor={`new-perm-${opt.path}`}
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      {opt.label}
-                    </label>
                   </div>
-                ))}
-              </div>
-            </div>
-          </div>
-          <DialogFooter className="dialog-form-footer">
-            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAddCreator}>Add</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="dialog-form-content max-w-md">
-          <DialogHeader className="dialog-form-header">
-            <DialogTitle>Edit Creator</DialogTitle>
-            <DialogDescription>Update the creator's details.</DialogDescription>
-          </DialogHeader>
-          <div className="dialog-form-body space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-name">Creator Name</Label>
-              <Input
-                id="edit-name"
-                placeholder="Creator name"
-                value={editedCreatorName}
-                onChange={(e) => setEditedCreatorName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-type">User Type</Label>
-              <select
-                id="edit-type"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                value={editedCreatorType}
-                onChange={(e) => setEditedCreatorType(e.target.value as any)}
-              >
-                <option value="Creator">Creator</option>
-                <option value="Employee">Employee</option>
-                <option value="CA">CA</option>
-                <option value="Expo">Expo</option>
-              </select>
-            </div>
-            {editedCreatorType === "Expo" && (
-              <div className="space-y-2">
-                <Label htmlFor="edit-expoId">Expo ID</Label>
-                <Input
-                  id="edit-expoId"
-                  placeholder="e.g. EXPO-001"
-                  value={editedExpoId}
-                  onChange={(e) => setEditedExpoId(e.target.value)}
-                />
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="edit-password">New Password (optional)</Label>
-              <div className="relative">
-                <Input
-                  id="edit-password"
-                  type={showEditPassword ? "text" : "password"}
-                  placeholder="New Password (optional)"
-                  value={editedCreatorPassword}
-                  onChange={(e) => setEditedCreatorPassword(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleEditCreator()}
-                  className="pr-10"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowEditPassword(!showEditPassword)}
-                >
-                  {showEditPassword ? (
-                    <EyeOff className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </Button>
-              </div>
-            </div>
-            <div className="space-y-3">
-              <Label>Permissions</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {PERMISSION_OPTIONS.map((opt) => (
-                  <div key={opt.path} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`edit-perm-${opt.path}`}
-                      checked={editedCreatorPermissions.includes(opt.path)}
-                      onCheckedChange={() => togglePermission(opt.path, "edit")}
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="edit-password">New Password (optional)</Label>
+                  <div className="relative">
+                    <Input
+                      id="edit-password"
+                      type={showEditPassword ? "text" : "password"}
+                      placeholder="New Password (optional)"
+                      value={editedCreatorPassword}
+                      onChange={(e) => setEditedCreatorPassword(e.target.value)}
+                      onKeyDown={(e) =>
+                        e.key === "Enter" && handleEditCreator()
+                      }
+                      className="pr-10"
                     />
-                    <label
-                      htmlFor={`edit-perm-${opt.path}`}
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowEditPassword(!showEditPassword)}
                     >
-                      {opt.label}
-                    </label>
+                      {showEditPassword ? (
+                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </Button>
                   </div>
-                ))}
+                </div>
+                <div className="space-y-3">
+                  <Label>Permissions</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {PERMISSION_OPTIONS.map((opt) => (
+                      <div
+                        key={opt.path}
+                        className="flex items-center space-x-2"
+                      >
+                        <Checkbox
+                          id={`edit-perm-${opt.path}`}
+                          checked={editedCreatorPermissions.includes(opt.path)}
+                          onCheckedChange={() =>
+                            togglePermission(opt.path, "edit")
+                          }
+                        />
+                        <label
+                          htmlFor={`edit-perm-${opt.path}`}
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          {opt.label}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-          <DialogFooter className="dialog-form-footer">
-            <Button
-              variant="outline"
-              onClick={() => setIsEditDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleEditCreator}>Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              <DialogFooter className="dialog-form-footer">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEditDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleEditCreator}>Save</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
-      <AlertDialog
-        open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Creator</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete "{creatorToDelete?.name}"? This
-              action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteCreator}>
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      </div>
-      </div>
+          <AlertDialog
+            open={isDeleteDialogOpen}
+            onOpenChange={setIsDeleteDialogOpen}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Creator</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete "{creatorToDelete?.name}"?
+                  This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteCreator}>
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </div>
     </div>
   );

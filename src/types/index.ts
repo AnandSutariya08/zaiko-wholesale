@@ -160,6 +160,7 @@ export interface Bill {
   paidAmount: number;
   paymentType?: PaymentMethod; // For legacy support/display
   payments: PaymentTransaction[]; // Required field for multiple payments
+  returns?: BillReturn[]; // Optional sales return records attached to this bill
   gstType: "igst" | "cgst_sgst";
   notes?: string;
   returnComment?: string;
@@ -219,6 +220,17 @@ export interface SampleBill {
   bankAccountId?: string;
   bankAccount?: BankAccount;
   isSample: true; // Flag to identify sample bills
+}
+
+export interface EWayBillDetails {
+  transporterName?: string;
+  transporterId?: string;
+  approxDistance?: number;
+  modeOfTransport?: "Road" | "Rail" | "Air" | "Ship";
+  vehicleNumber?: string;
+  vehicleType?: "Regular" | "ODC";
+  transDocNo?: string;
+  transDocDate?: string;
 }
 
 export interface InventoryTransaction {

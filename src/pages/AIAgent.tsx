@@ -1012,9 +1012,9 @@ JSON structure:
         />
       )}
 
-      <div className="relative flex h-[calc(100dvh-9.5rem)] min-h-[36rem] flex-col overflow-hidden rounded-[28px] border border-border bg-background shadow-sm">
+      <div className="flex h-full min-h-0 w-full flex-col gap-3 overflow-hidden">
         {/* ── Header ──────────────────────────────────────────── */}
-        <div className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-background/95 px-4 py-3 backdrop-blur md:px-6">
+        <div className="sticky top-0 z-20 flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-gradient-to-br from-background via-background to-slate-50/40 p-3 shadow-sm sm:p-4">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -1109,7 +1109,7 @@ JSON structure:
         </div>
 
         {/* ── Chat area ───────────────────────────────────────── */}
-        <div className="relative flex min-h-0 flex-1 flex-col bg-gradient-to-b from-muted/20 to-background">
+        <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-b from-muted/20 to-background">
           <ScrollArea
             ref={scrollAreaRef}
             className="h-full px-3 py-4 md:px-5 md:py-5"
