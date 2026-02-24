@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -15,7 +15,14 @@ import {
   CommandList,
   CommandSeparator,
 } from "./ui/command";
-import { Bill, BillItem, Client, Product } from "@/types";
+import {
+  Bill,
+  BillItem,
+  Client,
+  CompanyProfile,
+  InventoryUnit,
+  Product,
+} from "@/types";
 import { getCurrentUser } from "@/pages/Auth";
 import {
   getClients,
@@ -30,6 +37,7 @@ import {
   validateBillStock,
   getCreators,
   getBankAccounts,
+  getInventoryUnits,
 } from "@/lib/storage";
 import {
   calculateBillTotals,
@@ -42,7 +50,6 @@ import {
 import { toast } from "sonner";
 import {
   Plus,
-  Trash2,
   Save,
   Loader2,
   Check,
@@ -52,6 +59,8 @@ import {
   CreditCard,
   Search,
   Smartphone,
+  ScanLine,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -80,10 +89,31 @@ interface BillFormProps {
   billType?: "domestic" | "international";
 }
 
-export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: propBillType }: BillFormProps) {
+type QuaggaDetectedResult = {
+  codeResult?: {
+    code?: string;
+  };
+};
+
+type QuaggaLike = {
+  init: (config: unknown, callback: (err?: unknown) => void) => void;
+  start: () => void;
+  stop: () => void;
+  onDetected: (callback: (result: QuaggaDetectedResult) => void) => void;
+  offDetected: (callback: (result: QuaggaDetectedResult) => void) => void;
+};
+
+export function BillForm({
+  bill,
+  isEdit = false,
+  initialGstEnabled,
+  billType: propBillType,
+}: BillFormProps) {
   const navigate = useNavigate();
-  const [billType, setBillType] = useState<"domestic" | "international">(propBillType || "domestic");
-  
+  const [billType, setBillType] = useState<"domestic" | "international">(
+    propBillType || "domestic",
+  );
+
   useEffect(() => {
     if (propBillType) {
       setBillType(propBillType);
@@ -99,6 +129,7 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
 
   const [clients, setClients] = useState<Client[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [inventoryUnits, setInventoryUnits] = useState<InventoryUnit[]>([]);
   const [availableCreators, setAvailableCreators] = useState<BillCreator[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -119,15 +150,21 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
   const [originalBillItems, setOriginalBillItems] = useState<BillItem[]>([]);
   const [billItems, setBillItems] = useState<BillItem[]>([]);
   const [gstType, setGstType] = useState<"igst" | "cgst_sgst">("cgst_sgst");
-  const [internalBillType, setInternalBillType] = useState<"domestic" | "international">(
-    "domestic",
-  );
+  const [internalBillType, setInternalBillType] = useState<
+    "domestic" | "international"
+  >("domestic");
   const [saving, setSaving] = useState(false);
   const [productComboOpenIndex, setProductComboOpenIndex] = useState<
     number | null
   >(null);
   const [productSearch, setProductSearch] = useState("");
-  const [barcodeSearch, setBarcodeSearch] = useState("");
+  const [barcodeScannerOpen, setBarcodeScannerOpen] = useState(false);
+  const [barcodeInput, setBarcodeInput] = useState("");
+  const [barcodeQuantity, setBarcodeQuantity] = useState(1);
+  const [scannerActive, setScannerActive] = useState(false);
+  const [scannerLoading, setScannerLoading] = useState(false);
+  const [scannerError, setScannerError] = useState("");
+  const [lastDecodedValue, setLastDecodedValue] = useState("");
   const [imeiLookup, setImeiLookup] = useState("");
   const [createProductOpen, setCreateProductOpen] = useState(false);
   const [createProductForIndex, setCreateProductForIndex] = useState<
@@ -143,6 +180,22 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
     upiId: "",
     isDefault: false,
   });
+  const scannerInstanceRef = useRef<QuaggaLike | null>(null);
+  const scannerDetectedHandlerRef = useRef<
+    ((result: QuaggaDetectedResult) => void) | null
+  >(null);
+  const scannerRegionIdRef = useRef(
+    `bill-barcode-scanner-${crypto.randomUUID()}`,
+  );
+  const barcodeQuantityRef = useRef(1);
+  const lastScannedRef = useRef<{ code: string; ts: number }>({
+    code: "",
+    ts: 0,
+  });
+
+  useEffect(() => {
+    barcodeQuantityRef.current = barcodeQuantity;
+  }, [barcodeQuantity]);
 
   const [formData, setFormData] = useState({
     date: new Date().toISOString(),
@@ -172,7 +225,9 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
     countryOfFinalDestination: "",
   });
 
-  const [companyProfile, setCompanyProfile] = useState<any>(null);
+  const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(
+    null,
+  );
   const [gstEnabled, setGstEnabled] = useState(initialGstEnabled ?? true);
 
   // Auto-set GST and type based on props
@@ -188,20 +243,28 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
 
   useEffect(() => {
     const loadData = async () => {
-      const [clientsData, productsData, companyData, creatorsData, banksData] =
-        await Promise.all([
-          getClients(),
-          getProducts(),
-          getCompanyProfile(),
-          getCreators(),
-          getBankAccounts(),
-        ]);
+      const [
+        clientsData,
+        productsData,
+        companyData,
+        creatorsData,
+        banksData,
+        inventoryUnitsData,
+      ] = await Promise.all([
+        getClients(),
+        getProducts(),
+        getCompanyProfile(),
+        getCreators(),
+        getBankAccounts(),
+        getInventoryUnits(),
+      ]);
       setClients(clientsData);
       setProducts(productsData);
       setCompanyProfile(companyData);
       setAvailableCreators(creatorsData);
       setBankAccounts(banksData);
-      
+      setInventoryUnits(inventoryUnitsData);
+
       if (initialGstEnabled === undefined) {
         setGstEnabled(companyData?.gstEnabled ?? true);
       }
@@ -290,20 +353,50 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
       return;
     }
 
-    const zeroQuantityItems = billItems.filter((item) => item.quantity <= 0);
+    let imeiValidationError = "";
+    const finalBillItems: BillItem[] = billItems.map((item) => {
+      const normalizedImei = normalizeImei(item.imeiNumber || "");
+      const next = { ...item };
+      if (!normalizedImei) return next;
+      if (next.quantity !== 1) {
+        imeiValidationError = `IMEI item "${next.productName}" must have quantity 1.`;
+        return next;
+      }
+      const matchedUnit = findSelectableUnitByImei(
+        normalizedImei,
+        next.productId,
+      );
+      if (!matchedUnit && !next.inventoryUnitId) {
+        imeiValidationError = `IMEI ${next.imeiNumber} is not available in inventory.`;
+        return next;
+      }
+      next.inventoryUnitId = matchedUnit?.id || next.inventoryUnitId;
+      next.unit = "pcs";
+      return next;
+    });
+    if (imeiValidationError) {
+      toast.error(imeiValidationError);
+      return;
+    }
+
+    const zeroQuantityItems = finalBillItems.filter(
+      (item) => item.quantity <= 0,
+    );
     if (zeroQuantityItems.length > 0) {
       toast.error("All items must have quantity greater than 0");
       return;
     }
 
-    const zeroRateItems = billItems.filter((item) => item.ratePerUnit <= 0);
+    const zeroRateItems = finalBillItems.filter(
+      (item) => item.ratePerUnit <= 0,
+    );
     if (zeroRateItems.length > 0) {
       toast.error("All items must have a valid rate");
       return;
     }
 
     if (isEdit) {
-      const invalidQuantities = billItems.filter((item) => {
+      const invalidQuantities = finalBillItems.filter((item) => {
         const originalQty = getOriginalQuantity(item.productId);
         return originalQty > 0 && item.quantity < originalQty;
       });
@@ -340,7 +433,7 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
       let stockValidationItems;
 
       if (isEdit) {
-        stockValidationItems = billItems
+        stockValidationItems = finalBillItems
           .map((item) => {
             const originalQty = getOriginalQuantity(item.productId);
             const additionalQty = item.quantity - originalQty;
@@ -352,7 +445,7 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
           })
           .filter((item) => item.quantity > 0);
       } else {
-        stockValidationItems = billItems.map((item) => ({
+        stockValidationItems = finalBillItems.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
         }));
@@ -396,17 +489,24 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
         totals.total,
       );
 
-      const typeForCounter = (internalBillType as string) === "international" ? "international" : (gstEnabled ? "gst" : "non_gst");
-      let billCounterVal;
-      billCounterVal = isEdit ? await getBillCounter(typeForCounter) : await incrementBillCounter(typeForCounter);
+      const typeForCounter =
+        (internalBillType as string) === "international"
+          ? "international"
+          : gstEnabled
+            ? "gst"
+            : "non_gst";
+      const billCounterVal = isEdit
+        ? await getBillCounter(typeForCounter)
+        : await incrementBillCounter(typeForCounter);
 
       // Automatically set creator from logged in user
       const user = getCurrentUser();
       const creator = user.role === "admin" ? "Admin" : user.name || "Unknown";
 
-      const selectedBankAccount = bankAccounts.find(a => a.id === formData.bankAccountId) || 
-                                 bankAccounts.find(a => a.isDefault) || 
-                                 bankAccounts[0];
+      const selectedBankAccount =
+        bankAccounts.find((a) => a.id === formData.bankAccountId) ||
+        bankAccounts.find((a) => a.isDefault) ||
+        bankAccounts[0];
 
       const newBill: Bill = {
         id: bill?.id || crypto.randomUUID(),
@@ -416,12 +516,12 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
             billCounterVal,
             companyProfile.name.substring(0, 6).toUpperCase(),
             internalBillType,
-            gstEnabled
+            gstEnabled,
           ),
         date: formData.date,
         clientId: selectedClient.id,
         client: selectedClient,
-        items: billItems,
+        items: finalBillItems,
         subtotal: totals.subtotal,
         totalTax: totals.totalTax,
         discount: discountNum > 0 ? totals.discount : 0,
@@ -434,7 +534,7 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
         paymentStatus,
         paidAmount: paidAmountNum,
         gstType: gstType,
-        billType: internalBillType as any,
+        billType: internalBillType,
         deliveryNote: formData.deliveryNote,
         modeOfPayment: formData.modeOfPayment,
         placeOfSupply: formData.placeOfSupply,
@@ -538,54 +638,269 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
 
   const isIGST = gstType === "igst";
 
-  useEffect(() => {
-    if (barcodeSearch.trim()) {
-      const product = products.find(p => p.barcode === barcodeSearch.trim());
-      if (product) {
-    const existingItemIndex = billItems.findIndex(item => item.productId === product.id);
-    if (existingItemIndex > -1) {
-      updateItem(existingItemIndex, "quantity", billItems[existingItemIndex].quantity + 1);
-    } else {
-          const newItem: BillItem = {
-            productId: product.id,
-            productName: product.name,
-            itemNo: product.itemNo || "",
-            model: product.model || "",
-            imeiNumber: product.imeiNumber || "",
-            storage: product.storage || "",
-            color: product.color || "",
-            vendorId: product.vendorId || "",
-            vendorName: product.whereToBuy || "",
-            purchasePrice: product.purchasePrice || 0,
-            hsnCode: product.hsnCode,
-            gstRate: product.gstRate,
-            quantity: 1,
-            unit: product.unit,
-            ratePerUnit: product.sellingPrice || product.price || 0,
-            amount: 0,
-            cgst: 0,
-            sgst: 0,
-            igst: 0,
-          };
-          // Calculate amount and taxes for new item
-          newItem.amount = roundToTwoDecimals(newItem.quantity * newItem.ratePerUnit);
-          if (!gstEnabled) {
-            newItem.cgst = 0; newItem.sgst = 0; newItem.igst = 0;
-          } else if (isIGST) {
-            newItem.igst = (newItem.amount * newItem.gstRate) / 100;
-            newItem.cgst = 0; newItem.sgst = 0;
-          } else {
-            newItem.cgst = (newItem.amount * newItem.gstRate) / 200;
-            newItem.sgst = (newItem.amount * newItem.gstRate) / 200;
-            newItem.igst = 0;
-          }
-          setBillItems([...billItems, newItem]);
-        }
-        toast.success(`Added ${product.name}`);
-        setBarcodeSearch(""); // Clear for next scan
+  const addProductByBarcode = useCallback(
+    (rawBarcode: string, quantityToAdd: number, notify = true) => {
+      const normalized = rawBarcode.trim();
+      if (!normalized) {
+        if (notify) toast.error("Please scan or enter a barcode");
+        return false;
       }
+
+      const normalizedNoLeadingZero = normalized.replace(/^0+/, "");
+      const product = products.find((p) => {
+        const code = (p.barcode || "").trim();
+        if (!code) return false;
+        if (code === normalized) return true;
+        return code.replace(/^0+/, "") === normalizedNoLeadingZero;
+      });
+      if (!product) {
+        if (notify) toast.error(`No product found for barcode: ${normalized}`);
+        return false;
+      }
+
+      const qty =
+        Number.isFinite(quantityToAdd) && quantityToAdd > 0 ? quantityToAdd : 1;
+      setBillItems((prevItems) => {
+        const nextItems = [...prevItems];
+        const existingItemIndex = nextItems.findIndex(
+          (item) => item.productId === product.id,
+        );
+
+        if (existingItemIndex > -1) {
+          const existingItem = { ...nextItems[existingItemIndex] };
+          existingItem.quantity = existingItem.quantity + qty;
+          existingItem.amount = roundToTwoDecimals(
+            existingItem.quantity * existingItem.ratePerUnit,
+          );
+          if (!gstEnabled) {
+            existingItem.cgst = 0;
+            existingItem.sgst = 0;
+            existingItem.igst = 0;
+          } else if (isIGST) {
+            existingItem.igst =
+              (existingItem.amount * existingItem.gstRate) / 100;
+            existingItem.cgst = 0;
+            existingItem.sgst = 0;
+          } else {
+            existingItem.cgst =
+              (existingItem.amount * existingItem.gstRate) / 200;
+            existingItem.sgst =
+              (existingItem.amount * existingItem.gstRate) / 200;
+            existingItem.igst = 0;
+          }
+          nextItems[existingItemIndex] = existingItem;
+          return nextItems;
+        }
+
+        const newItem: BillItem = {
+          productId: product.id,
+          productName: product.name,
+          hsnCode: product.hsnCode,
+          gstRate: product.gstRate,
+          quantity: qty,
+          unit: product.unit,
+          ratePerUnit: product.sellingPrice || product.price || 0,
+          amount: 0,
+          cgst: 0,
+          sgst: 0,
+          igst: 0,
+        };
+        newItem.amount = roundToTwoDecimals(
+          newItem.quantity * newItem.ratePerUnit,
+        );
+        if (!gstEnabled) {
+          newItem.cgst = 0;
+          newItem.sgst = 0;
+          newItem.igst = 0;
+        } else if (isIGST) {
+          newItem.igst = (newItem.amount * newItem.gstRate) / 100;
+          newItem.cgst = 0;
+          newItem.sgst = 0;
+        } else {
+          newItem.cgst = (newItem.amount * newItem.gstRate) / 200;
+          newItem.sgst = (newItem.amount * newItem.gstRate) / 200;
+          newItem.igst = 0;
+        }
+
+        return [...nextItems, newItem];
+      });
+
+      if (notify) toast.success(`Added ${qty} x ${product.name}`);
+      return true;
+    },
+    [products, gstEnabled, isIGST],
+  );
+
+  const handleScanAdd = () => {
+    const success = addProductByBarcode(barcodeInput, barcodeQuantity);
+    if (!success) return;
+
+    setBarcodeInput("");
+    setBarcodeQuantity(1);
+    setBarcodeScannerOpen(false);
+  };
+
+  const stopCameraScan = useCallback(async () => {
+    const quagga = scannerInstanceRef.current;
+    if (quagga) {
+      try {
+        if (scannerDetectedHandlerRef.current) {
+          quagga.offDetected(scannerDetectedHandlerRef.current);
+        }
+      } catch {
+        // Ignore detach errors.
+      }
+      try {
+        quagga.stop();
+      } catch {
+        // Ignore stop errors.
+      }
+      scannerInstanceRef.current = null;
+      scannerDetectedHandlerRef.current = null;
     }
-  }, [barcodeSearch, products, gstEnabled, gstType, billItems, isIGST]);
+
+    const region = document.getElementById(scannerRegionIdRef.current);
+    if (region) region.innerHTML = "";
+
+    setScannerActive(false);
+    setScannerLoading(false);
+  }, []);
+
+  const startCameraScan = useCallback(async () => {
+    try {
+      setScannerError("");
+      setScannerLoading(true);
+
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setScannerError("Camera access is not available on this device.");
+        setScannerLoading(false);
+        return;
+      }
+
+      await stopCameraScan();
+      await new Promise((resolve) => setTimeout(resolve, 120));
+
+      let scannerRegion: HTMLElement | null = null;
+      for (let i = 0; i < 10; i += 1) {
+        scannerRegion = document.getElementById(scannerRegionIdRef.current);
+        if (scannerRegion) break;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+
+      if (!scannerRegion) {
+        setScannerError(
+          "Scanner UI failed to initialize. Please close and reopen scanner.",
+        );
+        setScannerLoading(false);
+        return;
+      }
+
+      const quaggaModule = await import("@ericblade/quagga2");
+      const Quagga = (quaggaModule.default ||
+        quaggaModule) as unknown as QuaggaLike;
+      scannerInstanceRef.current = Quagga;
+
+      const onDetected = (result: QuaggaDetectedResult) => {
+        const rawValue = (result?.codeResult?.code || "").trim();
+        if (!rawValue) return;
+
+        const now = Date.now();
+        const duplicateWithinCooldown =
+          lastScannedRef.current.code === rawValue &&
+          now - lastScannedRef.current.ts < 1200;
+        if (duplicateWithinCooldown) return;
+
+        lastScannedRef.current = { code: rawValue, ts: now };
+        setLastDecodedValue(rawValue);
+        setBarcodeInput(rawValue);
+        addProductByBarcode(rawValue, barcodeQuantityRef.current, true);
+      };
+      scannerDetectedHandlerRef.current = onDetected;
+
+      await new Promise<void>((resolve, reject) => {
+        Quagga.init(
+          {
+            inputStream: {
+              name: "Live",
+              type: "LiveStream",
+              target: scannerRegion,
+              constraints: {
+                facingMode: "environment",
+                width: { min: 640, ideal: 1280, max: 1920 },
+                height: { min: 360, ideal: 720, max: 1080 },
+              },
+              area: {
+                top: "20%",
+                right: "5%",
+                left: "5%",
+                bottom: "20%",
+              },
+            },
+            locate: true,
+            locator: {
+              patchSize: "medium",
+              halfSample: true,
+            },
+            numOfWorkers: Math.max(
+              1,
+              Math.min(4, navigator.hardwareConcurrency || 2),
+            ),
+            frequency: 10,
+            decoder: {
+              readers: [
+                "ean_reader",
+                "ean_8_reader",
+                "upc_reader",
+                "upc_e_reader",
+                "code_128_reader",
+                "code_39_reader",
+              ],
+            },
+          },
+          (err: unknown) => {
+            if (err) {
+              reject(err);
+              return;
+            }
+            resolve();
+          },
+        );
+      });
+
+      Quagga.onDetected(onDetected);
+      Quagga.start();
+
+      setScannerActive(true);
+      setScannerLoading(false);
+    } catch (error) {
+      console.error("Camera scan start failed:", error);
+      setScannerError(
+        "Scanner failed to start. Allow camera permission and try again.",
+      );
+      setScannerLoading(false);
+      setScannerActive(false);
+    }
+  }, [stopCameraScan, addProductByBarcode]);
+
+  useEffect(() => {
+    if (!barcodeScannerOpen) {
+      void stopCameraScan();
+      setScannerError("");
+      setLastDecodedValue("");
+      setBarcodeInput("");
+      setBarcodeQuantity(1);
+      return;
+    }
+    // Run scanner init once when dialog opens; avoid restart on unrelated re-renders.
+    void startCameraScan();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [barcodeScannerOpen]);
+
+  useEffect(() => {
+    return () => {
+      void stopCameraScan();
+    };
+  }, [stopCameraScan]);
 
   const resetClientForm = (prefillName?: string) => {
     setClientFormData({
@@ -648,6 +963,7 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
     item.itemNo = product.itemNo || "";
     item.model = product.model || "";
     item.imeiNumber = product.imeiNumber || "";
+    item.inventoryUnitId = undefined;
     item.storage = product.storage || "";
     item.color = product.color || "";
     item.vendorId = product.vendorId || "";
@@ -657,6 +973,15 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
     item.gstRate = product.gstRate;
     item.unit = product.unit;
     item.ratePerUnit = product.sellingPrice || product.price || 0;
+    if (normalizeImei(item.imeiNumber || "")) {
+      const unit = findSelectableUnitByImei(item.imeiNumber || "", product.id);
+      if (unit) {
+        item.inventoryUnitId = unit.id;
+        item.imeiNumber = unit.imeiNumber;
+      }
+      item.quantity = 1;
+      item.unit = "pcs";
+    }
     item.amount = roundToTwoDecimals(item.quantity * item.ratePerUnit);
     if (!gstEnabled) {
       item.cgst = 0;
@@ -677,6 +1002,23 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
 
   const normalizeLookupText = (value: string) =>
     value.replace(/\s+/g, "").trim().toLowerCase();
+  const normalizeImei = (value: string) => normalizeLookupText(value);
+
+  const isUnitSelectable = (unit: InventoryUnit) =>
+    unit.status === "in_stock" || (isEdit && unit.soldBillId === bill?.id);
+
+  const findSelectableUnitByImei = (imei: string, productId?: string) => {
+    const normalized = normalizeImei(imei);
+    if (!normalized) return null;
+    return (
+      inventoryUnits.find(
+        (u) =>
+          normalizeImei(u.imeiNormalized || u.imeiNumber) === normalized &&
+          (!productId || u.productId === productId) &&
+          isUnitSelectable(u),
+      ) || null
+    );
+  };
 
   const buildBillItemFromProduct = (product: Product): BillItem => {
     const quantity = 1;
@@ -697,6 +1039,7 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
 
     return {
       productId: product.id,
+      inventoryUnitId: undefined,
       productName: product.name,
       itemNo: product.itemNo || "",
       model: product.model || "",
@@ -718,8 +1061,34 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
     };
   };
 
-  const addProductByLookup = (product: Product) => {
-    const productImei = normalizeLookupText(product.imeiNumber || "");
+  const buildBillItemFromInventoryUnit = (
+    unit: InventoryUnit,
+    product: Product,
+  ): BillItem => {
+    const base = buildBillItemFromProduct(product);
+    base.inventoryUnitId = unit.id;
+    base.imeiNumber = unit.imeiNumber;
+    base.quantity = 1;
+    base.unit = "pcs";
+    base.amount = roundToTwoDecimals(base.quantity * base.ratePerUnit);
+    if (!gstEnabled) {
+      base.cgst = 0;
+      base.sgst = 0;
+      base.igst = 0;
+    } else if (isIGST) {
+      base.igst = roundToTwoDecimals((base.amount * base.gstRate) / 100);
+      base.cgst = 0;
+      base.sgst = 0;
+    } else {
+      base.cgst = roundToTwoDecimals((base.amount * base.gstRate) / 200);
+      base.sgst = roundToTwoDecimals((base.amount * base.gstRate) / 200);
+      base.igst = 0;
+    }
+    return base;
+  };
+
+  const addProductByLookup = (unit: InventoryUnit) => {
+    const productImei = normalizeLookupText(unit.imeiNumber || "");
     if (
       productImei &&
       billItems.some(
@@ -730,9 +1099,18 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
       return;
     }
 
-    setBillItems((prev) => [...prev, buildBillItemFromProduct(product)]);
+    const product = products.find((p) => p.id === unit.productId);
+    if (!product) {
+      toast.error("Product not found for selected IMEI unit");
+      return;
+    }
+
+    setBillItems((prev) => [
+      ...prev,
+      buildBillItemFromInventoryUnit(unit, product),
+    ]);
     setImeiLookup("");
-    toast.success(`Added ${product.name}`);
+    toast.success(`Added ${product.model || product.name}`);
   };
 
   const addItem = () => {
@@ -766,7 +1144,7 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
     setBillItems(billItems.filter((_, i) => i !== index));
   };
 
-  const updateItem = (index: number, field: string, value: any) => {
+  const updateItem = (index: number, field: string, value: string | number) => {
     const updated = [...billItems];
     const item = updated[index];
 
@@ -778,6 +1156,7 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
         item.itemNo = product.itemNo || "";
         item.model = product.model || "";
         item.imeiNumber = product.imeiNumber || "";
+        item.inventoryUnitId = undefined;
         item.storage = product.storage || "";
         item.color = product.color || "";
         item.vendorId = product.vendorId || "";
@@ -787,12 +1166,42 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
         item.gstRate = product.gstRate;
         item.unit = product.unit;
         item.ratePerUnit = product.sellingPrice || product.price || 0;
+        if (normalizeImei(item.imeiNumber || "")) {
+          const unit = findSelectableUnitByImei(
+            item.imeiNumber || "",
+            product.id,
+          );
+          if (unit) {
+            item.inventoryUnitId = unit.id;
+            item.imeiNumber = unit.imeiNumber;
+          }
+          item.quantity = 1;
+          item.unit = "pcs";
+        }
       }
-    } else if (field === "quantity" || field === "ratePerUnit") {
-      (item as any)[field] =
+    } else if (
+      field === "quantity" ||
+      field === "ratePerUnit" ||
+      field === "gstRate"
+    ) {
+      const numericValue =
         typeof value === "string" ? parseFloat(value) || 0 : value;
+      item[field] = numericValue as never;
     } else {
-      (item as any)[field] = value;
+      item[field as keyof BillItem] = String(value) as never;
+      if (field === "imeiNumber") {
+        const unit = findSelectableUnitByImei(String(value), item.productId);
+        item.inventoryUnitId = unit?.id;
+        item.quantity = normalizeImei(String(value)) ? 1 : item.quantity;
+        if (normalizeImei(String(value))) {
+          item.unit = "pcs";
+        }
+      }
+    }
+
+    if (normalizeImei(item.imeiNumber || "")) {
+      item.quantity = 1;
+      item.unit = "pcs";
     }
 
     item.amount = roundToTwoDecimals(item.quantity * item.ratePerUnit);
@@ -863,19 +1272,25 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
   const imeiMatches =
     lookupTerm.length < 3
       ? []
-      : products
-          .filter((product) => {
+      : inventoryUnits
+          .filter((unit) => {
+            if (!isUnitSelectable(unit)) return false;
+            const product = products.find((p) => p.id === unit.productId);
             const searchBlob = [
-              product.imeiNumber || "",
-              product.model || "",
-              product.itemNo || "",
-              product.name || "",
+              unit.imeiNumber || "",
+              product?.model || "",
+              product?.itemNo || "",
+              product?.name || unit.productName || "",
             ]
               .join(" ")
               .toLowerCase()
               .replace(/\s+/g, "");
             if (!searchBlob.includes(lookupTerm)) return false;
-            return getAvailableStock(product.id) > 0;
+            return !billItems.some(
+              (item) =>
+                normalizeImei(item.imeiNumber || "") ===
+                normalizeImei(unit.imeiNormalized || unit.imeiNumber),
+            );
           })
           .slice(0, 12);
 
@@ -891,29 +1306,15 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
   );
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Bill Information</CardTitle>
+    <div className="space-y-4 pb-24 sm:space-y-5 sm:pb-8">
+      <Card className="rounded-2xl border-border/70 shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold sm:text-lg">
+            Bill Information
+          </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4 items-end">
-            <div className="flex-1 space-y-2">
-              <Label className="flex items-center gap-2">
-                <PlusCircle className="h-4 w-4" />
-                Barcode Scanner (Fast Entry)
-              </Label>
-              <Input
-                placeholder="Scan barcode here to add item directly..."
-                value={barcodeSearch}
-                onChange={(e) => setBarcodeSearch(e.target.value)}
-                autoFocus
-                className="border-primary/50 focus:border-primary border-2"
-              />
-            </div>
-          </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <CardContent className="space-y-4 pt-0 sm:space-y-5">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {/* Bill Type Selection removed */}
 
             {/* Client Combobox */}
@@ -1055,7 +1456,12 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
                 onChange={(e) => {
                   const newDate = new Date(e.target.value);
                   const now = new Date();
-                  newDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+                  newDate.setHours(
+                    now.getHours(),
+                    now.getMinutes(),
+                    now.getSeconds(),
+                    now.getMilliseconds(),
+                  );
                   setFormData({ ...formData, date: newDate.toISOString() });
                 }}
               />
@@ -1096,7 +1502,7 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
               />
             </div>
 
-            <div className="space-y-2">
+            {/* <div className="space-y-2">
               <Label>Created By</Label>
               <Select
                 value={formData.createdBy}
@@ -1117,7 +1523,7 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </div> */}
 
             <div className="space-y-2">
               <Label>Mode of Payment</Label>
@@ -1130,8 +1536,8 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
               />
             </div>
 
-            {gstEnabled && (
-              <div className="space-y-2 md:col-span-2">
+            {billType !== "international" && gstEnabled && (
+              <div className="space-y-2 md:col-span-2 lg:col-span-3">
                 <Label>GST Type *</Label>
                 <Select
                   value={gstType}
@@ -1157,8 +1563,8 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
               </div>
             )}
 
-            {!gstEnabled && (
-              <div className="md:col-span-2 p-3 bg-muted rounded-lg">
+            {billType !== "international" && !gstEnabled && (
+              <div className="rounded-lg bg-muted p-3 md:col-span-2 lg:col-span-3">
                 <p className="text-sm text-muted-foreground">
                   GST is disabled in settings. Bills will be created without
                   GST.
@@ -1171,12 +1577,14 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
 
       {/* International Details Section */}
       {billType === "international" && (
-        <Card>
-          <CardHeader>
-            <CardTitle>International Shipping Details</CardTitle>
+        <Card className="rounded-2xl border-border/70 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold sm:text-lg">
+              International Shipping Details
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label>Pre-Carriage By</Label>
                 <Input
@@ -1327,9 +1735,11 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
 
       {/* GST Switch - Only show for domestic bills */}
       {billType !== "international" && (
-        <div className="flex items-center justify-between md:col-span-2 p-4 border rounded-lg bg-muted/30">
+        <div className="flex items-center justify-between rounded-xl border border-border/70 bg-muted/30 p-4">
           <div className="space-y-0.5">
-            <Label className="text-base">GST Billing</Label>
+            <Label className="text-sm font-semibold sm:text-base">
+              GST Billing
+            </Label>
             <p className="text-sm text-muted-foreground">
               {gstEnabled
                 ? "GST is enabled for this bill"
@@ -1342,18 +1752,31 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
 
       <Card className="border-primary/20 bg-gradient-to-br from-background via-background to-primary/5">
         <CardHeader className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start justify-between gap-3">
             <div>
-              <CardTitle>Bill Items</CardTitle>
+              <CardTitle className="text-base font-semibold sm:text-lg">
+                Bill Items
+              </CardTitle>
               <p className="text-xs text-muted-foreground mt-1">
                 Enter IMEI to fetch mobile quickly, or add manually.
               </p>
             </div>
-            <Button onClick={addItem} size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Item
-            </Button>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setBarcodeScannerOpen(true)}
+              >
+                <ScanLine className="h-4 w-4 mr-2" />
+                Scan Barcode
+              </Button>
+              <Button onClick={addItem} size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Item
+              </Button>
+            </div>
           </div>
+
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <div className="md:col-span-2">
               <Label className="flex items-center gap-2">
@@ -1379,38 +1802,47 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
                       No matching mobile found.
                     </p>
                   ) : (
-                    imeiMatches.map((product) => (
-                      <button
-                        key={`imei-${product.id}`}
-                        type="button"
-                        onClick={() => addProductByLookup(product)}
-                        className="flex w-full items-start justify-between gap-3 border-b px-3 py-2 text-left last:border-b-0 hover:bg-muted/40"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold">
-                            {product.model || product.name}
-                          </p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {[
-                              product.itemNo,
-                              product.imeiNumber,
-                              product.storage,
-                              product.color,
-                            ]
-                              .filter(Boolean)
-                              .join(" / ")}
-                          </p>
-                        </div>
-                        <div className="shrink-0 text-right text-xs">
-                          <p className="font-medium">
-                            Stock: {getAvailableStock(product.id)}
-                          </p>
-                          <p className="text-muted-foreground">
-                            Rate: {formatToTwoDecimals(product.sellingPrice || product.price || 0)}
-                          </p>
-                        </div>
-                      </button>
-                    ))
+                    imeiMatches.map((unit) => {
+                      const product =
+                        products.find((p) => p.id === unit.productId) || null;
+                      return (
+                        <button
+                          key={`imei-unit-${unit.id}`}
+                          type="button"
+                          onClick={() => addProductByLookup(unit)}
+                          className="flex w-full items-start justify-between gap-3 border-b px-3 py-2 text-left last:border-b-0 hover:bg-muted/40"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold">
+                              {product?.model ||
+                                product?.name ||
+                                unit.productName}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {[
+                                product?.itemNo,
+                                unit.imeiNumber,
+                                product?.storage,
+                                product?.color,
+                              ]
+                                .filter(Boolean)
+                                .join(" / ")}
+                            </p>
+                          </div>
+                          <div className="shrink-0 text-right text-xs">
+                            <p className="font-medium">
+                              Status: {unit.status.replace("_", " ")}
+                            </p>
+                            <p className="text-muted-foreground">
+                              Rate:{" "}
+                              {formatToTwoDecimals(
+                                product?.sellingPrice || product?.price || 0,
+                              )}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })
                   )}
                 </div>
               )}
@@ -1426,7 +1858,7 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0">
           <div className="space-y-4">
             {billItems.map((item, index) => {
               const selectedProductIds = billItems
@@ -1465,7 +1897,9 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
                           )}
                           {(item.storage || item.color) && (
                             <span className="rounded-full bg-muted px-2 py-0.5">
-                              {[item.storage, item.color].filter(Boolean).join(" / ")}
+                              {[item.storage, item.color]
+                                .filter(Boolean)
+                                .join(" / ")}
                             </span>
                           )}
                           {item.itemNo && (
@@ -1486,7 +1920,9 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
                           {gstEnabled && (
                             <p className="text-[10px] text-muted-foreground">
                               {isIGST ? "IGST" : "CGST+SGST"}: Rs{" "}
-                              {formatToTwoDecimals(item.igst || item.cgst + item.sgst)}
+                              {formatToTwoDecimals(
+                                item.igst || item.cgst + item.sgst,
+                              )}
                             </p>
                           )}
                         </div>
@@ -1502,7 +1938,11 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
                     </div>
                     <div className="grid grid-cols-1 gap-4 rounded-xl border border-border/60 bg-background/70 p-3 md:grid-cols-6">
                       {/* Product Combobox */}
-                      <div className={cn(gstEnabled ? "md:col-span-3" : "md:col-span-4")}>
+                      <div
+                        className={cn(
+                          gstEnabled ? "md:col-span-3" : "md:col-span-4",
+                        )}
+                      >
                         <Label>Product</Label>
                         <Popover
                           open={productComboOpenIndex === index}
@@ -1614,13 +2054,18 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
                         </Popover>
                       </div>
 
-                      <div>
-                        <Label>Quantity</Label>
+                      <div className="space-y-2 lg:col-span-2">
+                        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Quantity
+                        </Label>
                         <Input
                           type="number"
                           step="0.01"
                           min={isEdit && originalQty > 0 ? originalQty : 0}
                           value={item.quantity}
+                          disabled={Boolean(
+                            normalizeImei(item.imeiNumber || ""),
+                          )}
                           onChange={(e) => {
                             const value = parseFloat(e.target.value) || 0;
                             const roundedValue = Math.round(value * 100) / 100;
@@ -1637,12 +2082,12 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
                           }}
                           className={
                             item.quantity > availableStock
-                              ? "border-red-500"
-                              : ""
+                              ? "h-11 rounded-xl border-red-500"
+                              : "h-11 rounded-xl"
                           }
                         />
                         {item.productId && (
-                          <p className="text-xs text-muted-foreground mt-1">
+                          <p className="text-xs text-muted-foreground">
                             Available:{" "}
                             {availableStock % 1 === 0
                               ? availableStock
@@ -1667,8 +2112,10 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
                         )}
                       </div>
 
-                      <div>
-                        <Label>Rate</Label>
+                      <div className="space-y-2 lg:col-span-2">
+                        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Rate
+                        </Label>
                         <Input
                           type="number"
                           value={item.ratePerUnit}
@@ -1679,12 +2126,15 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
                               parseFloat(e.target.value) || 0,
                             )
                           }
+                          className="h-11 rounded-xl"
                         />
                       </div>
 
                       {gstEnabled && (
-                        <div>
-                          <Label>GST %</Label>
+                        <div className="space-y-2 lg:col-span-2">
+                          <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            GST %
+                          </Label>
                           <Input
                             type="number"
                             value={item.gstRate}
@@ -1695,6 +2145,7 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
                                 parseFloat(e.target.value) || 0,
                               )
                             }
+                            className="h-11 rounded-xl"
                           />
                         </div>
                       )}
@@ -1759,11 +2210,13 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Additional Details</CardTitle>
+      <Card className="rounded-2xl border-border/70 shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold sm:text-lg">
+            Additional Details
+          </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-0">
           <div className="space-y-2">
             <Label>Notes</Label>
             <Textarea
@@ -1843,19 +2296,19 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent className="pt-6">
-          <div className="space-y-2 text-right">
-            <div className="flex justify-between text-lg">
+      <Card className="rounded-2xl border-border/70 bg-muted/20 shadow-sm">
+        <CardContent className="pt-5">
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm sm:text-base">
               <span>Subtotal:</span>
               <span>₹{totals.subtotal.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-lg">
+            <div className="flex justify-between text-sm sm:text-base">
               <span>Total Tax:</span>
               <span>₹{formatToTwoDecimals(totals.totalTax)}</span>
             </div>
             {discountNum > 0 && totals.discount > 0 && (
-              <div className="flex justify-between text-lg text-red-600">
+              <div className="flex justify-between text-sm text-red-600 sm:text-base">
                 <span>
                   Discount{" "}
                   {formData.discountType === "percentage"
@@ -1867,7 +2320,7 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
               </div>
             )}
             {(parseFloat(String(formData.otherCharges)) || 0) > 0 && (
-              <div className="flex justify-between text-lg">
+              <div className="flex justify-between text-sm sm:text-base">
                 <span>Other Charges:</span>
                 <span>
                   ₹
@@ -1886,7 +2339,7 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
                 </span>
               </div>
             )}
-            <div className="flex justify-between text-2xl font-bold border-t pt-2">
+            <div className="flex justify-between border-t pt-3 text-lg font-bold sm:text-xl">
               <span>Total:</span>
               <span>₹{formatToTwoDecimals(totals.total)}</span>
             </div>
@@ -1894,11 +2347,11 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
         </CardContent>
       </Card>
 
-      <div className="flex gap-4">
+      <div className="sticky bottom-0 z-20 flex flex-col-reverse gap-3 rounded-xl border border-border/70 bg-background/95 p-3 backdrop-blur sm:static sm:flex-row sm:gap-4 sm:border-0 sm:bg-transparent sm:p-0">
         <Button
           onClick={handleSubmit}
           size="lg"
-          className="flex-1"
+          className="h-11 flex-1"
           loading={saving}
         >
           <Save className="h-5 w-5 mr-2" />
@@ -1907,12 +2360,133 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
         <Button
           variant="outline"
           size="lg"
+          className="h-11 sm:w-auto"
           onClick={() => navigate("/bills")}
           disabled={saving}
         >
           Cancel
         </Button>
       </div>
+
+      <Dialog open={barcodeScannerOpen} onOpenChange={setBarcodeScannerOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Scan Barcode</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant={scannerActive ? "secondary" : "default"}
+                onClick={() => void startCameraScan()}
+                disabled={scannerLoading}
+              >
+                {scannerLoading ? "Opening Camera..." : "Restart Scanner"}
+              </Button>
+              {scannerActive && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void stopCameraScan()}
+                >
+                  Stop Scanner
+                </Button>
+              )}
+            </div>
+
+            <div className="overflow-hidden rounded-lg border border-border/70 bg-black/90">
+              <div
+                id={scannerRegionIdRef.current}
+                className="h-56 w-full sm:h-64"
+              />
+              {!scannerActive && !scannerLoading && (
+                <div className="flex items-center justify-center py-2 text-xs text-muted-foreground">
+                  Scanner stopped. Tap "Restart Scanner"
+                </div>
+              )}
+            </div>
+
+            {scannerError && (
+              <p className="text-sm text-red-500">{scannerError}</p>
+            )}
+
+            {lastDecodedValue && (
+              <p className="text-xs text-emerald-600">
+                Detected:{" "}
+                <span className="font-medium">{lastDecodedValue}</span>
+              </p>
+            )}
+
+            <div className="space-y-2">
+              <Label>Barcode / Stock Code</Label>
+              <Input
+                value={barcodeInput}
+                onChange={(e) => setBarcodeInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleScanAdd();
+                  }
+                }}
+                placeholder="Scan with scanner or type code"
+                autoFocus
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Quantity</Label>
+              <Input
+                type="number"
+                min={1}
+                step={1}
+                value={barcodeQuantity}
+                onChange={(e) =>
+                  setBarcodeQuantity(
+                    Math.max(1, parseInt(e.target.value, 10) || 1),
+                  )
+                }
+              />
+            </div>
+
+            {barcodeInput.trim() && (
+              <p className="text-xs text-muted-foreground">
+                {products.find((p) => {
+                  const a = (p.barcode || "").trim();
+                  const b = barcodeInput.trim();
+                  return (
+                    a === b || a.replace(/^0+/, "") === b.replace(/^0+/, "")
+                  );
+                })
+                  ? "Matched product found. Product is ready to add."
+                  : "No matching product yet for this barcode."}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Tip: Keep barcode horizontal in frame and hold 10-20 cm away.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              If no result in 2-3 sec, tap "Restart Scanner" and try better
+              light.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              On mobile, tap "Restart Scanner" and keep barcode steady 10-20 cm
+              from camera.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                void stopCameraScan();
+                setBarcodeScannerOpen(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleScanAdd}>Add To Bill</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ClientForm
         open={createClientOpen}
@@ -1957,7 +2531,9 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="bill-bank-holder">Account Holder Name *</Label>
+                  <Label htmlFor="bill-bank-holder">
+                    Account Holder Name *
+                  </Label>
                   <Input
                     id="bill-bank-holder"
                     required
@@ -2008,7 +2584,10 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
                   id="bill-bank-upi"
                   value={bankFormData.upiId || ""}
                   onChange={(e) =>
-                    setBankFormData((prev) => ({ ...prev, upiId: e.target.value }))
+                    setBankFormData((prev) => ({
+                      ...prev,
+                      upiId: e.target.value,
+                    }))
                   }
                   placeholder="e.g. name@bank"
                 />
@@ -2021,7 +2600,9 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
                     setBankFormData((prev) => ({ ...prev, isDefault: checked }))
                   }
                 />
-                <Label htmlFor="bill-bank-default">Set as default account</Label>
+                <Label htmlFor="bill-bank-default">
+                  Set as default account
+                </Label>
               </div>
             </div>
             <DialogFooter className="dialog-form-footer">
@@ -2034,7 +2615,9 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
                 Cancel
               </Button>
               <Button type="submit" disabled={savingBank}>
-                {savingBank && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {savingBank && (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                )}
                 Save Bank Account
               </Button>
             </DialogFooter>
@@ -2044,6 +2627,3 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
     </div>
   );
 }
-
-
-

@@ -930,7 +930,11 @@ export function ProductHistory({
 
       // First, get purchases from transactions that have billId
       transactions.forEach((transaction) => {
-        if (transaction.billId && transaction.purchasePrice) {
+        if (
+          transaction.type === "purchase" &&
+          transaction.billId &&
+          transaction.purchasePrice
+        ) {
           // Find the corresponding purchase bill
           const bill = purchaseBills.find((b) => b.id === transaction.billId);
           if (bill) {
@@ -960,7 +964,11 @@ export function ProductHistory({
 
       // Add manual stock additions from transactions (those without billId)
       transactions.forEach((transaction) => {
-        if (!transaction.billId && transaction.purchasePrice) {
+        if (
+          transaction.type === "purchase" &&
+          !transaction.billId &&
+          transaction.purchasePrice
+        ) {
           purchases.push({
             id: transaction.id,
             date: transaction.date,

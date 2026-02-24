@@ -134,7 +134,6 @@ export default function Vendors() {
     const transactions: any[] = [];
 
     vendorBills.forEach((bill) => {
-      // Add payments only - Purchase and Return payments
       if (bill.payments) {
         bill.payments.forEach((payment) => {
           const isReturnPayment = payment.amount < 0;
@@ -182,8 +181,6 @@ export default function Vendors() {
         return matchesSearch && matchesDate;
       })
       .sort((a, b) => {
-        // Sort by full timestamp DESCENDING (newest first - most recent at top)
-        // This includes hours, minutes, seconds for precise ordering
         return new Date(b.date).getTime() - new Date(a.date).getTime();
       });
   };
@@ -352,7 +349,7 @@ export default function Vendors() {
     const stats = getVendorStats(viewingVendor.id, viewingVendor.name);
 
     return (
-      <div className="h-[calc(100dvh-8.5rem)] w-full overflow-hidden sm:h-[calc(100dvh-9.5rem)]">
+      <div className="flex h-full min-h-0 w-full flex-col gap-3 overflow-hidden">
         <div className="relative h-full w-full overflow-hidden rounded-[28px] border border-emerald-500/20 bg-gradient-to-br from-background via-background to-emerald-500/10 p-3 shadow-sm sm:p-5 lg:p-6">
           <div className="pointer-events-none absolute -right-14 -top-16 h-40 w-40 rounded-full bg-emerald-500/10 blur-3xl" />
           <div className="pointer-events-none absolute -bottom-20 -left-20 h-52 w-52 rounded-full bg-amber-500/10 blur-3xl" />
@@ -796,52 +793,77 @@ export default function Vendors() {
   }
 
   return (
-    <div className="h-[calc(100dvh-8.5rem)] w-full overflow-hidden sm:h-[calc(100dvh-9.5rem)]">
-      <div className="relative flex h-full min-h-0 flex-col rounded-[28px] border border-border/70 bg-background p-3 shadow-sm sm:p-5 lg:p-6">
-        <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background/95 p-3 backdrop-blur sm:p-4">
-          <div className="page-header-controls">
-            <div className="page-header-title">
-              <div className="page-header-icon">
-                <Store className="h-5 w-5 md:h-6 md:w-6" />
-              </div>
-              <div>
-                <h1 className="page-title">Vendors</h1>
-                <p className="page-subtitle">Manage your supply chain</p>
-              </div>
+    <div className="flex h-full min-h-0 w-full flex-col gap-3 overflow-hidden">
+      <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-gradient-to-br from-background via-background to-slate-50/40 p-3 shadow-sm sm:p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-center justify-start gap-3 sm:gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-border">
+              <Store className="h-5 w-5" />
             </div>
-            <Dialog
-              open={isOpen}
-              onOpenChange={(open) => {
-                setIsOpen(open);
-                if (!open) resetForm();
-              }}
-            >
-              <DialogTrigger asChild>
-                <Button size="sm" className="page-header-btn">
-                  <Plus className="h-5 w-5 mr-2" />
-                  Add Vendor
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="dialog-form-content sm:max-w-[500px]">
-                <DialogHeader className="dialog-form-header">
-                  <DialogTitle>
-                    {editingVendor ? "Edit Vendor" : "Add Vendor"}
-                  </DialogTitle>
-                </DialogHeader>
-                <form
-                  onSubmit={handleSubmit}
-                  className="dialog-form-body space-y-4"
-                >
-                  <div className="space-y-2">
-                    <Label>Vendor Name *</Label>
-                    <Input
-                      required
-                      value={formData.name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, name: e.target.value })
-                      }
-                    />
-                  </div>
+            <div className="min-w-0 text-left">
+              <h1 className="truncate text-2xl font-semibold leading-tight sm:text-3xl">
+                Vendors
+              </h1>
+              <p className="text-sm text-muted-foreground">Manage your supply chain</p>
+            </div>
+          </div>
+          <Dialog
+            open={isOpen}
+            onOpenChange={(open) => {
+              setIsOpen(open);
+              if (!open) resetForm();
+            }}
+          >
+            <DialogTrigger asChild>
+              <Button size="sm" className="h-10 rounded-xl px-3 text-sm">
+                <Plus className="h-5 w-5 mr-2" />
+                Add Vendor
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="dialog-form-content sm:max-w-[500px]">
+              <DialogHeader className="dialog-form-header">
+                <DialogTitle>
+                  {editingVendor ? "Edit Vendor" : "Add Vendor"}
+                </DialogTitle>
+              </DialogHeader>
+              <form
+                onSubmit={handleSubmit}
+                className="dialog-form-body space-y-4"
+              >
+                <div className="space-y-2">
+                  <Label>Vendor Name *</Label>
+                  <Input
+                    required
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>GSTIN</Label>
+                  <Input
+                    value={formData.gstin}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        gstin: e.target.value.toUpperCase(),
+                      })
+                    }
+                    maxLength={15}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Address</Label>
+                  <Textarea
+                    value={formData.address}
+                    onChange={(e) =>
+                      setFormData({ ...formData, address: e.target.value })
+                    }
+                    rows={3}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Phone</Label>
                     <Input
@@ -853,210 +875,185 @@ export default function Vendors() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Address</Label>
-                    <Textarea
-                      value={formData.address}
+                    <Label>Email</Label>
+                    <Input
+                      type="email"
+                      value={formData.email}
                       onChange={(e) =>
-                        setFormData({ ...formData, address: e.target.value })
+                        setFormData({ ...formData, email: e.target.value })
                       }
-                      rows={2}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>GSTIN (Optional)</Label>
-                      <Input
-                        value={formData.gstin}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            gstin: e.target.value.toUpperCase(),
-                          })
-                        }
-                        maxLength={15}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Email (Optional)</Label>
-                      <Input
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) =>
-                          setFormData({ ...formData, email: e.target.value })
-                        }
-                      />
-                    </div>
-                  </div>
-                  <div className="dialog-form-footer flex justify-end gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setIsOpen(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button type="submit" loading={saving}>
-                      {editingVendor ? "Update" : "Add"} Vendor
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
-
-        <div className="mt-4 flex-1 min-h-0 rounded-2xl border border-border/70 bg-background/60 p-2 sm:p-3">
-          <div className="h-full overflow-y-auto space-y-6 pr-1 sm:pr-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search vendors..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filteredVendors.length === 0 && (
-                <div className="col-span-full flex flex-col items-center justify-center py-16 border-2 border-dashed rounded-2xl text-center gap-4">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600">
-                    <Store className="h-8 w-8" />
-                  </div>
-                  <div>
-                    <p className="text-lg font-semibold text-foreground">
-                      No vendors yet
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Add your first vendor to get started
-                    </p>
-                  </div>
-                  <Button size="sm" onClick={() => setIsOpen(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Vendor
+                </div>
+                <div className="dialog-form-footer flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" loading={saving}>
+                    {editingVendor ? "Update" : "Add"} Vendor
                   </Button>
                 </div>
-              )}
-              {filteredVendors.map((vendor) => (
-                <Card
-                  key={vendor.id}
-                  className="group relative overflow-hidden border-border/70 bg-gradient-to-br from-background via-background to-emerald-500/5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
-                >
-                  <div className="pointer-events-none absolute -right-12 -top-12 h-28 w-28 rounded-full bg-emerald-500/10 blur-2xl" />
-                  <div className="pointer-events-none absolute -bottom-16 -left-16 h-32 w-32 rounded-full bg-amber-500/10 blur-2xl" />
-                  <CardHeader className="relative pb-3">
-                    <CardTitle className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex items-start gap-3">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-700 ring-1 ring-emerald-500/20">
-                          <Store className="h-5 w-5" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="truncate text-base font-semibold leading-tight">
-                            {vendor.name}
-                          </p>
-                          <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                            <BadgeCheck className="h-3.5 w-3.5" />
-                            Vendor Profile
-                          </p>
-                        </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-border/70 bg-background/70 p-2 sm:p-4">
+        <div className="h-full overflow-y-auto space-y-5 pr-1 sm:pr-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search vendors..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {filteredVendors.length === 0 && (
+              <div className="col-span-full flex flex-col items-center justify-center py-16 border-2 border-dashed rounded-2xl text-center gap-4">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600">
+                  <Store className="h-8 w-8" />
+                </div>
+                <div>
+                  <p className="text-lg font-semibold text-foreground">
+                    No vendors yet
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Add your first vendor to get started
+                  </p>
+                </div>
+                <Button size="sm" onClick={() => setIsOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Vendor
+                </Button>
+              </div>
+            )}
+            {filteredVendors.map((vendor) => (
+              <Card
+                key={vendor.id}
+                className="group relative overflow-hidden border-border/70 bg-gradient-to-br from-background via-background to-emerald-500/5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+              >
+                <div className="pointer-events-none absolute -right-12 -top-12 h-28 w-28 rounded-full bg-emerald-500/10 blur-2xl" />
+                <div className="pointer-events-none absolute -bottom-16 -left-16 h-32 w-32 rounded-full bg-amber-500/10 blur-2xl" />
+                <CardHeader className="relative pb-3">
+                  <CardTitle className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex items-start gap-3">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-700 ring-1 ring-emerald-500/20">
+                        <Store className="h-5 w-5" />
                       </div>
-                      <div className="flex gap-1 rounded-xl border border-border/60 bg-background/85 p-1 backdrop-blur">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-700"
-                          onClick={() => setViewingVendor(vendor)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-700"
-                          onClick={() => handleEdit(vendor)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      <div className="min-w-0">
+                        <p className="truncate text-base font-semibold leading-tight">
+                          {vendor.name}
+                        </p>
+                        <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                          <BadgeCheck className="h-3.5 w-3.5" />
+                          Vendor Profile
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-1 rounded-xl border border-border/60 bg-background/85 p-1 backdrop-blur">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-700"
+                        onClick={() => setViewingVendor(vendor)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-700"
+                        onClick={() => handleEdit(vendor)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Vendor</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete {vendor.name}?
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDelete(vendor.id)}
                             >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Vendor</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to delete {vendor.name}?
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDelete(vendor.id)}
-                              >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="relative space-y-3 pt-0 text-sm">
-                    {vendor.address && (
-                      <div className="rounded-xl border border-border/60 bg-muted/30 p-3">
-                        <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          <MapPin className="h-3.5 w-3.5" />
-                          Address
-                        </p>
-                        <p className="text-sm leading-relaxed text-foreground/90">
-                          {vendor.address}
-                        </p>
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="relative space-y-3 pt-0 text-sm">
+                  {vendor.address && (
+                    <div className="rounded-xl border border-border/60 bg-muted/30 p-3">
+                      <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        <MapPin className="h-3.5 w-3.5" />
+                        Address
+                      </p>
+                      <p className="text-sm leading-relaxed text-foreground/90">
+                        {vendor.address}
+                      </p>
+                    </div>
+                  )}
+                  <div className="space-y-2 rounded-xl border border-border/60 bg-background/70 p-3">
+                    {vendor.gstin && (
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          GSTIN
+                        </span>
+                        <span className="max-w-[60%] truncate rounded-md bg-emerald-500/10 px-2 py-0.5 font-mono text-xs text-emerald-700">
+                          {vendor.gstin}
+                        </span>
                       </div>
                     )}
-                    <div className="space-y-2 rounded-xl border border-border/60 bg-background/70 p-3">
-                      {vendor.gstin && (
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            GSTIN
-                          </span>
-                          <span className="max-w-[60%] truncate rounded-md bg-emerald-500/10 px-2 py-0.5 font-mono text-xs text-emerald-700">
-                            {vendor.gstin}
-                          </span>
-                        </div>
-                      )}
-                      {vendor.phone && (
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="inline-flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            <Phone className="h-3 w-3" />
-                            Phone
-                          </span>
-                          <span className="truncate text-xs font-medium">
-                            {vendor.phone}
-                          </span>
-                        </div>
-                      )}
-                      {vendor.email && (
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="inline-flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            <Mail className="h-3 w-3" />
-                            Email
-                          </span>
-                          <span className="max-w-[65%] truncate text-xs font-medium">
-                            {vendor.email}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    {vendor.phone && (
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="inline-flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          <Phone className="h-3 w-3" />
+                          Phone
+                        </span>
+                        <span className="truncate text-xs font-medium">
+                          {vendor.phone}
+                        </span>
+                      </div>
+                    )}
+                    {vendor.email && (
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="inline-flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          <Mail className="h-3 w-3" />
+                          Email
+                        </span>
+                        <span className="max-w-[65%] truncate text-xs font-medium">
+                          {vendor.email}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         </div>
       </div>

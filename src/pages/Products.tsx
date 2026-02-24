@@ -94,7 +94,8 @@ export default function Products() {
   const [isAddStockOpen, setIsAddStockOpen] = useState(false);
   const [addingStock, setAddingStock] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string>("");
-  const [selectedStockVendorId, setSelectedStockVendorId] = useState<string>("");
+  const [selectedStockVendorId, setSelectedStockVendorId] =
+    useState<string>("");
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [stockFormData, setStockFormData] = useState({
     quantity: "",
@@ -169,9 +170,12 @@ export default function Products() {
 
     products.forEach((product, index) => {
       const transactions = allTransactions[index] || [];
+      const purchaseTransactions = transactions.filter(
+        (t) => t.type === "purchase",
+      );
 
-      if (transactions.length > 0) {
-        let filteredTransactions = [...transactions].sort(
+      if (purchaseTransactions.length > 0) {
+        let filteredTransactions = [...purchaseTransactions].sort(
           (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
         );
 
@@ -421,7 +425,9 @@ export default function Products() {
     setAddingStock(true);
     try {
       if (selectedProduct && selectedStockVendorId) {
-        const selectedVendor = vendors.find((v) => v.id === selectedStockVendorId);
+        const selectedVendor = vendors.find(
+          (v) => v.id === selectedStockVendorId,
+        );
         if (
           selectedProduct.vendorId !== selectedStockVendorId ||
           (selectedVendor && selectedProduct.whereToBuy !== selectedVendor.name)
@@ -429,7 +435,8 @@ export default function Products() {
           await saveProduct({
             ...selectedProduct,
             vendorId: selectedStockVendorId,
-            whereToBuy: selectedVendor?.name || selectedProduct.whereToBuy || "",
+            whereToBuy:
+              selectedVendor?.name || selectedProduct.whereToBuy || "",
           });
         }
       }
@@ -755,21 +762,22 @@ export default function Products() {
   }
 
   return (
-    <div className="h-[calc(100dvh-8.5rem)] w-full overflow-hidden sm:h-[calc(100dvh-9.5rem)]">
-      <div className="relative flex h-full min-h-0 flex-col rounded-[28px] border border-border/70 bg-background p-3 shadow-sm sm:p-5 lg:p-6">
-        <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background/95 p-3 backdrop-blur sm:p-4">
-          <div className="page-header-controls">
-            <div className="page-header-title">
-              <div className="page-header-icon">
-                <Package className="h-5 w-5 md:h-6 md:w-6" />
+    <div className="flex h-full min-h-0 w-full flex-col gap-3 overflow-hidden">
+      <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-gradient-to-br from-background via-background to-slate-50/40 p-3 shadow-sm sm:p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 items-center justify-start gap-3 sm:gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-border">
+                <Package className="h-5 w-5" />
               </div>
-              <div>
-                <h1 className="page-title">Products</h1>
-                <p className="page-subtitle">Manage your product inventory</p>
+              <div className="min-w-0 text-left">
+                <h1 className="truncate text-2xl font-semibold leading-tight sm:text-3xl">
+                  Products
+                </h1>
+                <p className="text-sm text-muted-foreground">Manage your product inventory</p>
               </div>
             </div>
 
-            <div className="hidden sm:flex page-header-actions">
+            <div className="hidden w-full items-center gap-2 sm:flex lg:w-auto">
               <ProductForm
                 open={isOpen}
                 onOpenChange={(open) => {
@@ -783,7 +791,7 @@ export default function Products() {
               />
               <Button
                 size="sm"
-                className="page-header-btn"
+                className="h-10 rounded-xl px-3 text-sm"
                 onClick={() => setIsOpen(true)}
               >
                 <Plus className="h-4 w-4 mr-2" />
@@ -834,8 +842,8 @@ export default function Products() {
                           Current stock:{" "}
                           {products.find((p) => p.id === selectedProductId)
                             ?.stock || 0}{" "}
-                          {products.find((p) => p.id === selectedProductId)?.unit ||
-                            ""}
+                          {products.find((p) => p.id === selectedProductId)
+                            ?.unit || ""}
                         </p>
                       )}
                     </div>
@@ -985,9 +993,8 @@ export default function Products() {
             </div>
           </div>
         </div>
-        <div className="mt-4 flex-1 min-h-0 rounded-2xl border border-border/70 bg-background/60 p-2 sm:p-3">
-          <div className="h-full overflow-y-auto space-y-6 pr-1 sm:pr-2">
-
+        <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-border/70 bg-background/70 p-2 sm:p-4">
+          <div className="h-full overflow-y-auto space-y-5 pr-1 sm:pr-2">
             <div className="flex flex-col gap-2">
               <div className="relative w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
@@ -1027,7 +1034,10 @@ export default function Products() {
                   </SelectContent>
                 </Select>
 
-                <Select value={avgPriceFilter} onValueChange={setAvgPriceFilter}>
+                <Select
+                  value={avgPriceFilter}
+                  onValueChange={setAvgPriceFilter}
+                >
                   <SelectTrigger className="h-9 flex-1 min-w-[130px] text-sm">
                     <SelectValue placeholder="Avg Price" />
                   </SelectTrigger>
@@ -1148,8 +1158,8 @@ export default function Products() {
                             Current stock:{" "}
                             {products.find((p) => p.id === selectedProductId)
                               ?.stock || 0}{" "}
-                            {products.find((p) => p.id === selectedProductId)?.unit ||
-                              ""}
+                            {products.find((p) => p.id === selectedProductId)
+                              ?.unit || ""}
                           </p>
                         )}
                       </div>
@@ -1268,89 +1278,82 @@ export default function Products() {
 
             {products.length > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-200 dark:border-blue-800">
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">
-                          Total Products
-                        </p>
-                        <p className="text-2xl font-bold mt-1">
-                          {stats.totalProducts}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {roundToTwoDecimals(stats.totalStock).toFixed(2)} total
-                          stock
-                        </p>
+                <Card className="border-blue-200 bg-gradient-to-br from-blue-500/10 to-blue-600/5 dark:border-blue-800">
+                  <CardContent className="flex h-full min-h-[124px] flex-col justify-between p-4 sm:p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Total Products
+                      </p>
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-500/10">
+                        <Package className="h-5 w-5 text-blue-600" />
                       </div>
-                      <div className="h-12 w-12 rounded-full bg-blue-500/10 flex items-center justify-center">
-                        <Package className="h-6 w-6 text-blue-600" />
-                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-2xl font-bold leading-none">{stats.totalProducts}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {roundToTwoDecimals(stats.totalStock).toFixed(2)} total stock
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border-emerald-200 dark:border-emerald-800">
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">
-                          Inventory Value
-                        </p>
-                        <p className="text-2xl font-bold text-emerald-600 mt-1">
-                          {formatCurrency(stats.totalInventoryValue)}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          At purchase price
-                        </p>
+                <Card className="border-emerald-200 bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 dark:border-emerald-800">
+                  <CardContent className="flex h-full min-h-[124px] flex-col justify-between p-4 sm:p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Inventory Value
+                      </p>
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/10">
+                        <DollarSign className="h-5 w-5 text-emerald-600" />
                       </div>
-                      <div className="h-12 w-12 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                        <DollarSign className="h-6 w-6 text-emerald-600" />
-                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-2xl font-bold leading-none text-emerald-600">
+                        {formatCurrency(stats.totalInventoryValue)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">At purchase price</p>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-200 dark:border-purple-800">
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">
-                          With Commission
-                        </p>
-                        <p className="text-2xl font-bold text-purple-600 mt-1">
-                          {formatCurrency(stats.totalValueWithCommission)}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Potential selling value
-                        </p>
+                <Card className="border-purple-200 bg-gradient-to-br from-purple-500/10 to-purple-600/5 dark:border-purple-800">
+                  <CardContent className="flex h-full min-h-[124px] flex-col justify-between p-4 sm:p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-medium text-muted-foreground">
+                        With Commission
+                      </p>
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-purple-500/10">
+                        <Calculator className="h-5 w-5 text-purple-600" />
                       </div>
-                      <div className="h-12 w-12 rounded-full bg-purple-500/10 flex items-center justify-center">
-                        <Calculator className="h-6 w-6 text-purple-600" />
-                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-2xl font-bold leading-none text-purple-600">
+                        {formatCurrency(stats.totalValueWithCommission)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Potential selling value</p>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border-orange-200 dark:border-orange-800">
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">
-                          Profit Potential
-                        </p>
-                        <p className="text-2xl font-bold text-orange-600 mt-1">
-                          {formatCurrency(stats.totalProfitPotential)}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {stats.averageMarginPercent > 0
-                            ? `${roundToTwoDecimals(stats.averageMarginPercent).toFixed(1)}% margin`
-                            : "No margin"}
-                        </p>
+                <Card className="border-orange-200 bg-gradient-to-br from-orange-500/10 to-orange-600/5 dark:border-orange-800">
+                  <CardContent className="flex h-full min-h-[124px] flex-col justify-between p-4 sm:p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Profit Potential
+                      </p>
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-orange-500/10">
+                        <TrendingUp className="h-5 w-5 text-orange-600" />
                       </div>
-                      <div className="h-12 w-12 rounded-full bg-orange-500/10 flex items-center justify-center">
-                        <TrendingUp className="h-6 w-6 text-orange-600" />
-                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-2xl font-bold leading-none text-orange-600">
+                        {formatCurrency(stats.totalProfitPotential)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {stats.averageMarginPercent > 0
+                          ? `${roundToTwoDecimals(stats.averageMarginPercent).toFixed(1)}% margin`
+                          : "No margin"}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
@@ -1361,7 +1364,9 @@ export default function Products() {
               <Card>
                 <CardContent className="text-center py-12">
                   <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p className="text-muted-foreground mb-4">No products added yet</p>
+                  <p className="text-muted-foreground mb-4">
+                    No products added yet
+                  </p>
                   <Button onClick={() => setIsOpen(true)}>
                     Add your first product
                   </Button>
@@ -1396,7 +1401,9 @@ export default function Products() {
                   );
                   const marginPercent =
                     currentAvgPurchasePrice > 0
-                      ? roundToTwoDecimals((margin / currentAvgPurchasePrice) * 100)
+                      ? roundToTwoDecimals(
+                          (margin / currentAvgPurchasePrice) * 100,
+                        )
                       : 0;
                   const productVendorName =
                     vendors.find((v) => v.id === product.vendorId)?.name ||
@@ -1406,10 +1413,10 @@ export default function Products() {
                   const stockValue = roundToTwoDecimals(getStockValue(product));
                   const stockValueWithCommission = roundToTwoDecimals(
                     product.stock *
-                    calculateSellingPriceFromCommission(
-                      currentAvgPurchasePrice,
-                      companyProfile?.commissionSettings,
-                    ),
+                      calculateSellingPriceFromCommission(
+                        currentAvgPurchasePrice,
+                        companyProfile?.commissionSettings,
+                      ),
                   );
                   const profitPotential = roundToTwoDecimals(
                     stockValueWithCommission - stockValue,
@@ -1418,32 +1425,35 @@ export default function Products() {
                   return (
                     <Card
                       key={product.id}
-                      className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-primary overflow-hidden"
+                      className="group relative overflow-hidden border border-border/70 bg-gradient-to-br from-background via-background to-primary/5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-xl"
                     >
-                      <div className="flex gap-3 p-4 pb-2">
-                        <div className="w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-muted border">
+                      <div className="pointer-events-none absolute -right-14 -top-14 h-28 w-28 rounded-full bg-primary/10 blur-2xl" />
+                      <div className="pointer-events-none absolute -bottom-16 -left-16 h-32 w-32 rounded-full bg-cyan-500/10 blur-2xl" />
+
+                      <div className="relative flex gap-3 p-4 pb-3">
+                        <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl border border-border/70 bg-muted/50">
                           {product.imageUrl ? (
                             <img
                               src={product.imageUrl}
                               alt={product.name}
-                              className="w-full h-full object-cover"
+                              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center">
+                            <div className="flex h-full w-full items-center justify-center">
                               <Package className="h-8 w-8 text-muted-foreground/40" />
                             </div>
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-1">
+                          <div className="flex items-start justify-between gap-2">
                             <h3 className="text-base font-bold leading-tight line-clamp-2">
                               {product.name}
                             </h3>
-                            <div className="flex gap-1 flex-shrink-0">
+                            <div className="flex flex-shrink-0 gap-1 rounded-xl border border-border/60 bg-background/85 p-1 backdrop-blur">
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7"
+                                className="h-7 w-7 text-muted-foreground hover:bg-primary/10 hover:text-primary"
                                 onClick={() => handleEdit(product)}
                               >
                                 <Edit className="h-3.5 w-3.5" />
@@ -1453,7 +1463,7 @@ export default function Products() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-7 w-7"
+                                    className="h-7 w-7 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                                   >
                                     <Trash2 className="h-3.5 w-3.5" />
                                   </Button>
@@ -1464,11 +1474,14 @@ export default function Products() {
                                       Delete Product
                                     </AlertDialogTitle>
                                     <AlertDialogDescription>
-                                      Are you sure you want to delete {product.name}?
+                                      Are you sure you want to delete{" "}
+                                      {product.name}?
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogCancel>
+                                      Cancel
+                                    </AlertDialogCancel>
                                     <AlertDialogAction
                                       onClick={() => handleDelete(product.id)}
                                     >
@@ -1495,25 +1508,28 @@ export default function Products() {
                         </div>
                       </div>
 
-                      <CardContent className="pt-2 space-y-3">
-                        <div className="bg-muted/50 p-3 rounded-lg">
-                          <div className="flex justify-between items-center mb-2">
+                      <CardContent className="relative space-y-3 pt-0">
+                        <div className="rounded-xl border border-border/70 bg-muted/35 p-3">
+                          <div className="mb-2 flex items-center justify-between">
                             <span className="text-sm font-medium text-muted-foreground">
                               Stock
                             </span>
                             <span
-                              className={`text-lg font-bold ${product.stock < 10
+                              className={`text-lg font-bold leading-none ${
+                                product.stock < 10
                                   ? "text-orange-600"
                                   : "text-emerald-600"
-                                }`}
+                              }`}
                             >
                               {product.stock % 1 === 0
                                 ? product.stock
-                                : roundToTwoDecimals(product.stock).toFixed(2)}{" "}
+                                : roundToTwoDecimals(product.stock).toFixed(
+                                    2,
+                                  )}{" "}
                               {product.unit}
                             </span>
                           </div>
-                          <div className="flex justify-between items-center text-xs text-muted-foreground">
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
                             <span>Avg Purchase Price</span>
                             <span className="font-medium">
                               {formatCurrency(
@@ -1543,21 +1559,25 @@ export default function Products() {
                               {product.weightUnit || ""}
                             </span>
                           </div>
-                          <div className="flex justify-between items-center text-xs text-muted-foreground mt-1">
+                          <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
                             <span>Vendor</span>
-                            <span className="font-medium">{productVendorName}</span>
+                            <span className="max-w-[65%] truncate font-medium text-right">
+                              {productVendorName}
+                            </span>
                           </div>
                         </div>
 
                         {currentAvgPurchasePrice > 0 && (
-                          <div className="bg-gradient-to-r from-emerald-500/10 to-blue-500/10 p-3 rounded-lg space-y-2 border border-emerald-200/50">
-                            <div className="flex justify-between items-center text-sm">
-                              <span className="font-medium">Current Avg Price</span>
+                          <div className="space-y-2 rounded-xl border border-emerald-200/50 bg-gradient-to-r from-emerald-500/10 to-blue-500/10 p-3">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="font-medium">
+                                Current Avg Price
+                              </span>
                               <span className="font-medium">
                                 {formatCurrency(currentAvgPurchasePrice)}
                               </span>
                             </div>
-                            <div className="flex justify-between items-center text-sm">
+                            <div className="flex items-center justify-between text-sm">
                               <span className="text-muted-foreground">
                                 Stock Value
                               </span>
@@ -1566,7 +1586,8 @@ export default function Products() {
                               </span>
                             </div>
                             {companyProfile?.commissionSettings && (
-                              <div className="flex justify-between items-center text-sm">
+                              <>
+                              <div className="flex items-center justify-between text-sm">
                                 <span className="text-muted-foreground">
                                   Selling Price
                                 </span>
@@ -1574,6 +1595,19 @@ export default function Products() {
                                   {formatCurrency(sellingPrice)}
                                 </span>
                               </div>
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">
+                                  Profit Potential
+                                </span>
+                                <span className="font-medium text-emerald-600">
+                                  {formatCurrency(profitPotential)}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                <span>Margin %</span>
+                                <span className="font-medium">{marginPercent.toFixed(2)}%</span>
+                              </div>
+                              </>
                             )}
                           </div>
                         )}
@@ -1581,7 +1615,7 @@ export default function Products() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="w-full"
+                          className="w-full border-border/70 bg-background/90 hover:bg-primary/5"
                           onClick={() => {
                             setHistoryProduct(product);
                           }}
@@ -1620,7 +1654,6 @@ export default function Products() {
               </div>
             )}
           </div>
-        </div>
       </div>
     </div>
   );

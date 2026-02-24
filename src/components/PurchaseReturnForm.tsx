@@ -17,6 +17,8 @@ import { Loader2 } from "lucide-react";
 
 interface ReturnItemState {
   productId: string; // Ensure productId is here
+  inventoryUnitId?: string;
+  imeiNumber?: string;
   selected: boolean;
   returnQuantity: number;
   maxQuantity: number;
@@ -47,16 +49,27 @@ export function PurchaseReturnForm({ open, onOpenChange, bill, onSuccess, editRe
         const products = await getProducts();
         setReturnDate(editReturn?.returnDate || new Date().toISOString());
         const itemsState: ReturnItemState[] = bill.items.map(item => {
-          const editedItem = editReturn?.items.find(ri => ri.description === item.description);
+          const editedItem = editReturn?.items.find(
+            (ri) =>
+              (ri.inventoryUnitId && ri.inventoryUnitId === (item as any).inventoryUnitId) ||
+              (!!ri.imeiNumber &&
+                !!(item as any).imeiNumber &&
+                ri.imeiNumber.replace(/\s+/g, "").toLowerCase() ===
+                  (item as any).imeiNumber.replace(/\s+/g, "").toLowerCase()) ||
+              ri.description === item.description
+          );
           const product = products.find(p => 
             p.name.toLowerCase().trim() === item.description.toLowerCase().trim() || 
             (item.hsnCode && p.hsnCode === item.hsnCode)
           );
+          const isSerialized = Boolean((item as any).inventoryUnitId || (item as any).imeiNumber);
           return {
             productId: product?.id || '',
+            inventoryUnitId: (item as any).inventoryUnitId || undefined,
+            imeiNumber: (item as any).imeiNumber || undefined,
             selected: !!editedItem,
-            returnQuantity: editedItem?.quantity || 0,
-            maxQuantity: item.quantity,
+            returnQuantity: editedItem?.quantity || (isSerialized ? 1 : 0),
+            maxQuantity: isSerialized ? 1 : item.quantity,
             currentStock: product?.stock || 0,
             description: item.description,
             rate: item.rate,
@@ -88,6 +101,12 @@ export function PurchaseReturnForm({ open, onOpenChange, bill, onSuccess, editRe
 
   const updateQuantity = (index: number, quantity: number) => {
     const newItems = [...returnItems];
+    if (newItems[index].inventoryUnitId || newItems[index].imeiNumber) {
+      newItems[index].returnQuantity = quantity > 0 ? 1 : 0;
+      newItems[index].selected = newItems[index].returnQuantity > 0;
+      setReturnItems(newItems);
+      return;
+    }
     const billQty = newItems[index].maxQuantity;
     const stockQty = newItems[index].currentStock;
     
@@ -118,13 +137,18 @@ export function PurchaseReturnForm({ open, onOpenChange, bill, onSuccess, editRe
       }
 
       const items: PurchaseReturnItem[] = selectedItems.map(item => {
-        const amount = item.returnQuantity * item.rate;
+        const qty = (item.inventoryUnitId || item.imeiNumber)
+          ? 1
+          : item.returnQuantity;
+        const amount = qty * item.rate;
         const gstAmount = (amount * item.gstRate) / 100;
         return {
           productId: item.productId || '',
+          inventoryUnitId: item.inventoryUnitId,
+          imeiNumber: item.imeiNumber,
           productName: item.description,
           description: item.description, // Added description property
-          quantity: item.returnQuantity,
+          quantity: qty,
           rate: item.rate,
           amount,
           gstRate: item.gstRate,
@@ -162,7 +186,10 @@ export function PurchaseReturnForm({ open, onOpenChange, bill, onSuccess, editRe
   const totalReturnAmount = returnItems
     .filter(item => item.selected && item.returnQuantity > 0)
     .reduce((sum, item) => {
-      const amount = item.returnQuantity * item.rate;
+      const qty = (item.inventoryUnitId || item.imeiNumber)
+        ? (item.returnQuantity > 0 ? 1 : 0)
+        : item.returnQuantity;
+      const amount = qty * item.rate;
       const gstAmount = (amount * item.gstRate) / 100;
       return sum + amount + gstAmount;
     }, 0);
@@ -201,6 +228,7 @@ export function PurchaseReturnForm({ open, onOpenChange, bill, onSuccess, editRe
                 <tr>
                   <th className="p-2 text-left w-10">Return</th>
                   <th className="p-2 text-left">Item Description</th>
+                  <th className="p-2 text-left w-44">IMEI</th>
                   <th className="p-2 text-right w-20">Stock</th>
                   <th className="p-2 text-right w-24">Purchased</th>
                   <th className="p-2 text-right w-28">Return Qty</th>
@@ -211,7 +239,9 @@ export function PurchaseReturnForm({ open, onOpenChange, bill, onSuccess, editRe
               </thead>
               <tbody>
                 {returnItems.map((item, index) => {
-                  const amount = item.returnQuantity * item.rate;
+                  const effectiveQty =
+                    item.inventoryUnitId || item.imeiNumber ? (item.returnQuantity > 0 ? 1 : 0) : item.returnQuantity;
+                  const amount = effectiveQty * item.rate;
                   const gstAmount = (amount * item.gstRate) / 100;
                   const totalAmount = amount + gstAmount;
                   
@@ -224,6 +254,9 @@ export function PurchaseReturnForm({ open, onOpenChange, bill, onSuccess, editRe
                         />
                       </td>
                       <td className="p-2 font-medium">{item.description}</td>
+                      <td className="p-2 text-xs text-muted-foreground">
+                        {item.imeiNumber ? `IMEI: ${item.imeiNumber}` : "-"}
+                      </td>
                       <td className={`p-2 text-right ${item.currentStock <= 0 ? 'text-red-500 font-bold' : 'text-emerald-600'}`}>
                         {item.currentStock}
                       </td>
@@ -238,7 +271,11 @@ export function PurchaseReturnForm({ open, onOpenChange, bill, onSuccess, editRe
                           value={item.returnQuantity}
                           onChange={(e) => updateQuantity(index, parseFloat(e.target.value) || 0)}
                           className="w-20 text-right ml-auto"
-                          disabled={(!item.selected && item.returnQuantity === 0) || item.currentStock <= 0}
+                          disabled={
+                            Boolean(item.inventoryUnitId || item.imeiNumber) ||
+                            (!item.selected && item.returnQuantity === 0) ||
+                            item.currentStock <= 0
+                          }
                         />
                       </td>
                       <td className="p-2 text-right">{item.rate.toFixed(2)}</td>

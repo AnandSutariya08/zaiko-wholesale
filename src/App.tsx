@@ -12,9 +12,6 @@ import Bills from "@/pages/Bills";
 import CreateBill from "@/pages/CreateBill";
 import EditBill from "@/pages/EditBill";
 import BillDetail from "@/pages/BillDetail";
-import GSTBill from "@/pages/GSTBill";
-import NonGSTBill from "@/pages/NonGSTBill";
-import InternationalBill from "@/pages/InternationalBill";
 import Products from "@/pages/Products";
 import Clients from "@/pages/Clients";
 import Settings from "@/pages/Settings";
@@ -35,6 +32,7 @@ import BankAccounts from "@/pages/BankAccounts";
 import ExpoDashboard from "@/pages/Expo/ExpoDashboard";
 import AIAgent from "@/pages/AIAgent";
 import BusinessHealth from "@/pages/BusinessHealth";
+import IMEITimeline from "@/pages/IMEITimeline";
 import { LoadingSpinner } from "./components/LoadingSpinner";
 import { Suspense } from "react";
 import { SampleBillForm } from "./components/SampleBillForm";
@@ -64,9 +62,9 @@ const App = () => (
                     <Routes>
                       <Route path="/" element={<Dashboard />} />
                       <Route path="/bills" element={<Bills />} />
-                      <Route path="/bills/gst" element={<GSTBill />} />
-                      <Route path="/bills/non-gst" element={<NonGSTBill />} />
-                      <Route path="/bills/international" element={<InternationalBill />} />
+                      <Route path="/bills/gst" element={<Bills />} />
+                      <Route path="/bills/non-gst" element={<Bills />} />
+                      <Route path="/bills/international" element={<Bills />} />
                       <Route path="/sample-bill" element={<SampleBill />} />
                       <Route path="/bills/new" element={<CreateBill />} />
                       <Route path="/bills/:id" element={<BillDetail />} />
@@ -78,6 +76,7 @@ const App = () => (
                       <Route path="/products" element={<Products />} />
                       <Route path="/clients" element={<Clients />} />
                       <Route path="/vendors" element={<Vendors />} />
+                      <Route path="/imei-timeline" element={<IMEITimeline />} />
                       <Route path="/settings" element={<Settings />} />
                       <Route path="/files" element={<Files />} />
                       <Route path="/notes" element={<Notes />} />

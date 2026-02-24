@@ -42,6 +42,7 @@ import {
   BankAccount,
   Vendor,
   Expo,
+  InventoryUnit,
 } from "@/types";
 
 // Collection names
@@ -51,6 +52,7 @@ const COLLECTIONS = {
   PRODUCTS: "products",
   BILLS: "bills",
   INVENTORY: "inventory",
+  INVENTORY_UNITS: "inventoryUnits",
   BILL_COUNTER: "counters",
   PURCHASE_BILLS: "purchaseBills",
   BILL_RETURNS: "billReturns",
@@ -554,6 +556,7 @@ export const saveBill = async (bill: Bill): Promise<void> => {
   try {
     const userId = getUserId();
     const batch = writeBatch(db);
+    const now = new Date().toISOString();
 
     // Check if this is an update by trying to fetch the existing bill
     const billRef = doc(db, COLLECTIONS.BILLS, bill.id);
@@ -620,6 +623,65 @@ export const saveBill = async (bill: Bill): Promise<void> => {
           throw new Error(`Product not found: ${productId}`);
         }
       }
+    }
+
+    const imeiItems = bill.items.filter((item) =>
+      Boolean(normalizeImeiText(item.imeiNumber)),
+    );
+    const seenImeis = new Set<string>();
+    for (const item of imeiItems) {
+      const imei = normalizeImeiText(item.imeiNumber);
+      if (item.quantity !== 1) {
+        throw new Error(
+          `IMEI item "${item.productName}" must have quantity 1.`,
+        );
+      }
+      if (seenImeis.has(imei)) {
+        throw new Error(`Duplicate IMEI in bill: ${item.imeiNumber}`);
+      }
+      seenImeis.add(imei);
+    }
+
+    const inventoryUnits = await getInventoryUnits();
+    const soldByThisBill = inventoryUnits.filter((u) => u.soldBillId === bill.id);
+    const requiredImeis = new Set(imeiItems.map((i) => normalizeImeiText(i.imeiNumber)));
+
+    if (isUpdate) {
+      for (const unit of soldByThisBill) {
+        const unitImei = normalizeImeiText(unit.imeiNormalized || unit.imeiNumber);
+        if (!requiredImeis.has(unitImei)) {
+          const unitRef = doc(db, COLLECTIONS.INVENTORY_UNITS, unit.id);
+          batch.update(unitRef, {
+            status: "in_stock",
+            soldBillId: null,
+            soldAt: null,
+            updatedAt: now,
+          });
+        }
+      }
+    }
+
+    for (const item of imeiItems) {
+      const imei = normalizeImeiText(item.imeiNumber);
+      const candidate = inventoryUnits.find(
+        (u) =>
+          normalizeImeiText(u.imeiNormalized || u.imeiNumber) === imei &&
+          u.productId === item.productId &&
+          (u.status === "in_stock" || u.soldBillId === bill.id),
+      );
+      if (!candidate) {
+        throw new Error(
+          `IMEI ${item.imeiNumber} is not available in inventory for ${item.productName}.`,
+        );
+      }
+      item.inventoryUnitId = candidate.id;
+      const unitRef = doc(db, COLLECTIONS.INVENTORY_UNITS, candidate.id);
+      batch.update(unitRef, {
+        status: "sold",
+        soldBillId: bill.id,
+        soldAt: now,
+        updatedAt: now,
+      });
     }
 
     // Save bill
@@ -735,6 +797,7 @@ export const saveBill = async (bill: Bill): Promise<void> => {
         clientName: bill.client?.name || "",
         date: new Date().toISOString(),
         userId,
+        inventoryUnitId: item.inventoryUnitId || "",
       };
       batch.set(transactionRef, transaction);
     }
@@ -774,6 +837,19 @@ export const deleteBill = async (id: string): Promise<void> => {
           const newStock = product.stock + item.quantity;
           batch.update(productRef, { stock: newStock });
         }
+      }
+
+      // Restore sold IMEI units for this bill
+      const units = await getInventoryUnits();
+      const soldUnits = units.filter((u) => u.soldBillId === id);
+      for (const unit of soldUnits) {
+        const unitRef = doc(db, COLLECTIONS.INVENTORY_UNITS, unit.id);
+        batch.update(unitRef, {
+          status: "in_stock",
+          soldBillId: null,
+          soldAt: null,
+          updatedAt: new Date().toISOString(),
+        });
       }
 
       await batch.commit();
@@ -982,9 +1058,7 @@ export const getProductTransactions = async (
 ): Promise<InventoryTransaction[]> => {
   try {
     const transactions = await getInventoryTransactions();
-    return transactions.filter(
-      (t) => t.productId === productId && t.type === "purchase"
-    );
+    return transactions.filter((t) => t.productId === productId);
   } catch (error) {
     console.error("Error getting product transactions:", error);
     return [];
@@ -1177,41 +1251,97 @@ export const savePurchaseReturn = async (
 
     // 3. Adjust Stock if requested
     if (adjustStock) {
+      const products = await getProducts();
+      const inventoryUnits = await getInventoryUnits();
+
       for (const item of returnOrder.items) {
-        // Find product by description and update stock
-        const productsQuery = query(
-          collection(db, COLLECTIONS.PRODUCTS),
-          where("userId", "==", userId)
-        );
-        const productsSnap = await getDocs(productsQuery);
-        const productDoc = productsSnap.docs.find(d => 
-          (d.data().name as string).toLowerCase().trim() === item.description.toLowerCase().trim()
-        );
-        
-        if (productDoc) {
-          const productRef = productDoc.ref;
-          const currentStock = productDoc.data().stock || 0;
-
-          // For PURCHASE return, we are returning items TO the vendor, so stock should DECREASE
-          const newStock = currentStock - item.quantity;
-          batch.update(productRef, { stock: Math.round(newStock * 100) / 100 });
-
-
-          // Record inventory transaction for the return
-          const transactionRef = doc(collection(db, COLLECTIONS.INVENTORY));
-          const transaction = {
-            id: transactionRef.id,
-            productId: productDoc.id,
-            purchaseReturnId: returnOrder.id,
-            type: "purchase_return",
-            quantity: -item.quantity, // Negative because we are removing from stock
-            date: returnOrder.returnDate || new Date().toISOString(),
-            userId,
-          };
-          batch.set(transactionRef, removeUndefined(transaction));
-        } else {
-          console.warn(`Product not found for return item: ${item.description}`);
+        const normalizedImei = normalizeImeiText(item.imeiNumber);
+        const isSerialized = Boolean(item.inventoryUnitId || normalizedImei);
+        if (isSerialized && item.quantity !== 1) {
+          throw new Error(
+            `Serialized purchase return item "${item.description}" must have quantity 1.`,
+          );
         }
+
+        let matchedUnit: InventoryUnit | undefined;
+        if (isSerialized) {
+          matchedUnit =
+            inventoryUnits.find((u) => u.id === item.inventoryUnitId) ||
+            inventoryUnits.find(
+              (u) =>
+                normalizeImeiText(u.imeiNormalized || u.imeiNumber) === normalizedImei,
+            );
+          if (!matchedUnit) {
+            throw new Error(
+              `Could not find inventory unit for purchase return item "${item.description}" (${item.imeiNumber || "unknown IMEI"}).`,
+            );
+          }
+          if (matchedUnit.status !== "in_stock") {
+            throw new Error(
+              `IMEI ${matchedUnit.imeiNumber} is not in stock (current status: ${matchedUnit.status}).`,
+            );
+          }
+          if (item.productId && matchedUnit.productId !== item.productId) {
+            throw new Error(
+              `IMEI ${matchedUnit.imeiNumber} does not belong to selected product.`,
+            );
+          }
+        }
+
+        const matchedProduct =
+          products.find((p) => p.id === item.productId) ||
+          (matchedUnit
+            ? products.find((p) => p.id === matchedUnit?.productId)
+            : undefined) ||
+          products.find(
+            (p) =>
+              p.name.toLowerCase().trim() ===
+              (item.description || item.productName || "").toLowerCase().trim(),
+          );
+
+        if (!matchedProduct) {
+          throw new Error(`Product not found for return item: ${item.description}`);
+        }
+
+        const currentStock = matchedProduct.stock || 0;
+        const newStock = currentStock - item.quantity;
+        if (newStock < 0) {
+          throw new Error(
+            `Insufficient stock for return item "${item.description}". Available: ${currentStock}, requested: ${item.quantity}.`,
+          );
+        }
+
+        batch.update(doc(db, COLLECTIONS.PRODUCTS, matchedProduct.id), {
+          stock: Math.round(newStock * 100) / 100,
+        });
+
+        if (matchedUnit) {
+          batch.update(doc(db, COLLECTIONS.INVENTORY_UNITS, matchedUnit.id), {
+            status: "returned",
+            notes: `Returned to vendor via purchase return ${returnOrder.id}`,
+            updatedAt: new Date().toISOString(),
+          });
+        }
+
+        // Record inventory transaction for the return
+        const transactionRef = doc(collection(db, COLLECTIONS.INVENTORY));
+        const transaction = {
+          id: transactionRef.id,
+          productId: matchedProduct.id,
+          purchaseReturnId: returnOrder.id,
+          type: "purchase_return" as const,
+          quantity: -item.quantity,
+          date: returnOrder.returnDate || new Date().toISOString(),
+          inventoryUnitId: matchedUnit?.id || item.inventoryUnitId,
+          imeiNumber: matchedUnit?.imeiNumber || item.imeiNumber || "",
+          purchasePrice:
+            matchedUnit?.purchasePrice ||
+            matchedProduct.purchasePrice ||
+            item.rate ||
+            0,
+          userId,
+        };
+        batch.set(transactionRef, removeUndefined(transaction));
       }
     }
 
@@ -1255,19 +1385,54 @@ export const deletePurchaseReturn = async (returnId: string, purchaseBillId: str
 
     // 3. Revert Stock
     if (adjustStock) {
-      for (const item of returnOrder.items) {
-        const productsQuery = query(collection(db, COLLECTIONS.PRODUCTS), where("userId", "==", userId));
-        const productsSnap = await getDocs(productsQuery);
-        const productDoc = productsSnap.docs.find(d => (d.data().name as string).toLowerCase().trim() === item.description.toLowerCase().trim());
-        
-        if (productDoc) {
-          const currentStock = productDoc.data().stock || 0;
-          const newStock = currentStock + item.quantity; // Restore stock
-          batch.update(productDoc.ref, { stock: Math.round(newStock * 100) / 100 });
+      const products = await getProducts();
+      const inventoryUnits = await getInventoryUnits();
+      const txQuery = query(
+        collection(db, COLLECTIONS.INVENTORY),
+        where("purchaseReturnId", "==", returnId),
+      );
+      const txSnap = await getDocs(txQuery);
+      txSnap.forEach((d) => batch.delete(d.ref));
 
-          const q = query(collection(db, COLLECTIONS.INVENTORY), where("purchaseReturnId", "==", returnId));
-          const snap = await getDocs(q);
-          snap.forEach(d => batch.delete(d.ref));
+      for (const item of returnOrder.items) {
+        const normalizedImei = normalizeImeiText(item.imeiNumber);
+        const matchedUnit =
+          inventoryUnits.find((u) => u.id === item.inventoryUnitId) ||
+          inventoryUnits.find(
+            (u) =>
+              normalizeImeiText(u.imeiNormalized || u.imeiNumber) === normalizedImei,
+          );
+        const matchedProduct =
+          products.find((p) => p.id === item.productId) ||
+          (matchedUnit
+            ? products.find((p) => p.id === matchedUnit.productId)
+            : undefined) ||
+          products.find(
+            (p) =>
+              p.name.toLowerCase().trim() ===
+              (item.description || item.productName || "").toLowerCase().trim(),
+          );
+
+        if (!matchedProduct) {
+          throw new Error(`Product not found while reverting return item: ${item.description}`);
+        }
+
+        const currentStock = matchedProduct.stock || 0;
+        const newStock = currentStock + item.quantity;
+        batch.update(doc(db, COLLECTIONS.PRODUCTS, matchedProduct.id), {
+          stock: Math.round(newStock * 100) / 100,
+        });
+
+        if (matchedUnit) {
+          batch.update(doc(db, COLLECTIONS.INVENTORY_UNITS, matchedUnit.id), {
+            status: "in_stock",
+            notes:
+              matchedUnit.notes ===
+              `Returned to vendor via purchase return ${returnId}`
+                ? ""
+                : matchedUnit.notes || "",
+            updatedAt: new Date().toISOString(),
+          });
         }
       }
     }
@@ -1278,6 +1443,118 @@ export const deletePurchaseReturn = async (returnId: string, purchaseBillId: str
     throw error;
   }
 };
+
+export const getInventoryUnits = async (): Promise<InventoryUnit[]> => {
+  try {
+    const userId = getUserId();
+    const q = query(
+      collection(db, COLLECTIONS.INVENTORY_UNITS),
+      where("userId", "==", userId),
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map((d) => d.data() as InventoryUnit);
+  } catch (error) {
+    console.error("Error getting inventory units:", error);
+    return [];
+  }
+};
+
+export const getAvailableInventoryUnits = async (
+  productId?: string,
+): Promise<InventoryUnit[]> => {
+  try {
+    const all = await getInventoryUnits();
+    const filtered = all.filter((u) => {
+      if (u.status !== "in_stock") return false;
+      if (productId && u.productId !== productId) return false;
+      return true;
+    });
+    return filtered.sort((a, b) => {
+      const dA = new Date(a.createdAt || 0).getTime();
+      const dB = new Date(b.createdAt || 0).getTime();
+      return dB - dA;
+    });
+  } catch (error) {
+    console.error("Error getting available inventory units:", error);
+    return [];
+  }
+};
+
+export const getInventoryUnitByImei = async (
+  imei: string,
+): Promise<InventoryUnit | null> => {
+  try {
+    const normalized = normalizeImeiText(imei);
+    if (!normalized) return null;
+    const all = await getInventoryUnits();
+    return (
+      all.find((u) => normalizeImeiText(u.imeiNormalized || u.imeiNumber) === normalized) ||
+      null
+    );
+  } catch (error) {
+    console.error("Error getting inventory unit by IMEI:", error);
+    return null;
+  }
+};
+
+export const saveInventoryUnit = async (unit: InventoryUnit): Promise<void> => {
+  try {
+    const userId = getUserId();
+    const now = new Date().toISOString();
+    const docRef = doc(db, COLLECTIONS.INVENTORY_UNITS, unit.id);
+    await setDoc(
+      docRef,
+      removeUndefined({
+        ...unit,
+        userId,
+        imeiNormalized: normalizeImeiText(unit.imeiNumber),
+        updatedAt: unit.updatedAt || now,
+      }),
+      { merge: true },
+    );
+  } catch (error) {
+    console.error("Error saving inventory unit:", error);
+    throw error;
+  }
+};
+
+const normalizeImeiText = (value?: string): string =>
+  (value || "").toString().replace(/\s+/g, "").trim().toLowerCase();
+
+const normalizeVariantPart = (value?: string): string =>
+  (value || "").toString().trim().toLowerCase();
+
+const normalizeImei = (value?: string): string =>
+  (value || "").toString().replace(/\s+/g, "").toLowerCase();
+
+const buildVariantKey = (item: {
+  description?: string;
+  name?: string;
+  model?: string;
+  storage?: string;
+  color?: string;
+  itemNo?: string;
+}): string =>
+  [
+    normalizeVariantPart(item.description || item.name),
+    normalizeVariantPart(item.model),
+    normalizeVariantPart(item.storage),
+    normalizeVariantPart(item.color),
+    normalizeVariantPart(item.itemNo),
+  ].join("|");
+
+const isVariantSensitiveItem = (item: {
+  model?: string;
+  storage?: string;
+  color?: string;
+  itemNo?: string;
+}): boolean =>
+  Boolean(
+    normalizeVariantPart(item.model) ||
+      normalizeVariantPart(item.storage) ||
+      normalizeVariantPart(item.color) ||
+      normalizeVariantPart(item.itemNo),
+  );
 
 export const addPurchaseItemsToInventory = async (
   bill: PurchaseBill,
@@ -1292,8 +1569,45 @@ export const addPurchaseItemsToInventory = async (
     let added = 0;
     let updated = 0;
     const conflicts: ProductConflict[] = [];
+    const seenImeis = new Set<string>();
+    const existingUnits = await getInventoryUnits();
 
     for (const item of itemsWithSellingPrice) {
+      const normalizedImei = normalizeImei(item.imeiNumber);
+      if (!normalizedImei) continue;
+
+      if (Number(item.quantity) !== 1) {
+        throw new Error(
+          `IMEI/Serial item "${item.description}" must have quantity 1.`,
+        );
+      }
+
+      if (seenImeis.has(normalizedImei)) {
+        throw new Error(
+          `Duplicate IMEI/Serial in this bill: ${item.imeiNumber || ""}`,
+        );
+      }
+      seenImeis.add(normalizedImei);
+
+      const existingImeiProduct = products.find(
+        (p) => normalizeImei((p as any).imeiNumber) === normalizedImei,
+      );
+      const existingImeiUnit = existingUnits.find(
+        (u) =>
+          normalizeImei(u.imeiNormalized || u.imeiNumber) === normalizedImei &&
+          u.status !== "deadstock",
+      );
+      if (existingImeiProduct || existingImeiUnit) {
+        throw new Error(
+          `IMEI/Serial ${item.imeiNumber || ""} already exists in inventory (${existingImeiProduct?.name || existingImeiUnit?.productName || "existing unit"}).`,
+        );
+      }
+    }
+
+    for (const item of itemsWithSellingPrice) {
+      const itemVariantKey = buildVariantKey(item);
+      const itemIsVariantSensitive = isVariantSensitiveItem(item);
+
       // 1. Check for manual product selection (isNewProduct = false)
       if (item.isNewProduct === false && item.productId) {
         const selectedProduct = products.find((p) => p.id === item.productId);
@@ -1314,11 +1628,28 @@ export const addPurchaseItemsToInventory = async (
       // 3. Conflict resolution takes precedence if provided (legacy/fallback)
       if (conflictResolutions && conflictResolutions.has(item.hsnCode || "")) {
         const chosenName = conflictResolutions.get(item.hsnCode || "")!;
-        const productsWithSameHSN = products.filter(p => p.hsnCode === item.hsnCode);
-        const productToUpdate = productsWithSameHSN.find((p) => p.name === chosenName) || productsWithSameHSN[0];
+        const productsWithSameHSN = products.filter(
+          (p) => p.hsnCode === item.hsnCode,
+        );
+        const productToUpdate =
+          productsWithSameHSN.find(
+            (p) =>
+              p.name === chosenName &&
+              (!itemIsVariantSensitive ||
+                buildVariantKey(p) === itemVariantKey),
+          ) ||
+          productsWithSameHSN.find((p) => buildVariantKey(p) === itemVariantKey) ||
+          productsWithSameHSN[0];
 
         if (productToUpdate) {
-          await updateExistingProductWithNameChange(productToUpdate, item, chosenName, bill, batch, userId);
+          await updateExistingProductWithNameChange(
+            productToUpdate,
+            item,
+            chosenName,
+            bill,
+            batch,
+            userId,
+          );
           updated++;
           continue;
         }
@@ -1326,7 +1657,11 @@ export const addPurchaseItemsToInventory = async (
 
       // 4. Default automated matching logic
       if (!item.hsnCode) {
-        const existingProduct = products.find((p) => p.name.toLowerCase() === item.description.toLowerCase());
+        const existingProduct = products.find((p) =>
+          itemIsVariantSensitive
+            ? buildVariantKey(p) === itemVariantKey
+            : p.name.toLowerCase() === item.description.toLowerCase(),
+        );
         if (existingProduct) {
           await updateExistingProduct(existingProduct, item, bill, batch, userId);
           updated++;
@@ -1337,7 +1672,9 @@ export const addPurchaseItemsToInventory = async (
         continue;
       }
 
-      const productsWithSameHSN = products.filter((p) => p.hsnCode && p.hsnCode === item.hsnCode);
+      const productsWithSameHSN = products.filter(
+        (p) => p.hsnCode && p.hsnCode === item.hsnCode,
+      );
 
       if (productsWithSameHSN.length === 0) {
         await createNewProduct(item, bill, batch, userId);
@@ -1345,7 +1682,24 @@ export const addPurchaseItemsToInventory = async (
         continue;
       }
 
-      const exactMatch = productsWithSameHSN.find((p) => p.name.toLowerCase() === item.description.toLowerCase());
+      const variantMatch = productsWithSameHSN.find(
+        (p) => buildVariantKey(p) === itemVariantKey,
+      );
+      if (variantMatch) {
+        await updateExistingProduct(variantMatch, item, bill, batch, userId);
+        updated++;
+        continue;
+      }
+
+      if (itemIsVariantSensitive) {
+        await createNewProduct(item, bill, batch, userId);
+        added++;
+        continue;
+      }
+
+      const exactMatch = productsWithSameHSN.find(
+        (p) => p.name.toLowerCase() === item.description.toLowerCase(),
+      );
       if (exactMatch) {
         await updateExistingProduct(exactMatch, item, bill, batch, userId);
         updated++;
@@ -1398,6 +1752,44 @@ export interface InventoryItemInput {
   isNewProduct?: boolean;
 }
 
+const addInventoryUnitForPurchase = (
+  batch: any,
+  userId: string,
+  item: InventoryItemInput,
+  product: Product,
+  bill: PurchaseBill,
+) => {
+  const normalizedImei = normalizeImei(item.imeiNumber);
+  if (!normalizedImei) return;
+
+  const unitRef = doc(collection(db, COLLECTIONS.INVENTORY_UNITS));
+  const now = new Date().toISOString();
+  const unit: InventoryUnit = {
+    id: unitRef.id,
+    userId,
+    productId: product.id,
+    productName: product.name,
+    imeiNumber: item.imeiNumber || "",
+    imeiNormalized: normalizedImei,
+    variantKey: buildVariantKey({
+      description: item.description || product.name,
+      model: item.model || product.model || "",
+      storage: item.storage || product.storage || "",
+      color: item.color || product.color || "",
+      itemNo: item.itemNo || product.itemNo || "",
+    }),
+    vendorId: item.vendorId || bill.vendorId || "",
+    vendorName: bill.vendorName || "",
+    purchaseBillId: bill.id,
+    purchasePrice: item.purchasePrice,
+    status: "in_stock",
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  batch.set(unitRef, removeUndefined(unit));
+};
+
 const updateExistingProduct = async (
   existingProduct: Product,
   item: InventoryItemInput,
@@ -1424,6 +1816,13 @@ const updateExistingProduct = async (
   const updates: any = {
     stock: newStock,
     purchasePrice: newPurchasePrice,
+    variantKey: buildVariantKey({
+      description: item.description || existingProduct.name,
+      model: item.model || existingProduct.model || "",
+      storage: item.storage || existingProduct.storage || "",
+      color: item.color || existingProduct.color || "",
+      itemNo: item.itemNo || existingProduct.itemNo || "",
+    }),
     model: item.model || existingProduct.model || "",
     imeiNumber: item.imeiNumber || existingProduct.imeiNumber || "",
     storage: item.storage || existingProduct.storage || "",
@@ -1459,6 +1858,8 @@ const updateExistingProduct = async (
   };
   const cleanedTransactionData = removeUndefined(transaction);
   batch.set(transactionRef, cleanedTransactionData);
+
+  addInventoryUnitForPurchase(batch, userId, item, existingProduct, bill);
 };
 
 const updateExistingProductWithNameChange = async (
@@ -1488,6 +1889,13 @@ const updateExistingProductWithNameChange = async (
     name: chosenName, // Update name
     stock: newStock,
     purchasePrice: newPurchasePrice,
+    variantKey: buildVariantKey({
+      description: chosenName,
+      model: item.model || existingProduct.model || "",
+      storage: item.storage || existingProduct.storage || "",
+      color: item.color || existingProduct.color || "",
+      itemNo: item.itemNo || existingProduct.itemNo || "",
+    }),
     gstRate: item.gstRate || existingProduct.gstRate,
     unit: item.unit || existingProduct.unit,
     model: item.model || existingProduct.model || "",
@@ -1525,6 +1933,8 @@ const updateExistingProductWithNameChange = async (
   };
   const cleanedTransactionData = removeUndefined(transaction);
   batch.set(transactionRef, cleanedTransactionData);
+
+  addInventoryUnitForPurchase(batch, userId, item, existingProduct, bill);
 };
 
 const createNewProduct = async (
@@ -1536,6 +1946,7 @@ const createNewProduct = async (
   const newProduct: Product = {
     id: crypto.randomUUID(),
     name: item.description,
+    variantKey: buildVariantKey(item),
     itemNo: item.itemNo || "",
     model: item.model || "",
     imeiNumber: item.imeiNumber || "",
@@ -1579,6 +1990,8 @@ const createNewProduct = async (
   };
   const cleanedTransactionData = removeUndefined(transaction);
   batch.set(transactionRef, cleanedTransactionData);
+
+  addInventoryUnitForPurchase(batch, userId, item, newProduct, bill);
 };
 
 export const isPurchaseBillDuplicate = async (
@@ -1815,6 +2228,8 @@ export const processBillReturn = async (
   returnItems: {
     productId: string;
     productName: string;
+    inventoryUnitId?: string;
+    imeiNumber?: string;
     quantity: number;
     condition: "good" | "bad";
     returnReason?: string;
@@ -1839,6 +2254,8 @@ export const processBillReturn = async (
       items: returnItems.map((item) => ({
         productId: item.productId,
         productName: item.productName,
+        inventoryUnitId: item.inventoryUnitId,
+        imeiNumber: item.imeiNumber,
         quantity: item.quantity,
         condition: item.condition,
         returnReason: item.returnReason,
@@ -1852,9 +2269,19 @@ export const processBillReturn = async (
     };
 
     const batch = writeBatch(db);
+    const allUnits = await getInventoryUnits();
 
     // Process each returned item
     for (const item of returnItems) {
+      const normalizedImei = normalizeImeiText(item.imeiNumber);
+      const isSerialized = Boolean(item.inventoryUnitId || normalizedImei);
+
+      if (isSerialized && item.quantity !== 1) {
+        throw new Error(
+          `IMEI/Serial return for ${item.productName} must have quantity 1.`,
+        );
+      }
+
       if (item.condition === "good") {
         // Good product - add back to inventory
         const productRef = doc(db, COLLECTIONS.PRODUCTS, item.productId);
@@ -1886,14 +2313,42 @@ export const processBillReturn = async (
         batch.set(deadstockRef, cleanedDeadstockData);
       }
 
+      if (isSerialized) {
+        const matchedUnit =
+          allUnits.find((u) => u.id === item.inventoryUnitId) ||
+          allUnits.find(
+            (u) =>
+              normalizeImeiText(u.imeiNormalized || u.imeiNumber) ===
+                normalizedImei && u.soldBillId === billId,
+          );
+
+        if (!matchedUnit) {
+          throw new Error(
+            `Could not find sold IMEI unit for ${item.productName} (${item.imeiNumber || "unknown"}).`,
+          );
+        }
+
+        const unitRef = doc(db, COLLECTIONS.INVENTORY_UNITS, matchedUnit.id);
+        batch.update(unitRef, {
+          status: item.condition === "good" ? "in_stock" : "deadstock",
+          soldBillId: null,
+          soldAt: null,
+          notes: item.returnReason || matchedUnit.notes || "",
+          updatedAt: new Date().toISOString(),
+        });
+      }
+
       // Record inventory transaction
       const transaction: InventoryTransaction = {
         id: crypto.randomUUID(),
         productId: item.productId,
-        billId: billReturn.id,
+        billId: billId,
+        billReturnId: billReturn.id,
         type: "return",
-        quantity: -item.quantity, // Negative because it's a return of a sale (adding back to stock but reducing sale quantity)
+        quantity: item.quantity,
         date: new Date().toISOString(),
+        inventoryUnitId: item.inventoryUnitId,
+        imeiNumber: item.imeiNumber || "",
         userId,
       };
       const transactionRef = doc(db, COLLECTIONS.INVENTORY, transaction.id);

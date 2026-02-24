@@ -38,12 +38,10 @@ import {
 import { toast } from "sonner";
 import {
   Plus,
-  Trash2,
   Save,
   Loader2,
   Check,
   ChevronsUpDown,
-  AlertCircle,
   ArrowLeft,
   UserPlus,
   PlusCircle,
@@ -471,31 +469,32 @@ export function SampleBillForm({ bill, isEdit = false }: SampleBillFormProps) {
   );
 
   return (
-    <div className="space-y-6">
-      {/* Sample Bill Info Banner */}
-      <div className="space-y-4 md:space-y-6 pb-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-          <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => navigate("/sample-bills")}
-              className="flex-shrink-0"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div className="min-w-0 flex-1">
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground truncate">
-                Create New Sample Bill
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1 hidden sm:block">
-                Fill in the details to create a new invoice
-              </p>
-            </div>
+    <div className="flex h-full min-h-0 w-full flex-col gap-2 overflow-hidden">
+      <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background p-2 shadow-sm sm:p-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => navigate("/sample-bills")}
+            className="h-10 w-10 shrink-0 rounded-lg bg-background"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-2xl font-semibold leading-tight sm:text-3xl">
+              {isEdit ? "Edit Quotation Bill" : "Create Quotation Bill"}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {isEdit
+                ? "Update quotation details without affecting live business data"
+                : "Build a quotation bill without affecting live business data"}
+            </p>
           </div>
         </div>
       </div>
 
+      <div className="min-h-0 flex-1 rounded-2xl border border-border/70 bg-background/60 p-2 sm:p-3">
+        <div className="h-full overflow-y-auto space-y-4 pr-1 sm:pr-2">
       <Card>
         <CardHeader>
           <CardTitle>Bill Information</CardTitle>
@@ -869,15 +868,15 @@ export function SampleBillForm({ bill, isEdit = false }: SampleBillFormProps) {
         </DialogContent>
       </Dialog>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Bill Items</CardTitle>
+      <Card className="rounded-2xl border-border/70 shadow-sm">
+        <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-center sm:justify-between">
+          <CardTitle className="text-base font-semibold sm:text-lg">Bill Items</CardTitle>
           <Button onClick={addItem} size="sm">
             <Plus className="h-4 w-4 mr-2" />
             Add Item
           </Button>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0">
           <div className="space-y-4">
             {billItems.map((item, index) => {
               const selectedProductIds = billItems
@@ -891,12 +890,34 @@ export function SampleBillForm({ bill, isEdit = false }: SampleBillFormProps) {
               );
 
               return (
-                <Card key={index}>
-                  <CardContent className="pt-4">
-                    <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                <Card
+                  key={index}
+                  className="rounded-2xl border-border/70 bg-background shadow-sm transition-shadow hover:shadow-md"
+                >
+                  <CardContent className="space-y-4 p-4 sm:p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                        Item {index + 1}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-600">
+                          Sample Mode
+                        </span>
+                        <Button
+                          variant="outline"
+                          className="h-8 rounded-lg border-red-200 px-3 text-xs font-medium text-red-600 hover:bg-red-50 hover:text-red-700"
+                          onClick={() => removeItem(index)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-12">
                       {/* Product Combobox */}
-                      <div className="md:col-span-2">
-                        <Label>Product</Label>
+                      <div className="space-y-2 lg:col-span-6">
+                        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Product
+                        </Label>
                         <Popover
                           open={productComboOpenIndex === index}
                           onOpenChange={(open) =>
@@ -908,7 +929,7 @@ export function SampleBillForm({ bill, isEdit = false }: SampleBillFormProps) {
                               variant="outline"
                               role="combobox"
                               aria-expanded={productComboOpenIndex === index}
-                              className="w-full justify-between"
+                              className="h-11 w-full justify-between rounded-xl"
                             >
                               {item.productName || "Select product..."}
                               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -987,8 +1008,10 @@ export function SampleBillForm({ bill, isEdit = false }: SampleBillFormProps) {
                         </Popover>
                       </div>
 
-                      <div>
-                        <Label>Quantity</Label>
+                      <div className="space-y-2 lg:col-span-2">
+                        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Quantity
+                        </Label>
                         <Input
                           type="number"
                           step="0.01"
@@ -999,14 +1022,17 @@ export function SampleBillForm({ bill, isEdit = false }: SampleBillFormProps) {
                             const roundedValue = Math.round(value * 100) / 100;
                             updateItem(index, "quantity", roundedValue);
                           }}
+                          className="h-11 rounded-xl"
                         />
-                        <p className="text-xs text-blue-600 mt-1">
-                          ℹ️ No stock validation (sample bill)
+                        <p className="text-xs font-medium text-blue-600">
+                          No stock validation (sample bill)
                         </p>
                       </div>
 
-                      <div>
-                        <Label>Rate</Label>
+                      <div className="space-y-2 lg:col-span-2">
+                        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Rate
+                        </Label>
                         <Input
                           type="number"
                           value={item.ratePerUnit}
@@ -1017,12 +1043,15 @@ export function SampleBillForm({ bill, isEdit = false }: SampleBillFormProps) {
                               parseFloat(e.target.value) || 0
                             )
                           }
+                          className="h-11 rounded-xl"
                         />
                       </div>
 
                       {gstEnabled && (
-                        <div>
-                          <Label>GST %</Label>
+                        <div className="space-y-2 lg:col-span-2">
+                          <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            GST %
+                          </Label>
                           <Input
                             type="number"
                             value={item.gstRate}
@@ -1033,30 +1062,21 @@ export function SampleBillForm({ bill, isEdit = false }: SampleBillFormProps) {
                                 parseFloat(e.target.value) || 0
                               )
                             }
+                            className="h-11 rounded-xl"
                           />
                         </div>
                       )}
 
-                      <div className="flex items-end">
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          onClick={() => removeItem(index)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
                     </div>
-                    <div className="mt-2 text-sm text-muted-foreground">
-                      Amount: ₹{formatToTwoDecimals(item.amount)}
+                    <div className="rounded-xl border border-border/70 bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground sm:px-4">
+                      <span className="font-semibold text-foreground">
+                        Amount: Rs. {formatToTwoDecimals(item.amount)}
+                      </span>
                       {gstEnabled && (
-                        <>
-                          {" + "}
-                          {isIGST ? "IGST" : "CGST+SGST"}: ₹
-                          {formatToTwoDecimals(
-                            item.igst || item.cgst + item.sgst
-                          )}
-                        </>
+                        <span className="ml-2">
+                          + {isIGST ? "IGST" : "CGST+SGST"}: Rs.
+                          {formatToTwoDecimals(item.igst || item.cgst + item.sgst)}
+                        </span>
                       )}
                     </div>
                   </CardContent>
@@ -1216,6 +1236,8 @@ export function SampleBillForm({ bill, isEdit = false }: SampleBillFormProps) {
         >
           Cancel
         </Button>
+      </div>
+        </div>
       </div>
     </div>
   );

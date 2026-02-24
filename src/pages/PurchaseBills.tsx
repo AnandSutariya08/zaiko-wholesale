@@ -89,6 +89,11 @@ import {
   Download,
   MoreVertical,
   Plus,
+  Filter,
+  Receipt,
+  SlidersHorizontal,
+  ChevronDown,
+  User,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -96,6 +101,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { PurchaseBillPDF } from "@/components/PurchaseBillPDF";
@@ -120,6 +126,7 @@ function PurchaseBills() {
   const [gstFilter, setGstFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("date-desc");
   const [page, setPage] = useState(1);
+  const [showFilters, setShowFilters] = useState(false);
   const pageSize = 10;
   const [isExtracting, setIsExtracting] = useState(false);
   const [selectedBill, setSelectedBill] = useState<PurchaseBill | null>(null);
@@ -163,17 +170,116 @@ function PurchaseBills() {
     );
   };
 
+  const normalizeVariantPart = (value?: string) =>
+    (value || "").toString().trim().toLowerCase();
+
+  const normalizeImei = (value?: string) =>
+    (value || "").toString().replace(/\s+/g, "").toLowerCase();
+
+  const buildVariantKey = (item: {
+    description?: string;
+    name?: string;
+    model?: string;
+    storage?: string;
+    color?: string;
+    itemNo?: string;
+  }) =>
+    [
+      normalizeVariantPart(item.description || item.name),
+      normalizeVariantPart(item.model),
+      normalizeVariantPart(item.storage),
+      normalizeVariantPart(item.color),
+      normalizeVariantPart(item.itemNo),
+    ].join("|");
+
+  const isVariantSensitiveItem = (item: {
+    model?: string;
+    storage?: string;
+    color?: string;
+    itemNo?: string;
+  }) =>
+    Boolean(
+      normalizeVariantPart(item.model) ||
+        normalizeVariantPart(item.storage) ||
+        normalizeVariantPart(item.color) ||
+        normalizeVariantPart(item.itemNo),
+    );
+
+  const findExistingProductForPurchaseItem = (item: PurchaseBillItem) => {
+    const variantSensitive = isVariantSensitiveItem(item);
+    const variantKey = buildVariantKey(item);
+
+    if (variantSensitive) {
+      const variantMatch = products.find(
+        (p) => buildVariantKey(p) === variantKey,
+      );
+      if (variantMatch) return variantMatch;
+    }
+
+    return products.find(
+      (p) =>
+        p.name.toLowerCase().trim() === item.description.toLowerCase().trim() ||
+        (item.hsnCode && p.hsnCode === item.hsnCode),
+    );
+  };
+
+  const validatePhoneItemRules = (
+    items: Array<{
+      description?: string;
+      quantity: number;
+      imeiNumber?: string;
+      productId?: string;
+      vendorId?: string;
+      isNewProduct?: boolean;
+    }>,
+    opts?: { checkAgainstProducts?: boolean; requireInventoryFields?: boolean },
+  ): string | null => {
+    const seenImeis = new Set<string>();
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const lineLabel = item.description?.trim()
+        ? item.description.trim()
+        : `Item ${i + 1}`;
+      const normalizedImei = normalizeImei(item.imeiNumber);
+
+      if (opts?.requireInventoryFields) {
+        if (!item.vendorId) {
+          return `${lineLabel}: vendor is required before adding to inventory.`;
+        }
+        if (item.isNewProduct === false && !item.productId) {
+          return `${lineLabel}: select a product for "Update Stock" or switch to "Create New".`;
+        }
+      }
+
+      if (!normalizedImei) continue;
+
+      if (Number(item.quantity) !== 1) {
+        return `${lineLabel}: quantity must be 1 when IMEI/Serial is provided.`;
+      }
+
+      if (seenImeis.has(normalizedImei)) {
+        return `${lineLabel}: duplicate IMEI/Serial in this bill (${item.imeiNumber}).`;
+      }
+      seenImeis.add(normalizedImei);
+
+      if (opts?.checkAgainstProducts) {
+        const existing = products.find(
+          (p) => normalizeImei((p as any).imeiNumber) === normalizedImei,
+        );
+        if (existing) {
+          return `${lineLabel}: IMEI/Serial already exists in inventory (${existing.name}).`;
+        }
+      }
+    }
+    return null;
+  };
+
   const getAvailableStockForBill = (bill: PurchaseBill) => {
     if (!bill || !products) return 0;
     const billProductIds = new Set(
       bill.items
         .map((item) => {
-          const p = products.find(
-            (p) =>
-              p.name.toLowerCase().trim() ===
-                item.description.toLowerCase().trim() ||
-              (item.hsnCode && p.hsnCode === item.hsnCode),
-          );
+          const p = findExistingProductForPurchaseItem(item);
           return p?.id;
         })
         .filter(Boolean),
@@ -363,6 +469,11 @@ function PurchaseBills() {
       {
         description: "",
         hsnCode: "",
+        itemNo: "",
+        model: "",
+        imeiNumber: "",
+        storage: "",
+        color: "",
         quantity: 1,
         unit: "pcs",
         rate: 0,
@@ -577,6 +688,26 @@ function PurchaseBills() {
     (currentPage - 1) * pageSize,
     currentPage * pageSize,
   );
+  const gstLabelMap: Record<string, string> = {
+    all: "All Bills",
+    gst: "GST Bills",
+    "non-gst": "Non-GST Bills",
+  };
+  const statusLabelMap: Record<string, string> = {
+    all: "All Status",
+    paid: "Paid",
+    pending: "Pending",
+    overdue: "Overdue",
+    overpaid: "Overpaid",
+  };
+  const sortLabelMap: Record<string, string> = {
+    "date-desc": "Date (Newest)",
+    "date-asc": "Date (Oldest)",
+    "due-date": "Due Date",
+    "amount-desc": "Amount (High to Low)",
+    "amount-asc": "Amount (Low to High)",
+    vendor: "Vendor Name",
+  };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -750,6 +881,11 @@ function PurchaseBills() {
         {
           description: "",
           hsnCode: "",
+          itemNo: "",
+          model: "",
+          imeiNumber: "",
+          storage: "",
+          color: "",
           quantity: 1,
           unit: "pcs",
           rate: 0,
@@ -776,6 +912,17 @@ function PurchaseBills() {
     const item = { ...items[index] };
     (item as any)[field] = value;
 
+    if (
+      (field === ("imeiNumber" as keyof PurchaseBillItem) ||
+        normalizeImei((item as any).imeiNumber)) &&
+      normalizeImei((item as any).imeiNumber)
+    ) {
+      item.quantity = 1;
+      if (!item.unit || item.unit.toLowerCase() !== "pcs") {
+        item.unit = "pcs";
+      }
+    }
+
     if (field === "quantity" || field === "rate") {
       item.amount = item.quantity * item.rate;
       item.gstAmount = (item.amount * (item.gstRate || 0)) / 100;
@@ -797,6 +944,16 @@ function PurchaseBills() {
     item.rate = product.purchasePrice ?? item.rate;
     item.gstRate = product.gstRate ?? item.gstRate ?? 0;
     item.unit = product.unit || item.unit || "pcs";
+    item.itemNo = product.itemNo || item.itemNo || "";
+    item.model = product.model || item.model || "";
+    item.imeiNumber = product.imeiNumber || item.imeiNumber || "";
+    item.storage = product.storage || item.storage || "";
+    item.color = product.color || item.color || "";
+
+    if (normalizeImei(item.imeiNumber)) {
+      item.quantity = 1;
+      item.unit = "pcs";
+    }
     item.amount = item.quantity * item.rate;
     item.gstAmount = (item.amount * (item.gstRate || 0)) / 100;
 
@@ -817,6 +974,11 @@ function PurchaseBills() {
         {
           description: "",
           hsnCode: "",
+          itemNo: "",
+          model: "",
+          imeiNumber: "",
+          storage: "",
+          color: "",
           quantity: 1,
           unit: "pcs",
           rate: 0,
@@ -963,6 +1125,18 @@ function PurchaseBills() {
           };
         })
         .filter((item) => item.description && item.quantity > 0);
+
+      const manualValidationError = validatePhoneItemRules(cleanedItems, {
+        checkAgainstProducts: false,
+      });
+      if (manualValidationError) {
+        toast({
+          title: "Invalid Item Data",
+          description: manualValidationError,
+          variant: "destructive",
+        });
+        return;
+      }
 
       if (cleanedItems.length === 0) {
         toast({
@@ -1143,11 +1317,15 @@ function PurchaseBills() {
     // Use commission settings from company profile to calculate default selling price
     const products = await getProducts();
     const items = bill.items.map((item) => {
-      const existingProduct = products.find(
-        (p) =>
-          p.name.toLowerCase() === item.description.toLowerCase() ||
-          p.hsnCode === item.hsnCode,
-      );
+      const itemVariantSensitive = isVariantSensitiveItem(item);
+      const itemVariantKey = buildVariantKey(item);
+      const existingProduct = itemVariantSensitive
+        ? products.find((p) => buildVariantKey(p) === itemVariantKey)
+        : products.find(
+            (p) =>
+              p.name.toLowerCase() === item.description.toLowerCase() ||
+              p.hsnCode === item.hsnCode,
+          );
 
       return {
         description: item.description,
@@ -1240,6 +1418,20 @@ function PurchaseBills() {
         return;
       }
 
+      const inventoryValidationError = validatePhoneItemRules(inventoryItems, {
+        checkAgainstProducts: true,
+        requireInventoryFields: true,
+      });
+      if (inventoryValidationError) {
+        toast({
+          title: "Invalid Inventory Data",
+          description: inventoryValidationError,
+          variant: "destructive",
+        });
+        setLoadingInventory(null);
+        return;
+      }
+
       const itemsInput: InventoryItemInput[] = inventoryItems.map((item) => ({
         description: item.description,
         itemNo: item.itemNo || "",
@@ -1249,6 +1441,7 @@ function PurchaseBills() {
         color: item.color || "",
         hsnCode: item.hsnCode,
         barcode: item.barcode, // Pass barcode to inventory service
+        vendorId: item.vendorId,
         quantity: item.quantity,
         unit: item.unit,
         purchasePrice: item.purchasePrice,
@@ -1338,6 +1531,22 @@ function PurchaseBills() {
 
     setLoadingInventory(pendingInventoryBill.id);
     try {
+      const conflictValidationError = validatePhoneItemRules(
+        pendingInventoryItems,
+        {
+          checkAgainstProducts: true,
+          requireInventoryFields: true,
+        },
+      );
+      if (conflictValidationError) {
+        toast({
+          title: "Invalid Inventory Data",
+          description: conflictValidationError,
+          variant: "destructive",
+        });
+        return;
+      }
+
       const result = await addPurchaseItemsToInventory(
         pendingInventoryBill,
         pendingInventoryItems,
@@ -1402,6 +1611,11 @@ function PurchaseBills() {
     const newItem: PurchaseBillItem = {
       description: "",
       hsnCode: "",
+      itemNo: "",
+      model: "",
+      imeiNumber: "",
+      storage: "",
+      color: "",
       quantity: 1,
       unit: "pcs",
       rate: 0,
@@ -1426,12 +1640,57 @@ function PurchaseBills() {
 
     setSavingEditedBill(true);
     try {
+      const normalizedItems = (editedBill.items || [])
+        .map((item) => {
+          const description = (item.description || "").trim();
+          const quantity = Number(item.quantity) || 0;
+          const rate = Number(item.rate) || 0;
+          const gstRate = Number(item.gstRate) || 0;
+          const amount = quantity * rate;
+          const gstAmount = (amount * gstRate) / 100;
+          const imei = normalizeImei((item as any).imeiNumber);
+          return {
+            ...item,
+            description,
+            quantity: imei ? 1 : quantity,
+            unit: imei ? "pcs" : item.unit || "pcs",
+            rate,
+            gstRate,
+            amount,
+            gstAmount,
+            hasError: false,
+            errorMessage: undefined,
+          };
+        })
+        .filter((item) => item.description && item.quantity > 0);
+
+      const editedValidationError = validatePhoneItemRules(normalizedItems, {
+        checkAgainstProducts: false,
+      });
+      if (editedValidationError) {
+        toast({
+          title: "Invalid Item Data",
+          description: editedValidationError,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (normalizedItems.length === 0) {
+        toast({
+          title: "Items Required",
+          description: "Add at least one valid item with quantity greater than 0.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Recalculate totals
-      const subtotal = editedBill.items.reduce(
+      const subtotal = normalizedItems.reduce(
         (sum, item) => sum + item.amount,
         0,
       );
-      const totalTax = editedBill.items.reduce(
+      const totalTax = normalizedItems.reduce(
         (sum, item) => sum + (item.gstAmount || 0),
         0,
       );
@@ -1439,6 +1698,7 @@ function PurchaseBills() {
 
       const updatedBill: PurchaseBill = {
         ...editedBill,
+        items: normalizedItems,
         subtotal,
         totalTax,
         total,
@@ -1482,6 +1742,15 @@ function PurchaseBills() {
 
     (item as any)[field] = value;
 
+    if (
+      (field === ("imeiNumber" as keyof PurchaseBillItem) ||
+        normalizeImei((item as any).imeiNumber)) &&
+      normalizeImei((item as any).imeiNumber)
+    ) {
+      item.quantity = 1;
+      item.unit = "pcs";
+    }
+
     // Recalculate amount
     if (field === "quantity" || field === "rate") {
       item.amount = item.quantity * item.rate;
@@ -1506,6 +1775,11 @@ function PurchaseBills() {
 
     item.description = product.name; // Update description
     if (product.hsnCode) item.hsnCode = product.hsnCode; // Update HSN if available
+    item.itemNo = product.itemNo || item.itemNo || "";
+    item.model = product.model || item.model || "";
+    item.imeiNumber = product.imeiNumber || item.imeiNumber || "";
+    item.storage = product.storage || item.storage || "";
+    item.color = product.color || item.color || "";
 
     // Update rate if available (assuming purchasePrice is the buying rate)
     if (product.purchasePrice) item.rate = product.purchasePrice;
@@ -1515,6 +1789,10 @@ function PurchaseBills() {
 
     // Update Unit
     if (product.unit) item.unit = product.unit;
+    if (normalizeImei(item.imeiNumber)) {
+      item.quantity = 1;
+      item.unit = "pcs";
+    }
 
     // Recalculate amounts
     item.amount = item.quantity * item.rate;
@@ -1635,23 +1913,23 @@ function PurchaseBills() {
   }
 
   return (
-    <div className="h-[calc(100dvh-8.5rem)] w-full overflow-hidden sm:h-[calc(100dvh-9.5rem)]">
-      <div className="relative flex h-full min-h-0 flex-col rounded-[28px] border border-border/70 bg-background p-3 shadow-sm sm:p-5 lg:p-6">
-      {/* Header */}
-      <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background/95 p-3 backdrop-blur sm:p-4">
-      <div className="page-header-controls">
-        <div className="page-header-title">
-          <div className="page-header-icon">
-            <FileText className="h-5 w-5 md:h-6 md:w-6" />
+    <div className="flex h-full min-h-0 w-full flex-col gap-3 overflow-hidden">
+      <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-gradient-to-br from-background via-background to-slate-50/40 p-3 shadow-sm sm:p-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-center justify-start gap-3 sm:gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-border">
+              <Receipt className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 text-left">
+              <h1 className="truncate text-2xl font-semibold leading-tight sm:text-3xl">
+                Purchase Bills
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                AI-powered bill extraction with validation
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="page-title">Purchase Bills</h1>
-            <p className="page-subtitle">
-              AI-powered bill extraction with validation
-            </p>
-          </div>
-        </div>
-        <div className="page-header-actions">
+
           <input
             ref={manualImageInputRef}
             type="file"
@@ -1674,157 +1952,267 @@ function PurchaseBills() {
             className="hidden"
             onChange={handleFileSelect}
           />
-          <Button
-            size="sm"
-            className="page-header-btn"
-            variant="outline"
-            onClick={openManualCreate}
-            disabled={isExtracting || isCompressing || loading}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Create Manually
-          </Button>
-          <Button
-            size="sm"
-            className="page-header-btn"
-            variant="outline"
-            onClick={() => cameraInputRef.current?.click()}
-            disabled={isExtracting || isCompressing || loading}
-          >
-            {isCompressing ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Camera className="h-4 w-4 mr-2" />
-            )}
-            {isCompressing ? "Processing..." : "Camera"}
-          </Button>
-          <Button
-            size="sm"
-            className="page-header-btn"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isExtracting || isCompressing || loading}
-          >
-            {isCompressing ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : isExtracting ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Upload className="h-4 w-4 mr-2" />
-            )}
-            {isCompressing
-              ? "Processing..."
-              : isExtracting
-                ? "Extracting..."
-                : "Upload Bill"}
-          </Button>
+
+          <div className="grid w-full grid-cols-2 gap-2 rounded-xl border border-border/60 bg-muted/25 p-2 sm:grid-cols-3 lg:flex lg:w-auto lg:flex-wrap lg:items-center lg:justify-end">
+            {/* <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-10 w-full items-center gap-2 rounded-xl bg-background lg:w-auto"
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                  Manage
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-64 max-h-[60vh] overflow-y-auto overscroll-contain"
+              >
+                <DropdownMenuLabel>Bill Type</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => setGstFilter("all")}>
+                  {gstFilter === "all" ? "* " : ""}All Bills
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setGstFilter("gst")}>
+                  {gstFilter === "gst" ? "* " : ""}GST Bills
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setGstFilter("non-gst")}>
+                  {gstFilter === "non-gst" ? "* " : ""}Non-GST Bills
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Payment Status</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => setStatusFilter("all")}>
+                  {statusFilter === "all" ? "* " : ""}All Status
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("paid")}>
+                  {statusFilter === "paid" ? "* " : ""}Paid
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("pending")}>
+                  {statusFilter === "pending" ? "* " : ""}Pending
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("overdue")}>
+                  {statusFilter === "overdue" ? "* " : ""}Overdue
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("overpaid")}>
+                  {statusFilter === "overpaid" ? "* " : ""}Overpaid
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Sort</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => setSortBy("date-desc")}>
+                  {sortBy === "date-desc" ? "* " : ""}Date (Newest)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortBy("date-asc")}>
+                  {sortBy === "date-asc" ? "* " : ""}Date (Oldest)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortBy("due-date")}>
+                  {sortBy === "due-date" ? "* " : ""}Due Date
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortBy("amount-desc")}>
+                  {sortBy === "amount-desc" ? "* " : ""}Amount (High to Low)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortBy("amount-asc")}>
+                  {sortBy === "amount-asc" ? "* " : ""}Amount (Low to High)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortBy("vendor")}>
+                  {sortBy === "vendor" ? "* " : ""}Vendor Name
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    setGstFilter("all");
+                    setStatusFilter("all");
+                    setSortBy("date-desc");
+                    setSearchTerm("");
+                  }}
+                >
+                  <RotateCcw className="mr-2 h-3.5 w-3.5" />
+                  Reset All
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-10 w-full items-center gap-2 rounded-xl bg-background lg:w-auto"
+            >
+              <FileText className="h-4 w-4" />
+              {filteredBills.length} Bills
+            </Button> */}
+
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-10 w-full rounded-xl px-4 shadow-sm lg:w-auto"
+              onClick={openManualCreate}
+              disabled={isExtracting || isCompressing || loading}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Create Manually
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-10 w-full rounded-xl px-4 shadow-sm lg:w-auto"
+              onClick={() => cameraInputRef.current?.click()}
+              disabled={isExtracting || isCompressing || loading}
+            >
+              {isCompressing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Camera className="mr-2 h-4 w-4" />
+              )}
+              {isCompressing ? "Processing..." : "Camera"}
+            </Button>
+            <Button
+              size="sm"
+              className="col-span-2 h-10 w-full rounded-xl px-4 shadow-sm sm:col-span-3 lg:col-span-1 lg:w-auto"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isExtracting || isCompressing || loading}
+            >
+              {isCompressing || isExtracting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="mr-2 h-4 w-4" />
+              )}
+              {isCompressing
+                ? "Processing..."
+                : isExtracting
+                  ? "Extracting..."
+                  : "Upload Bill"}
+            </Button>
+          </div>
         </div>
       </div>
-      </div>
 
-      <div className="mt-4 flex-1 min-h-0 rounded-2xl border border-border/70 bg-background/60 p-2 sm:p-3">
-      <div className="h-full overflow-y-auto space-y-6 pr-1 sm:pr-2">
+      <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-border/70 bg-background/70 p-2 sm:p-4">
+      <div className="h-full overflow-y-auto space-y-5 pr-1 sm:pr-2">
 
       {/* Summary Tiles */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card className="bg-primary/5 border-primary/20 shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-4">
-            <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1 flex items-center gap-1">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5 shadow-sm">
+          <CardContent className="p-3 sm:p-4">
+            <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase text-muted-foreground">
               <BookOpen className="h-3 w-3 text-primary" /> Total Purchase
             </p>
-            <p className="text-xl font-bold truncate">
-              {formatCurrency(stats.totalPurchase)}
-            </p>
+            <p className="truncate text-xl font-bold">{formatCurrency(stats.totalPurchase)}</p>
           </CardContent>
         </Card>
-        <Card className="bg-emerald-50 border-emerald-200 shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-4">
-            <p className="text-[10px] text-emerald-600 uppercase font-bold mb-1 flex items-center gap-1">
+        <Card className="border-emerald-200 bg-gradient-to-br from-emerald-100/60 to-emerald-50 shadow-sm">
+          <CardContent className="p-3 sm:p-4">
+            <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase text-emerald-600">
               <CheckCircle className="h-3 w-3" /> Amount Paid
             </p>
-            <p className="text-xl font-bold text-emerald-700 truncate">
-              {formatCurrency(stats.totalPaid)}
-            </p>
+            <p className="truncate text-xl font-bold text-emerald-700">{formatCurrency(stats.totalPaid)}</p>
           </CardContent>
         </Card>
-        <Card className="bg-orange-50 border-orange-200 shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-4">
-            <p className="text-[10px] text-orange-600 uppercase font-bold mb-1 flex items-center gap-1">
+        <Card className="border-orange-200 bg-gradient-to-br from-orange-100/60 to-orange-50 shadow-sm">
+          <CardContent className="p-3 sm:p-4">
+            <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase text-orange-600">
               <Clock className="h-3 w-3" /> Remaining to Pay
             </p>
-            <p className="text-xl font-bold text-orange-700 truncate">
-              {formatCurrency(stats.amountRemaining)}
-            </p>
+            <p className="truncate text-xl font-bold text-orange-700">{formatCurrency(stats.amountRemaining)}</p>
           </CardContent>
         </Card>
-        <Card className="bg-rose-50 border-rose-200 shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-4">
-            <p className="text-[10px] text-rose-600 uppercase font-bold mb-1 flex items-center gap-1">
+        <Card className="border-rose-200 bg-gradient-to-br from-rose-100/60 to-rose-50 shadow-sm">
+          <CardContent className="p-3 sm:p-4">
+            <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase text-rose-600">
               <RotateCcw className="h-3 w-3" /> Total Return
             </p>
-            <p className="text-xl font-bold text-rose-700 truncate">
-              {formatCurrency(stats.totalReturns)}
-            </p>
+            <p className="truncate text-xl font-bold text-rose-700">{formatCurrency(stats.totalReturns)}</p>
           </CardContent>
         </Card>
-        <Card className="bg-blue-50 border-blue-200 shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-4">
-            <p className="text-[10px] text-blue-600 uppercase font-bold mb-1 flex items-center gap-1">
+        <Card className="col-span-2 border-blue-200 bg-gradient-to-br from-blue-100/60 to-blue-50 shadow-sm lg:col-span-1">
+          <CardContent className="p-3 sm:p-4">
+            <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase text-blue-600">
               <IndianRupee className="h-3 w-3" /> Return Collected
             </p>
-            <p className="text-xl font-bold text-blue-700 truncate">
+            <p className="truncate text-xl font-bold text-blue-700">
               {formatCurrency(stats.totalReturnCollected)}
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search vendor, bill number, items..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-[140px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="paid">Paid</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="overdue">Overdue</SelectItem>
-            <SelectItem value="overpaid">Overpaid</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={gstFilter} onValueChange={setGstFilter}>
-          <SelectTrigger className="w-full sm:w-[140px]">
-            <SelectValue placeholder="GST Type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Bills</SelectItem>
-            <SelectItem value="gst">GST Bills</SelectItem>
-            <SelectItem value="non-gst">Non-GST Bills</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger className="w-full sm:w-[160px]">
-            <SelectValue placeholder="Sort by" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="date-desc">Newest First</SelectItem>
-            <SelectItem value="date-asc">Oldest First</SelectItem>
-            <SelectItem value="due-date">Due Date</SelectItem>
-            <SelectItem value="amount-desc">Amount (High)</SelectItem>
-            <SelectItem value="amount-asc">Amount (Low)</SelectItem>
-            <SelectItem value="vendor">Vendor Name</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <Card className="mb-1 overflow-hidden border border-border/70 bg-gradient-to-r from-background via-slate-50/60 to-sky-50/40 dark:via-background dark:to-slate-900/20">
+        <CardContent className="p-3 sm:p-5">
+          <button
+            type="button"
+            onClick={() => setShowFilters((prev) => !prev)}
+            className="flex w-full items-center justify-between gap-3 rounded-xl border border-border/70 bg-background/80 px-3 py-3 text-left transition hover:bg-background"
+          >
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-primary" />
+                <p className="text-sm font-medium">Search & Filters</p>
+              </div>
+              <p className="truncate text-xs text-muted-foreground">
+                {gstLabelMap[gstFilter]} - {statusLabelMap[statusFilter]} - {sortLabelMap[sortBy]}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="h-8 rounded-lg px-3 text-xs font-semibold">
+                {filteredBills.length} Results
+              </Badge>
+              <ChevronDown
+                className={`h-4 w-4 transition-transform ${showFilters ? "rotate-180" : ""}`}
+              />
+            </div>
+          </button>
+
+          {showFilters && (
+            <div className="mx-auto mt-3 w-full max-w-4xl space-y-3">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search vendor, bill number, items..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="h-12 rounded-2xl border border-border/70 bg-white pl-12 text-base shadow-sm transition focus-visible:ring-2 focus-visible:ring-primary/30 dark:bg-background/90"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <Select value={gstFilter} onValueChange={setGstFilter}>
+                  <SelectTrigger className="h-9 w-[170px] rounded-xl bg-background/90">
+                    <SelectValue placeholder="Bill Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Bills</SelectItem>
+                    <SelectItem value="gst">GST Bills</SelectItem>
+                    <SelectItem value="non-gst">Non-GST Bills</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="h-9 w-[170px] rounded-xl bg-background/90">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="overdue">Overdue</SelectItem>
+                    <SelectItem value="overpaid">Overpaid</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger className="h-9 w-[200px] rounded-xl bg-background/90">
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="date-desc">Date (Newest)</SelectItem>
+                    <SelectItem value="date-asc">Date (Oldest)</SelectItem>
+                    <SelectItem value="due-date">Due Date</SelectItem>
+                    <SelectItem value="amount-desc">Amount (High to Low)</SelectItem>
+                    <SelectItem value="amount-asc">Amount (Low to High)</SelectItem>
+                    <SelectItem value="vendor">Vendor Name</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Loading State */}
       {isExtracting && (
@@ -1844,7 +2232,7 @@ function PurchaseBills() {
 
       {/* Bills List */}
       {filteredBills.length === 0 && !isExtracting ? (
-        <Card>
+        <Card className="border-2 border-dashed">
           <CardContent className="py-12 text-center">
             <FileText className="h-12 w-12 mx-auto text-muted-foreground/50" />
             <p className="mt-4 text-muted-foreground">
@@ -1860,17 +2248,19 @@ function PurchaseBills() {
           {pagedBills.map((bill) => (
             <Card
               key={bill.id}
-              className={`hover:shadow-md transition-shadow ${
+              className={`group overflow-hidden rounded-2xl border shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${
                 isOverdue(bill) || bill.paymentStatus === "overdue"
-                  ? "border-destructive/50 bg-destructive/5"
-                  : ""
+                  ? "border-rose-200/70 bg-gradient-to-br from-rose-50/60 via-background to-background"
+                  : bill.paymentStatus === "paid"
+                    ? "border-emerald-200/70 bg-gradient-to-br from-emerald-50/60 via-background to-background"
+                    : "border-sky-200/70 bg-gradient-to-br from-sky-50/70 via-background to-background"
               }`}
             >
-              <CardContent className="p-4">
-                <div className="flex flex-col sm:flex-row gap-4">
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex flex-col gap-3 sm:flex-row">
                   {/* Bill Image Thumbnail */}
                   <div
-                    className="w-full sm:w-20 h-20 bg-muted rounded-lg overflow-hidden cursor-pointer flex-shrink-0"
+                    className="h-20 w-full cursor-pointer overflow-hidden rounded-xl bg-muted sm:w-20"
                     onClick={() => {
                       if (bill.billImage) setViewImageBill(bill);
                     }}
@@ -1975,7 +2365,7 @@ function PurchaseBills() {
                       )}
                     </div>
 
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t mt-4 pt-4">
+                    <div className="mt-4 flex flex-col justify-between gap-4 border-t pt-4 sm:flex-row sm:items-center">
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                         <div className="flex items-center gap-2">
                           <span className="text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-wider font-bold">
@@ -2062,25 +2452,25 @@ function PurchaseBills() {
                           )}
                       </div>
 
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-2 self-end sm:self-auto">
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-foreground"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 w-8 rounded-lg bg-background/80 p-0 hover:bg-primary/5"
                           onClick={() => setSelectedBill(bill)}
                           title="View Details"
                         >
-                          <Eye className="h-4 w-4" />
+                          <Eye className="h-3.5 w-3.5" />
                         </Button>
 
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
+                              variant="outline"
+                              size="sm"
+                              className="h-8 w-8 rounded-lg bg-background/80 p-0 hover:bg-primary/5"
                             >
-                              <MoreVertical className="h-4 w-4" />
+                              <MoreVertical className="h-3.5 w-3.5" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-48">
@@ -2202,9 +2592,11 @@ function PurchaseBills() {
             </Card>
           ))}
           {filteredBills.length > pageSize && (
-            <div className="flex items-center justify-between border-t border-border pt-3">
-              <p className="text-sm text-muted-foreground">
-                Page {currentPage} of {totalPages}
+            <div className="mt-6 flex flex-col items-start justify-between gap-2 px-2 sm:flex-row sm:items-center">
+              <p className="text-xs text-muted-foreground">
+                Showing {(currentPage - 1) * pageSize + 1} to{" "}
+                {Math.min(currentPage * pageSize, filteredBills.length)} of{" "}
+                {filteredBills.length}
               </p>
               <div className="flex gap-2">
                 <Button
@@ -2213,7 +2605,7 @@ function PurchaseBills() {
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
                 >
-                  Prev
+                  Previous
                 </Button>
                 <Button
                   variant="outline"
@@ -2586,10 +2978,60 @@ function PurchaseBills() {
                         />
                       </div>
                       <div className="space-y-1">
+                        <Label>Item No</Label>
+                        <Input
+                          value={(item as any).itemNo || ""}
+                          onChange={(e) =>
+                            updateManualItem(index, "itemNo" as any, e.target.value)
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Model</Label>
+                        <Input
+                          value={(item as any).model || ""}
+                          onChange={(e) =>
+                            updateManualItem(index, "model" as any, e.target.value)
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>IMEI / Serial</Label>
+                        <Input
+                          value={(item as any).imeiNumber || ""}
+                          onChange={(e) =>
+                            updateManualItem(
+                              index,
+                              "imeiNumber" as any,
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Storage</Label>
+                        <Input
+                          value={(item as any).storage || ""}
+                          onChange={(e) =>
+                            updateManualItem(index, "storage" as any, e.target.value)
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Color</Label>
+                        <Input
+                          value={(item as any).color || ""}
+                          onChange={(e) =>
+                            updateManualItem(index, "color" as any, e.target.value)
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
                         <Label>Quantity *</Label>
                         <Input
                           type="number"
                           value={item.quantity}
+                          disabled={!!normalizeImei((item as any).imeiNumber)}
                           onChange={(e) =>
                             updateManualItem(
                               index,
@@ -2598,6 +3040,11 @@ function PurchaseBills() {
                             )
                           }
                         />
+                        {normalizeImei((item as any).imeiNumber) ? (
+                          <p className="text-[11px] text-muted-foreground">
+                            IMEI/Serial item uses quantity 1.
+                          </p>
+                        ) : null}
                       </div>
                       <div className="space-y-1">
                         <Label>Unit</Label>
@@ -4120,6 +4567,10 @@ function PurchaseBills() {
                         onChange={(e) => {
                           const newItems = [...inventoryItems];
                           newItems[index].imeiNumber = e.target.value;
+                          if (normalizeImei(e.target.value)) {
+                            newItems[index].quantity = 1;
+                            newItems[index].unit = "pcs";
+                          }
                           setInventoryItems(newItems);
                         }}
                         className="h-9"
@@ -4591,7 +5042,6 @@ function PurchaseBills() {
           </div>
         </DialogContent>
       </Dialog>
-      </div>
       </div>
       </div>
     </div>

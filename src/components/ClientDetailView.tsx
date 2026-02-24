@@ -169,7 +169,12 @@ export function ClientDetailView({ client, open, onOpenChange, fullScreen = fals
   // Get return transactions (stock history)
   const returnTransactions = inventoryTransactions.filter(t => t.type === 'return');
   const returnTransactionsWithDetails = returnTransactions.map(transaction => {
-    const relatedReturn = returns.find(r => r.billId === transaction.billId);
+    const relatedReturn = returns.find(
+      (r) =>
+        r.id === transaction.billReturnId ||
+        r.id === transaction.billId ||
+        r.billId === transaction.billId,
+    );
     const relatedBill = bills.find(b => b.id === transaction.billId);
     const product = products.find(p => p.id === transaction.productId);
     return {
@@ -520,7 +525,7 @@ export function ClientDetailView({ client, open, onOpenChange, fullScreen = fals
                 {/* Bills Table */}
                 {filteredBills.length === 0 ? (
                   <Card>
-                    <CardContent className="text-center py-8 text-muted-foreground">
+                    <CardContent className="flex min-h-[220px] items-center justify-center text-center text-muted-foreground">
                       No bills found for this client
                     </CardContent>
                   </Card>
@@ -625,7 +630,7 @@ export function ClientDetailView({ client, open, onOpenChange, fullScreen = fals
               <TabsContent value="returns" className="space-y-4">
                 {returns.length === 0 ? (
                   <Card>
-                    <CardContent className="text-center py-8 text-muted-foreground">
+                    <CardContent className="flex min-h-[220px] items-center justify-center text-center text-muted-foreground">
                       No returns found for this client
                     </CardContent>
                   </Card>
@@ -695,7 +700,7 @@ export function ClientDetailView({ client, open, onOpenChange, fullScreen = fals
               {/* <TabsContent value="stock-history" className="space-y-4">
                 {returnTransactions.length === 0 ? (
                   <Card>
-                    <CardContent className="text-center py-8 text-muted-foreground">
+                    <CardContent className="flex min-h-[220px] items-center justify-center text-center text-muted-foreground">
                       No return transactions found for this client
                     </CardContent>
                   </Card>

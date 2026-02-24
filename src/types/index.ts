@@ -95,6 +95,7 @@ export interface Vendor {
 export interface Product {
   whereToBuy: string;
   vendorId?: string; // Link to Vendor
+  variantKey?: string; // Mobile variant identity: name/model/storage/color/itemNo
   itemNo?: string;
   brand?: string;
   model?: string;
@@ -121,6 +122,7 @@ export interface Product {
 
 export interface BillItem {
   productId: string;
+  inventoryUnitId?: string; // IMEI unit reference for serialized devices
   productName: string;
   itemNo?: string;
   model?: string;
@@ -174,6 +176,7 @@ export interface Bill {
   paidAmount: number;
   paymentType?: PaymentMethod; // For legacy support/display
   payments: PaymentTransaction[]; // Required field for multiple payments
+  returns?: BillReturn[]; // Optional sales return records attached to this bill
   gstType: "igst" | "cgst_sgst";
   notes?: string;
   returnComment?: string;
@@ -235,11 +238,24 @@ export interface SampleBill {
   isSample: true; // Flag to identify sample bills
 }
 
+export interface EWayBillDetails {
+  transporterName?: string;
+  transporterId?: string;
+  approxDistance?: number;
+  modeOfTransport?: "Road" | "Rail" | "Air" | "Ship";
+  vehicleNumber?: string;
+  vehicleType?: "Regular" | "ODC";
+  transDocNo?: string;
+  transDocDate?: string;
+}
+
 export interface InventoryTransaction {
   id: string;
   productId: string;
   billId?: string; // Optional for manual stock additions
-  type: "sale" | "return" | "purchase";
+  billReturnId?: string;
+  type: "sale" | "return" | "purchase" | "purchase_return";
+  inventoryUnitId?: string;
   quantity: number;
   date: string;
   purchasePrice?: number;
@@ -256,10 +272,42 @@ export interface InventoryTransaction {
   userId: string; // Purchase price for stock additions
 }
 
+export type InventoryUnitStatus =
+  | "in_stock"
+  | "reserved"
+  | "sold"
+  | "returned"
+  | "deadstock"
+  | "transferred"
+  | "warranty_claim";
+
+export interface InventoryUnit {
+  id: string;
+  userId: string;
+  productId: string;
+  productName: string;
+  imeiNumber: string;
+  imeiNormalized: string;
+  serialNumber?: string;
+  variantKey?: string;
+  vendorId?: string;
+  vendorName?: string;
+  purchaseBillId?: string;
+  purchasePrice?: number;
+  status: InventoryUnitStatus;
+  soldBillId?: string;
+  soldAt?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Return types
 export interface ReturnItem {
   productId: string;
   productName: string;
+  inventoryUnitId?: string;
+  imeiNumber?: string;
   quantity: number;
   condition: "good" | "bad"; // good = back to inventory, bad = deadstock/loss
   returnReason?: string;
@@ -361,6 +409,9 @@ export interface AIExtractionError {
 }
 
 export interface PurchaseReturnItem {
+  productId?: string;
+  inventoryUnitId?: string;
+  imeiNumber?: string;
   description: string;
   productName: string; // Ensure this is present
   quantity: number;
@@ -399,7 +450,7 @@ export interface PurchaseBill {
   subtotal: number;
   totalTax: number;
   total: number;
-  paymentStatus: "paid" | "pending" | "overdue" | "overpaid";
+  paymentStatus: "paid" | "pending" | "overdue" | "overpaid" | "partial";
   paidAmount: number;
   payments: PaymentTransaction[];
   notes?: string;

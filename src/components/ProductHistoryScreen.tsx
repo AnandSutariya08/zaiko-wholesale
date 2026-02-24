@@ -939,7 +939,11 @@ export function ProductHistoryScreen({
 
       // First, get purchases from transactions that have billId
       transactions.forEach((transaction) => {
-        if (transaction.billId && transaction.purchasePrice) {
+        if (
+          transaction.type === "purchase" &&
+          transaction.billId &&
+          transaction.purchasePrice
+        ) {
           // Find the corresponding purchase bill
           const bill = purchaseBills.find((b) => b.id === transaction.billId);
           if (bill) {
@@ -974,7 +978,11 @@ export function ProductHistoryScreen({
 
       // Add manual stock additions from transactions (those without billId)
       transactions.forEach((transaction) => {
-        if (!transaction.billId && transaction.purchasePrice) {
+        if (
+          transaction.type === "purchase" &&
+          !transaction.billId &&
+          transaction.purchasePrice
+        ) {
           purchases.push({
             id: transaction.id,
             date: transaction.date,
@@ -1065,8 +1073,9 @@ export function ProductHistoryScreen({
           // Robust ID matching - handle both string and potential number types
           const itemProductId = String(item.productId || "");
           const currentProductId = String(product.id || "");
-          const isMatch = itemProductId === currentProductId && itemProductId !== "";
-          
+          const isMatch =
+            itemProductId === currentProductId && itemProductId !== "";
+
           if (isMatch) {
             const returnItem: ReturnHistoryItem = {
               id: `${billReturn.id}-${item.productId}`,
@@ -1093,8 +1102,10 @@ export function ProductHistoryScreen({
       purchaseReturns.forEach((pReturn) => {
         pReturn.items.forEach((item) => {
           // Match by description since purchase returns might not have productId
-          const isMatch = item.description.toLowerCase().trim() === product.name.toLowerCase().trim();
-          
+          const isMatch =
+            item.description.toLowerCase().trim() ===
+            product.name.toLowerCase().trim();
+
           if (isMatch) {
             purchases.push({
               id: `p-return-${pReturn.id}-${item.description}`,
@@ -1318,7 +1329,7 @@ export function ProductHistoryScreen({
   });
 
   return (
-    <div className="h-[calc(100dvh-8.5rem)] w-full overflow-hidden sm:h-[calc(100dvh-9.5rem)]">
+    <div className="flex h-full min-h-0 w-full flex-col gap-3 overflow-hidden">
       <div className="relative flex h-full min-h-0 flex-col rounded-[28px] border border-border/70 bg-background p-3 shadow-sm sm:p-5 lg:p-6">
         <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background/95 p-3 backdrop-blur sm:p-4">
           <div className="flex items-start justify-between gap-3">
@@ -1359,162 +1370,225 @@ export function ProductHistoryScreen({
           ) : (
             <div className="h-full overflow-y-auto space-y-4 px-1 pb-1 pr-1 sm:px-2 sm:pr-2">
               <div className="space-y-4 py-2">
-              {/* Product Info & Summary */}
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <Card className="border-border/70 bg-gradient-to-r from-background to-primary/5 md:col-span-2">
-                  <CardContent className="p-4">
-                    <div className="mb-3 flex items-center gap-2">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
-                        <Info className="h-3.5 w-3.5" />
-                      </div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Product Profile
-                      </p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
-                      <div className="rounded-lg border border-border/70 bg-background/80 p-2.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">HSN</p>
-                        <p className="mt-1 truncate text-sm font-semibold">{product.hsnCode || "-"}</p>
-                      </div>
-                      <div className="rounded-lg border border-border/70 bg-background/80 p-2.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">GST</p>
-                        <p className="mt-1 text-sm font-semibold">{product.gstRate}%</p>
-                      </div>
-                      <div className="rounded-lg border border-border/70 bg-background/80 p-2.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Unit</p>
-                        <p className="mt-1 text-sm font-semibold uppercase">{product.unit || "-"}</p>
-                      </div>
-                      <div className="rounded-lg border border-border/70 bg-background/80 p-2.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Weight</p>
-                        <p className="mt-1 truncate text-sm font-semibold">
-                          {product.weight || "0"} {product.weightUnit || ""}
+                {/* Product Info & Summary */}
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <Card className="border-border/70 bg-gradient-to-r from-background to-primary/5 md:col-span-2">
+                    <CardContent className="p-4">
+                      <div className="mb-3 flex items-center gap-2">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
+                          <Info className="h-3.5 w-3.5" />
+                        </div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Product Profile
                         </p>
                       </div>
-                      <div className="rounded-lg border border-border/70 bg-background/80 p-2.5 col-span-2 sm:col-span-3 xl:col-span-1">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Source</p>
-                        <p className="mt-1 truncate text-sm font-semibold">{product.whereToBuy || "Direct"}</p>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+                        <div className="rounded-lg border border-border/70 bg-background/80 p-2.5">
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                            HSN
+                          </p>
+                          <p className="mt-1 truncate text-sm font-semibold">
+                            {product.hsnCode || "-"}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-border/70 bg-background/80 p-2.5">
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                            GST
+                          </p>
+                          <p className="mt-1 text-sm font-semibold">
+                            {product.gstRate}%
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-border/70 bg-background/80 p-2.5">
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                            Unit
+                          </p>
+                          <p className="mt-1 text-sm font-semibold uppercase">
+                            {product.unit || "-"}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-border/70 bg-background/80 p-2.5">
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                            Weight
+                          </p>
+                          <p className="mt-1 truncate text-sm font-semibold">
+                            {product.weight || "0"} {product.weightUnit || ""}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-border/70 bg-background/80 p-2.5 col-span-2 sm:col-span-3 xl:col-span-1">
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                            Source
+                          </p>
+                          <p className="mt-1 truncate text-sm font-semibold">
+                            {product.whereToBuy || "Direct"}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
 
-                <Card className="border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5">
-                  <CardContent className="p-3 flex flex-col justify-center h-full">
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Current Stock</p>
-                    <div className="text-2xl font-black text-primary">
-                      {Number(product.stock).toFixed(2)} <span className="text-xs font-normal uppercase">{product.unit}</span>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground mt-1">
-                      Total Weight: {stats.totalStockWeight ? stats.totalStockWeight.toFixed(2) : "0"} {product.weightUnit || ""}
+                  <Card className="border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5">
+                    <CardContent className="p-3 flex flex-col justify-center h-full">
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold">
+                        Current Stock
+                      </p>
+                      <div className="text-2xl font-black text-primary">
+                        {Number(product.stock).toFixed(2)}{" "}
+                        <span className="text-xs font-normal uppercase">
+                          {product.unit}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        Total Weight:{" "}
+                        {stats.totalStockWeight
+                          ? stats.totalStockWeight.toFixed(2)
+                          : "0"}{" "}
+                        {product.weightUnit || ""}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Key Metrics */}
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                  <Card className="border-emerald-200 bg-emerald-50/70">
+                    <CardContent className="p-3">
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold">
+                        Assets Value
+                      </p>
+                      <p className="text-lg font-bold text-emerald-600">
+                        {formatCurrency(stats.totalAssets)}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-slate-200 bg-slate-50/70">
+                    <CardContent className="p-3">
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold">
+                        Avg Buy Price
+                      </p>
+                      <p className="text-lg font-bold">
+                        {formatCurrency(stats.averagePurchasePrice)}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-blue-200 bg-blue-50/70">
+                    <CardContent className="p-3">
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold">
+                        Avg Sell Price
+                      </p>
+                      <p className="text-lg font-bold text-blue-600">
+                        {formatCurrency(stats.averageSellingPrice)}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-orange-200 bg-orange-50/70">
+                    <CardContent className="p-3">
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold">
+                        Profit Margin
+                      </p>
+                      <p
+                        className={`text-lg font-bold ${stats.profitMargin > 0 ? "text-emerald-600" : "text-red-600"}`}
+                      >
+                        {stats.profitMargin.toFixed(1)}%
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Business Analytics Mini */}
+                <div className="grid grid-cols-2 gap-3 rounded-xl border border-border/70 bg-muted/20 p-3 md:grid-cols-4">
+                  <div className="rounded-lg border border-border/60 bg-background/80 p-2 text-center">
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold">
+                      Total Bought
                     </p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Key Metrics */}
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                <Card className="border-emerald-200 bg-emerald-50/70">
-                  <CardContent className="p-3">
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Assets Value</p>
-                    <p className="text-lg font-bold text-emerald-600">{formatCurrency(stats.totalAssets)}</p>
-                  </CardContent>
-                </Card>
-                <Card className="border-slate-200 bg-slate-50/70">
-                  <CardContent className="p-3">
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Avg Buy Price</p>
-                    <p className="text-lg font-bold">{formatCurrency(stats.averagePurchasePrice)}</p>
-                  </CardContent>
-                </Card>
-                <Card className="border-blue-200 bg-blue-50/70">
-                  <CardContent className="p-3">
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Avg Sell Price</p>
-                    <p className="text-lg font-bold text-blue-600">{formatCurrency(stats.averageSellingPrice)}</p>
-                  </CardContent>
-                </Card>
-                <Card className="border-orange-200 bg-orange-50/70">
-                  <CardContent className="p-3">
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Profit Margin</p>
-                    <p className={`text-lg font-bold ${stats.profitMargin > 0 ? "text-emerald-600" : "text-red-600"}`}>
-                      {stats.profitMargin.toFixed(1)}%
+                    <p className="text-sm font-semibold">
+                      {Number(stats.totalPurchased).toFixed(2)}
                     </p>
-                  </CardContent>
-                </Card>
-              </div>
+                  </div>
+                  <div className="rounded-lg border border-border/60 bg-background/80 p-2 text-center">
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold">
+                      Total Sold
+                    </p>
+                    <p className="text-sm font-semibold">
+                      {Number(stats.totalSold).toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-border/60 bg-background/80 p-2 text-center">
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold">
+                      Returns
+                    </p>
+                    <p className="text-sm font-semibold text-orange-600">
+                      {Number(stats.totalReturned).toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-border/60 bg-background/80 p-2 text-center">
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold">
+                      Turnover
+                    </p>
+                    <p className="text-sm font-semibold">
+                      {stats.totalPurchased > 0
+                        ? (
+                            (stats.totalSold / stats.totalPurchased) *
+                            100
+                          ).toFixed(1)
+                        : 0}
+                      %
+                    </p>
+                  </div>
+                </div>
 
-              {/* Business Analytics Mini */}
-              <div className="grid grid-cols-2 gap-3 rounded-xl border border-border/70 bg-muted/20 p-3 md:grid-cols-4">
-                <div className="rounded-lg border border-border/60 bg-background/80 p-2 text-center">
-                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Total Bought</p>
-                  <p className="text-sm font-semibold">{Number(stats.totalPurchased).toFixed(2)}</p>
+                {/* Filters Area */}
+                <div className="flex flex-col gap-2 rounded-xl border border-border/70 bg-background/80 p-2 sm:flex-row">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by vendor, client, bill no..."
+                      className="pl-9 h-9"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex gap-2 items-center">
+                    <Input
+                      type="date"
+                      className="h-9 w-auto text-xs"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                    />
+                    <span className="text-muted-foreground text-xs">to</span>
+                    <Input
+                      type="date"
+                      className="h-9 w-auto text-xs"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                    />
+                  </div>
                 </div>
-                <div className="rounded-lg border border-border/60 bg-background/80 p-2 text-center">
-                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Total Sold</p>
-                  <p className="text-sm font-semibold">{Number(stats.totalSold).toFixed(2)}</p>
-                </div>
-                <div className="rounded-lg border border-border/60 bg-background/80 p-2 text-center">
-                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Returns</p>
-                  <p className="text-sm font-semibold text-orange-600">{Number(stats.totalReturned).toFixed(2)}</p>
-                </div>
-                <div className="rounded-lg border border-border/60 bg-background/80 p-2 text-center">
-                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Turnover</p>
-                  <p className="text-sm font-semibold">
-                    {stats.totalPurchased > 0 ? ((stats.totalSold / stats.totalPurchased) * 100).toFixed(1) : 0}%
-                  </p>
-                </div>
-              </div>
 
-              {/* Filters Area */}
-              <div className="flex flex-col gap-2 rounded-xl border border-border/70 bg-background/80 p-2 sm:flex-row">
-                <div className="relative flex-1">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search by vendor, client, bill no..."
-                    className="pl-9 h-9"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-                <div className="flex gap-2 items-center">
-                  <Input
-                    type="date"
-                    className="h-9 w-auto text-xs"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                  />
-                  <span className="text-muted-foreground text-xs">to</span>
-                  <Input
-                    type="date"
-                    className="h-9 w-auto text-xs"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              {/* History Tabs */}
-              <Tabs defaultValue="purchases" className="w-full">
-                <div className="overflow-x-auto scrollbar-hide pb-1">
-                  <TabsList className="inline-flex h-10 w-full min-w-fit rounded-lg border border-border/70 bg-muted/40 p-1">
-                    <TabsTrigger
-                      value="purchases"
-                      className="min-w-[150px] flex-1 rounded-md px-4 py-2 text-xs data-[state=active]:bg-background"
-                    >
-                      Purchase Transaction ({filteredPurchases.length})
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="sales"
-                      className="min-w-[100px] flex-1 rounded-md px-4 py-2 text-xs data-[state=active]:bg-background"
-                    >
-                      Sales ({filteredSales.length})
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="returns"
-                      className="min-w-[100px] flex-1 rounded-md px-4 py-2 text-xs data-[state=active]:bg-background"
-                    >
-                      Returns ({filteredReturns.length})
-                    </TabsTrigger>
-                  </TabsList>
-                </div>
+                {/* History Tabs */}
+                <Tabs defaultValue="purchases" className="w-full">
+                  <div className="overflow-x-auto scrollbar-hide pb-1">
+                    <TabsList className="inline-flex h-10 w-full min-w-fit rounded-lg border border-border/70 bg-muted/40 p-1">
+                      <TabsTrigger
+                        value="purchases"
+                        className="min-w-[150px] flex-1 rounded-md px-4 py-2 text-xs data-[state=active]:bg-background"
+                      >
+                        Purchase Transaction ({filteredPurchases.length})
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="sales"
+                        className="min-w-[100px] flex-1 rounded-md px-4 py-2 text-xs data-[state=active]:bg-background"
+                      >
+                        Sales ({filteredSales.length})
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="returns"
+                        className="min-w-[100px] flex-1 rounded-md px-4 py-2 text-xs data-[state=active]:bg-background"
+                      >
+                        Returns ({filteredReturns.length})
+                      </TabsTrigger>
+                    </TabsList>
+                  </div>
 
                 <TabsContent value="purchases" className="mt-3">
                   {filteredPurchases.length === 0 ? (
@@ -1872,65 +1946,65 @@ export function ProductHistoryScreen({
                         </div>
                       </div>
 
-                      {filteredReturns.length > 0 && (
-                        <Card className="border mt-3">
-                          <CardHeader className="px-3 pt-3 pb-2">
-                            <CardTitle className="text-xs sm:text-sm">
-                              Return Summary
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="px-3 pb-3">
-                            <div className="grid grid-cols-3 gap-3">
-                              <div>
-                                <p className="text-[10px] text-muted-foreground">
-                                  Total
-                                </p>
-                                <p className="text-sm font-semibold text-orange-600">
-                                  {filteredReturns.reduce(
-                                    (sum, r) => sum + r.quantity,
-                                    0,
-                                  )}{" "}
-                                  {product.unit}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-[10px] text-muted-foreground">
-                                  Good
-                                </p>
-                                <p className="text-sm font-semibold text-emerald-600">
-                                  {filteredReturns
-                                    .filter((r) => r.condition === "good")
-                                    .reduce(
+                        {filteredReturns.length > 0 && (
+                          <Card className="border mt-3">
+                            <CardHeader className="px-3 pt-3 pb-2">
+                              <CardTitle className="text-xs sm:text-sm">
+                                Return Summary
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="px-3 pb-3">
+                              <div className="grid grid-cols-3 gap-3">
+                                <div>
+                                  <p className="text-[10px] text-muted-foreground">
+                                    Total
+                                  </p>
+                                  <p className="text-sm font-semibold text-orange-600">
+                                    {filteredReturns.reduce(
                                       (sum, r) => sum + r.quantity,
                                       0,
                                     )}{" "}
-                                  {product.unit}
-                                </p>
+                                    {product.unit}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] text-muted-foreground">
+                                    Good
+                                  </p>
+                                  <p className="text-sm font-semibold text-emerald-600">
+                                    {filteredReturns
+                                      .filter((r) => r.condition === "good")
+                                      .reduce(
+                                        (sum, r) => sum + r.quantity,
+                                        0,
+                                      )}{" "}
+                                    {product.unit}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] text-muted-foreground">
+                                    Bad
+                                  </p>
+                                  <p className="text-sm font-semibold text-red-600">
+                                    {filteredReturns
+                                      .filter((r) => r.condition === "bad")
+                                      .reduce(
+                                        (sum, r) => sum + r.quantity,
+                                        0,
+                                      )}{" "}
+                                    {product.unit}
+                                  </p>
+                                </div>
                               </div>
-                              <div>
-                                <p className="text-[10px] text-muted-foreground">
-                                  Bad
-                                </p>
-                                <p className="text-sm font-semibold text-red-600">
-                                  {filteredReturns
-                                    .filter((r) => r.condition === "bad")
-                                    .reduce(
-                                      (sum, r) => sum + r.quantity,
-                                      0,
-                                    )}{" "}
-                                  {product.unit}
-                                </p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      )}
-                    </>
-                  )}
-                </TabsContent>
-              </Tabs>
+                            </CardContent>
+                          </Card>
+                        )}
+                      </>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              </div>
             </div>
-          </div>
           )}
         </div>
       </div>

@@ -31,25 +31,32 @@ export default function EditBill() {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6 pb-4">
-      <div className="page-header-controls">
-        <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
-          <Button variant="outline" size="icon" onClick={() => navigate(`/bills/${bill.id}`)} className="flex-shrink-0">
+    <div className="flex h-full min-h-0 w-full flex-col gap-2 overflow-hidden">
+      <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background p-2 shadow-sm sm:p-3">
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+          <Button variant="outline" size="icon" onClick={() => navigate(`/bills/${bill.id}`)} className="h-10 w-10 shrink-0 rounded-lg bg-background">
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div className="page-header-title min-w-0 flex-1">
-            <div className="page-header-icon">
-              <FileText className="h-5 w-5 md:h-6 md:w-6" />
-            </div>
-            <div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground truncate">Edit Bill</h1>
-            <p className="text-sm text-muted-foreground mt-1 truncate">{bill.billNumber}</p>
-            </div>
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-border">
+            <FileText className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="truncate text-2xl font-semibold leading-tight sm:text-3xl">Edit Bill</h1>
+            <p className="text-sm text-muted-foreground truncate">{bill.billNumber}</p>
+          </div>
+          </div>
+          <div className="hidden rounded-lg border border-border/60 bg-muted/20 px-3 py-1.5 text-xs text-muted-foreground sm:block">
+            Update Mode
           </div>
         </div>
       </div>
 
-      <BillForm bill={bill} isEdit />
+      <div className="min-h-0 flex-1 rounded-2xl border border-border/70 bg-background/60 p-2 sm:p-3">
+        <div className="h-full overflow-y-auto pr-1 sm:pr-2">
+          <BillForm bill={bill} isEdit />
+        </div>
+      </div>
     </div>
   );
 }
