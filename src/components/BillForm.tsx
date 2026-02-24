@@ -1107,7 +1107,7 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
               />
             </div>
 
-            <div className="space-y-2">
+            {/* <div className="space-y-2">
               <Label>Created By</Label>
               <Select
                 value={formData.createdBy}
@@ -1128,7 +1128,7 @@ export function BillForm({ bill, isEdit = false, initialGstEnabled, billType: pr
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </div> */}
 
             <div className="space-y-2">
               <Label>Mode of Payment</Label>
