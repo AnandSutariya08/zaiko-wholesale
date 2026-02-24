@@ -24,6 +24,8 @@ import {
   incrementSampleBillCounter,
   getCompanyProfile,
   getCreators,
+  getBankAccounts,
+  saveBankAccount,
 } from "@/lib/storage";
 import {
   calculateBillTotals,
@@ -63,7 +65,7 @@ import {
 } from "./ui/dialog";
 import { ClientForm } from "./ClientForm";
 import { ProductForm } from "./ProductForm";
-import { BillCreator } from "@/types";
+import { BillCreator, BankAccount } from "@/types";
 
 interface SampleBillFormProps {
   bill?: SampleBill;
@@ -75,6 +77,7 @@ export function SampleBillForm({ bill, isEdit = false }: SampleBillFormProps) {
   const [clients, setClients] = useState<Client[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [availableCreators, setAvailableCreators] = useState<BillCreator[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [clientComboOpen, setClientComboOpen] = useState(false);
   const [createClientOpen, setCreateClientOpen] = useState(false);
@@ -88,6 +91,16 @@ export function SampleBillForm({ bill, isEdit = false }: SampleBillFormProps) {
   const [createProductForIndex, setCreateProductForIndex] = useState<number | null>(
     null
   );
+  const [createBankOpen, setCreateBankOpen] = useState(false);
+  const [savingBank, setSavingBank] = useState(false);
+  const [bankFormData, setBankFormData] = useState<Partial<BankAccount>>({
+    bankName: "",
+    accountHolder: "",
+    accountNumber: "",
+    branchAndIFSC: "",
+    upiId: "",
+    isDefault: false,
+  });
 
   const [formData, setFormData] = useState({
     date: new Date().toISOString(),
@@ -101,6 +114,7 @@ export function SampleBillForm({ bill, isEdit = false }: SampleBillFormProps) {
     discount: "",
     discountType: "amount" as "amount" | "percentage",
     createdBy: "",
+    bankAccountId: "",
   });
 
   const [companyProfile, setCompanyProfile] = useState<any>(null);
@@ -108,16 +122,18 @@ export function SampleBillForm({ bill, isEdit = false }: SampleBillFormProps) {
 
   useEffect(() => {
     const loadData = async () => {
-      const [clientsData, productsData, companyData, creatorsData] = await Promise.all([
+      const [clientsData, productsData, companyData, creatorsData, banksData] = await Promise.all([
         getClients(),
         getProducts(),
         getCompanyProfile(),
         getCreators(),
+        getBankAccounts(),
       ]);
       setClients(clientsData);
       setProducts(productsData);
       setCompanyProfile(companyData);
       setAvailableCreators(creatorsData);
+      setBankAccounts(banksData);
       setGstEnabled(companyData?.gstEnabled ?? true);
 
       if (bill && isEdit) {
@@ -136,6 +152,7 @@ export function SampleBillForm({ bill, isEdit = false }: SampleBillFormProps) {
           discount: bill.discount ? String(bill.discount) : "",
           discountType: bill.discountType || "amount",
           createdBy: bill.createdBy || "",
+          bankAccountId: bill.bankAccountId || "",
         });
       }
     };
@@ -143,6 +160,63 @@ export function SampleBillForm({ bill, isEdit = false }: SampleBillFormProps) {
   }, [bill, isEdit]);
 
   const isIGST = gstType === "igst";
+
+  const openCreateBankDialog = () => {
+    setBankFormData({
+      bankName: "",
+      accountHolder: "",
+      accountNumber: "",
+      branchAndIFSC: "",
+      upiId: "",
+      isDefault: bankAccounts.length === 0,
+    });
+    setCreateBankOpen(true);
+  };
+
+  const handleCreateBank = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingBank(true);
+    try {
+      const newBank: BankAccount = {
+        id: Math.random().toString(36).substr(2, 9),
+        bankName: (bankFormData.bankName || "").trim(),
+        accountHolder: (bankFormData.accountHolder || "").trim(),
+        accountNumber: (bankFormData.accountNumber || "").trim(),
+        branchAndIFSC: (bankFormData.branchAndIFSC || "").trim(),
+        upiId: (bankFormData.upiId || "").trim(),
+        isDefault: !!bankFormData.isDefault,
+      };
+
+      if (
+        !newBank.bankName ||
+        !newBank.accountHolder ||
+        !newBank.accountNumber ||
+        !newBank.branchAndIFSC
+      ) {
+        toast.error("Please fill all required bank fields");
+        return;
+      }
+
+      if (newBank.isDefault) {
+        for (const account of bankAccounts) {
+          if (account.isDefault && account.id !== newBank.id) {
+            await saveBankAccount({ ...account, isDefault: false });
+          }
+        }
+      }
+
+      await saveBankAccount(newBank);
+      const refreshedBanks = await getBankAccounts();
+      setBankAccounts(refreshedBanks);
+      setFormData((prev) => ({ ...prev, bankAccountId: newBank.id }));
+      setCreateBankOpen(false);
+      toast.success("Bank account added");
+    } catch (error) {
+      toast.error("Failed to save bank account");
+    } finally {
+      setSavingBank(false);
+    }
+  };
 
   const applyProductToBillItem = (index: number, product: Product) => {
     const updated = [...billItems];
@@ -320,6 +394,10 @@ export function SampleBillForm({ bill, isEdit = false }: SampleBillFormProps) {
         paidAmountNum,
         totals.total
       );
+      const selectedBankAccount =
+        bankAccounts.find((a) => a.id === formData.bankAccountId) ||
+        bankAccounts.find((a) => a.isDefault) ||
+        bankAccounts[0];
 
       let billCounter = 0;
       if (!isEdit) {
@@ -359,6 +437,8 @@ export function SampleBillForm({ bill, isEdit = false }: SampleBillFormProps) {
         notes: formData.notes,
         createdBy: formData.createdBy || undefined,
         payments: [],
+        bankAccountId: selectedBankAccount?.id || "",
+        bankAccount: selectedBankAccount || undefined,
         createdAt: bill?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         isSample: true,
@@ -526,6 +606,52 @@ export function SampleBillForm({ bill, isEdit = false }: SampleBillFormProps) {
             </div>
 
             <div className="space-y-2">
+              <Label>Bank Account (Optional)</Label>
+              <Select
+                value={formData.bankAccountId}
+                onValueChange={(value) => {
+                  if (value === "__add_new_bank__") {
+                    openCreateBankDialog();
+                    return;
+                  }
+                  setFormData({ ...formData, bankAccountId: value });
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      bankAccounts.length > 0
+                        ? "Select bank account for bill"
+                        : "No bank accounts added"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {bankAccounts.length === 0 ? (
+                    <div className="px-2 py-2 text-sm text-muted-foreground">
+                      No bank accounts found.
+                    </div>
+                  ) : (
+                    bankAccounts.map((account) => (
+                      <SelectItem key={account.id} value={account.id}>
+                        {account.bankName} - {account.accountNumber}{" "}
+                        {account.isDefault ? "(Default)" : ""}
+                      </SelectItem>
+                    ))
+                  )}
+                  <SelectItem value="__add_new_bank__">
+                    + Add New Bank Account
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              {bankAccounts.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No banks configured. Use "Add New Bank Account" to create one.
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
               <Label>Place of Supply</Label>
               <Input
                 value={formData.placeOfSupply}
@@ -636,6 +762,112 @@ export function SampleBillForm({ bill, isEdit = false }: SampleBillFormProps) {
           setCreateProductForIndex(null);
         }}
       />
+      <Dialog open={createBankOpen} onOpenChange={setCreateBankOpen}>
+        <DialogContent className="dialog-form-content sm:max-w-[500px]">
+          <form onSubmit={handleCreateBank} className="dialog-form-body">
+            <DialogHeader className="dialog-form-header">
+              <DialogTitle>Add Bank Account</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="sample-bank-name">Bank Name *</Label>
+                  <Input
+                    id="sample-bank-name"
+                    required
+                    value={bankFormData.bankName || ""}
+                    onChange={(e) =>
+                      setBankFormData((prev) => ({ ...prev, bankName: e.target.value }))
+                    }
+                    placeholder="e.g. HDFC Bank"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="sample-bank-holder">Account Holder Name *</Label>
+                  <Input
+                    id="sample-bank-holder"
+                    required
+                    value={bankFormData.accountHolder || ""}
+                    onChange={(e) =>
+                      setBankFormData((prev) => ({
+                        ...prev,
+                        accountHolder: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="sample-bank-number">Account Number *</Label>
+                  <Input
+                    id="sample-bank-number"
+                    required
+                    value={bankFormData.accountNumber || ""}
+                    onChange={(e) =>
+                      setBankFormData((prev) => ({
+                        ...prev,
+                        accountNumber: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="sample-bank-ifsc">Branch & IFSC *</Label>
+                  <Input
+                    id="sample-bank-ifsc"
+                    required
+                    value={bankFormData.branchAndIFSC || ""}
+                    onChange={(e) =>
+                      setBankFormData((prev) => ({
+                        ...prev,
+                        branchAndIFSC: e.target.value,
+                      }))
+                    }
+                    placeholder="e.g. Mumbai & HDFC0001234"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sample-bank-upi">UPI ID (Optional)</Label>
+                <Input
+                  id="sample-bank-upi"
+                  value={bankFormData.upiId || ""}
+                  onChange={(e) =>
+                    setBankFormData((prev) => ({ ...prev, upiId: e.target.value }))
+                  }
+                  placeholder="e.g. name@bank"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  id="sample-bank-default"
+                  type="checkbox"
+                  checked={!!bankFormData.isDefault}
+                  onChange={(e) =>
+                    setBankFormData((prev) => ({ ...prev, isDefault: e.target.checked }))
+                  }
+                />
+                <Label htmlFor="sample-bank-default">Set as default account</Label>
+              </div>
+            </div>
+            <DialogFooter className="dialog-form-footer">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCreateBankOpen(false)}
+                disabled={savingBank}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={savingBank}>
+                {savingBank && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Save Bank Account
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">

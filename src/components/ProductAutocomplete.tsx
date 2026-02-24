@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Check, ChevronsUpDown } from "lucide-react"
+import { Check, ChevronsUpDown, PlusCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -22,6 +22,7 @@ interface ProductAutocompleteProps {
   value: string
   onChange: (value: string) => void
   onSelect: (product: Product) => void
+  onCreateProduct?: () => void
   placeholder?: string
   type: "name" | "hsn"
   className?: string
@@ -32,6 +33,7 @@ export function ProductAutocomplete({
   value,
   onChange,
   onSelect,
+  onCreateProduct,
   placeholder = "Select product...",
   type,
   className,
@@ -83,8 +85,41 @@ export function ProductAutocomplete({
             }}
           />
           <CommandList>
-            <CommandEmpty>No product found.</CommandEmpty>
+            <CommandEmpty>
+              <div className="py-4 text-center space-y-3">
+                <p className="text-sm text-muted-foreground">No product found.</p>
+                {onCreateProduct && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      onCreateProduct()
+                      setOpen(false)
+                    }}
+                  >
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Create New Product
+                  </Button>
+                )}
+              </div>
+            </CommandEmpty>
             <CommandGroup>
+              {onCreateProduct && (
+                <CommandItem
+                  value="__create_product__"
+                  onSelect={() => {
+                    onCreateProduct()
+                    setOpen(false)
+                  }}
+                  className="font-medium text-primary"
+                >
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Add New Product
+                </CommandItem>
+              )}
               {filteredProducts.map((product) => (
                 <CommandItem
                   key={product.id}

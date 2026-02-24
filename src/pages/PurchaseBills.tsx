@@ -104,6 +104,7 @@ import { ConflictResolutionDialog } from "@/components/ConflictResolutionDialog"
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { compressFile, getBase64SizeKB } from "@/lib/imageCompression";
 import { ProductAutocomplete } from "@/components/ProductAutocomplete";
+import { ProductForm } from "@/components/ProductForm";
 
 function PurchaseBills() {
   const navigate = useNavigate();
@@ -321,6 +322,8 @@ function PurchaseBills() {
   const [vendors, setVendors] = useState<Vendor[]>([]);
 
   const [products, setProducts] = useState<any[]>([]);
+  const [createProductOpen, setCreateProductOpen] = useState(false);
+  const [createProductForIndex, setCreateProductForIndex] = useState<number | null>(null);
   const [manualCreateOpen, setManualCreateOpen] = useState(false);
   const manualImageInputRef = useRef<HTMLInputElement>(null);
   const [manualVendorMode, setManualVendorMode] = useState<"select" | "create">(
@@ -799,6 +802,11 @@ function PurchaseBills() {
 
     items[index] = item;
     setManualBill((prev) => ({ ...prev, items }));
+  };
+
+  const handleCreateProductFromManualItem = (index: number) => {
+    setCreateProductForIndex(index);
+    setCreateProductOpen(true);
   };
 
   const addManualItemRow = () => {
@@ -2555,6 +2563,9 @@ function PurchaseBills() {
                           onSelect={(product) =>
                             handleManualProductSelect(index, product)
                           }
+                          onCreateProduct={() =>
+                            handleCreateProductFromManualItem(index)
+                          }
                           placeholder="Item / Product name"
                           type="name"
                           className="h-9 text-sm"
@@ -4238,6 +4249,23 @@ function PurchaseBills() {
         bill={selectedBillForReturn!}
         onSuccess={loadBills}
         editReturn={editingReturn}
+      />
+      <ProductForm
+        open={createProductOpen}
+        onOpenChange={(open) => {
+          setCreateProductOpen(open);
+          if (!open) {
+            setCreateProductForIndex(null);
+          }
+        }}
+        onSuccess={(newProduct) => {
+          setProducts((prev) => [...prev, newProduct]);
+          if (createProductForIndex !== null) {
+            handleManualProductSelect(createProductForIndex, newProduct);
+          }
+          setCreateProductForIndex(null);
+          setCreateProductOpen(false);
+        }}
       />
       {/* Transaction History Dialog */}
       <Dialog
