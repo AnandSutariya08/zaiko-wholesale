@@ -160,6 +160,7 @@ export interface Bill {
   paidAmount: number;
   paymentType?: PaymentMethod; // For legacy support/display
   payments: PaymentTransaction[]; // Required field for multiple payments
+  returns?: BillReturn[]; // Optional sales return records attached to this bill
   gstType: "igst" | "cgst_sgst";
   notes?: string;
   returnComment?: string;

@@ -144,9 +144,8 @@ function AppSidebarContent({
           </div>
         </div>
 
-        <SidebarContent className="flex-1 overflow-y-auto px-2 py-2 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary/20 hover:[&::-webkit-scrollbar-thumb]:bg-primary/40 [&::-webkit-scrollbar-track]:bg-transparent">
-          <div className="pb-32">
-            <SidebarGroup className="p-0">
+        <SidebarContent className="flex-1 overflow-y-auto px-2 py-2 pb-20 group-data-[collapsible=icon]:pb-32 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary/20 hover:[&::-webkit-scrollbar-thumb]:bg-primary/40 [&::-webkit-scrollbar-track]:bg-transparent">
+          <SidebarGroup className="p-0">
               <SidebarGroupContent>
                 <SidebarMenu className="gap-1">
                 {navItems.map((item, index) => {
@@ -161,7 +160,7 @@ function AppSidebarContent({
                     className={cn(
                       "rounded-lg px-3 h-10 transition-all duration-200 relative group/btn",
                       active && !manageMode
-                        ? "bg-primary/10 text-primary font-semibold shadow-none border-l-2 border-primary rounded-l-none"
+                        ? "bg-primary/10 text-primary font-semibold shadow-none border-l-2 border-primary rounded-l-none group-data-[collapsible=icon]:border-l-0 group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:bg-primary/20 group-data-[collapsible=icon]:ring-1 group-data-[collapsible=icon]:ring-primary/40 group-data-[collapsible=icon]:shadow-[0_6px_18px_rgba(59,130,246,0.25)] group-data-[collapsible=icon]:scale-[1.04]"
                         : "hover:bg-sidebar-accent text-sidebar-foreground/70",
                       manageMode &&
                         "border border-dashed border-primary/30 bg-primary/5",
@@ -330,7 +329,6 @@ function AppSidebarContent({
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-      </div>
     </SidebarContent>
   </div>
     <SidebarFooter className="sticky bottom-0 border-t border-sidebar-border/40 p-2 bg-sidebar z-10">
@@ -385,6 +383,29 @@ export function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
+  const getMobileTitle = (pathname: string) => {
+    if (pathname === "/") return "Dashboard";
+    if (pathname.startsWith("/business-health")) return "Business Health";
+    if (pathname.startsWith("/bills")) return "Bills";
+    if (pathname.startsWith("/sample-bill") || pathname.startsWith("/sample-bills")) return "Quotation Bill";
+    if (pathname.startsWith("/purchases")) return "Buy";
+    if (pathname.startsWith("/returns")) return "Returns";
+    if (pathname.startsWith("/passbook")) return "Passbook";
+    if (pathname.startsWith("/expenses")) return "Expenses";
+    if (pathname.startsWith("/products")) return "Stock";
+    if (pathname.startsWith("/clients")) return "Clients";
+    if (pathname.startsWith("/vendors")) return "Vendors";
+    if (pathname.startsWith("/settings")) return "Settings";
+    return "Invoice Mitra";
+  };
+  const isShellManagedRoute =
+    location.pathname === "/" ||
+    location.pathname === "/business-health" ||
+    location.pathname.startsWith("/bills") ||
+    location.pathname.startsWith("/sample-bill") ||
+    location.pathname.startsWith("/sample-bills") ||
+    location.pathname.startsWith("/purchases") ||
+    location.pathname.startsWith("/returns");
   const [company, setCompany] = useState<any>(null);
   const user = getCurrentUser();
   const permissions =
@@ -519,19 +540,51 @@ export function Layout({ children }: LayoutProps) {
         />
         <SidebarRail />
       </Sidebar>
-      <div className="flex flex-1 flex-col min-h-0 min-w-0">
+      <div className="flex min-h-0 min-w-0 flex-1 bg-muted/20">
         {/* Main Content */}
         <main
-          className="relative flex-1 overflow-y-auto overflow-x-hidden"
+          className={cn(
+            "relative flex-1 overflow-x-hidden",
+            isShellManagedRoute ? "overflow-y-hidden" : "overflow-y-auto",
+          )}
           style={{
             overscrollBehavior: "contain",
             WebkitOverflowScrolling: "touch",
             scrollbarGutter: "stable both-edges",
           }}
         >
-          <div className="p-3 sm:p-4 md:p-6 lg:p-8 w-full">{children}</div>
+          <div className="sticky top-0 z-40 border-b border-border/70 bg-background/95 px-2 py-2 backdrop-blur md:hidden">
+            <div className="flex items-center gap-2">
+              <SidebarTrigger
+                className="h-9 w-9 rounded-lg border border-border/70 bg-background/90"
+                aria-label="Open sidebar"
+              />
+              <p className="truncate text-sm font-semibold text-foreground">
+                {getMobileTitle(location.pathname)}
+              </p>
+            </div>
+          </div>
+          <div
+            className={cn(
+              "mx-auto w-full",
+              isShellManagedRoute
+                ? "h-full max-w-none p-0 md:pt-0"
+                : "max-w-[1800px] p-2 sm:p-3 md:p-4 lg:p-5",
+            )}
+          >
+            <div
+              className={cn(
+                "h-full min-h-0 rounded-[28px]  sm:p-3 md:p-4",
+                isShellManagedRoute && "border-0 bg-transparent p-0 shadow-none",
+              )}
+            >
+              {children}
+            </div>
+          </div>
         </main>
       </div>
     </SidebarProvider>
   );
 }
+
+

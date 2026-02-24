@@ -24,9 +24,5 @@ export function SampleBillEditPage() {
   if (loading) return <LoadingSpinner fullScreen contentAreaOnly />;
   if (!bill) return <div>Sample bill not found</div>;
 
-  return (
-    <div className="container mx-auto p-4">
-      <SampleBillForm bill={bill} isEdit={true} />
-    </div>
-  );
+  return <SampleBillForm bill={bill} isEdit={true} />;
 }

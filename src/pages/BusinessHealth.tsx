@@ -10,7 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   getBills,
   getProducts,
@@ -24,6 +23,14 @@ import {
   getPurchaseReturns,
 } from "@/lib/storage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   TrendingDown,
   TrendingUp,
@@ -40,7 +47,6 @@ import {
   AlertCircle,
   Download,
   Calendar,
-  Filter,
   BarChart3,
   PieChart as PieChartIcon,
   LineChart as LineChartIcon,
@@ -48,6 +54,7 @@ import {
   Info,
   CheckCircle2,
   XCircle,
+  SlidersHorizontal,
 } from "lucide-react";
 import { formatCurrency, roundToTwoDecimals } from "@/lib/billUtils";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
@@ -403,6 +410,7 @@ const HealthPDF = ({ data, dateRange }: any) => (
 export default function BusinessHealth() {
   const [loading, setLoading] = useState(false);
   const [rawData, setRawData] = useState<any>(null);
+  const [filterMode, setFilterMode] = useState<"all" | "custom">("all");
   const [dateRange, setDateRange] = useState({
     start: format(subDays(new Date(), 30), "yyyy-MM-dd"),
     end: format(new Date(), "yyyy-MM-dd"),
@@ -414,24 +422,25 @@ export default function BusinessHealth() {
 
     const start = startOfDay(new Date(dateRange.start));
     const end = endOfDay(new Date(dateRange.end));
+    const inSelectedRange = (dateValue: string) => {
+      if (filterMode === "all") return true;
+      return isWithinInterval(new Date(dateValue), { start, end });
+    };
 
     const filteredBills = bills.filter((b: any) =>
-      isWithinInterval(new Date(b.date), { start, end }),
+      inSelectedRange(b.date),
     );
     const filteredReturns = returns.filter((r: any) =>
-      isWithinInterval(new Date(r.date), { start, end }),
+      inSelectedRange(r.date),
     );
     const filteredExpenses = expenses.filter((e: any) =>
-      isWithinInterval(new Date(e.date), { start, end }),
+      inSelectedRange(e.date),
     );
     const filteredPurchases = purchases.filter((p: any) =>
-      isWithinInterval(new Date(p.createdAt || p.billDate || p.id), {
-        start,
-        end,
-      }),
+      inSelectedRange(p.createdAt || p.billDate || p.id),
     );
     const filteredPurchaseReturns = (rawData.purchaseReturns || []).filter(
-      (r: any) => isWithinInterval(new Date(r.date), { start, end }),
+      (r: any) => inSelectedRange(r.date),
     );
 
     // Granular Analysis: User, Client, Vendor
@@ -636,7 +645,7 @@ export default function BusinessHealth() {
         },
       ],
     };
-  }, [rawData, dateRange]);
+  }, [rawData, dateRange, filterMode]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -693,98 +702,161 @@ export default function BusinessHealth() {
   }
 
   const COLORS = ["#10b981", "#f59e0b", "#ef4444"];
+  const applyQuickRange = (days: number) => {
+    setFilterMode("custom");
+    setDateRange({
+      start: format(subDays(new Date(), days), "yyyy-MM-dd"),
+      end: format(new Date(), "yyyy-MM-dd"),
+    });
+  };
 
   return (
-    <div className="p-2 md:p-8 space-y-4 md:space-y-6 pb-24 max-w-[1600px] mx-auto bg-slate-50/30 min-h-screen">
-      {/* Header & Controls */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 md:gap-6 bg-white p-4 md:p-6 rounded-2xl border shadow-sm transition-all hover:shadow-md">
-        <div className="flex items-center gap-3 md:gap-4">
-          <div className="p-2 md:p-3 bg-primary/10 rounded-xl text-primary ring-1 ring-primary/20 shrink-0">
-            <Activity className="h-5 w-5 md:h-6 md:w-6" />
+    <div className="flex h-full min-h-0 w-full flex-col gap-2 overflow-hidden">
+      <div className="shrink-0 rounded-2xl border border-border/70 bg-background p-3 shadow-sm sm:p-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 items-center justify-start gap-3 sm:gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-border">
+            <Activity className="h-5 w-5" />
           </div>
-          <div>
-            <h1 className="text-xl md:text-2xl font-semibold tracking-tight text-slate-900">
+          <div className="min-w-0 text-left">
+            <h1 className="truncate text-2xl font-semibold leading-tight sm:text-3xl">
               Business Health
             </h1>
-            <p className="text-[10px] md:text-sm text-slate-500">
+            <p className="text-sm text-muted-foreground">
               Enterprise Performance & Risk Analytics
             </p>
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 md:gap-4">
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
-            <div className="flex flex-col px-2 md:px-3 flex-1">
-              <span className="text-[9px] uppercase text-slate-400 leading-none mb-1">
-                From
-              </span>
+        <div className="flex w-full flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-start lg:w-auto lg:justify-end">
+          <div className="flex w-full items-center gap-1 rounded-lg border border-border/70 bg-muted/20 p-1 sm:w-auto">
+            <div className="flex min-w-0 flex-1 items-center gap-1 rounded-lg px-2 sm:flex-none">
+              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
               <Input
                 type="date"
                 value={dateRange.start}
-                onChange={(e) =>
-                  setDateRange({ ...dateRange, start: e.target.value })
-                }
-                className="h-7 md:h-8 w-full sm:w-32 md:w-36 border-none bg-transparent p-0 text-xs md:text-sm focus-visible:ring-0"
+                onChange={(e) => {
+                  setFilterMode("custom");
+                  setDateRange({ ...dateRange, start: e.target.value });
+                }}
+                className="h-8 w-full min-w-0 border-0 bg-transparent p-0 text-xs focus-visible:ring-0 sm:w-[120px]"
               />
             </div>
-            <div className="h-6 md:h-8 w-px bg-slate-200" />
-            <div className="flex flex-col px-2 md:px-3 flex-1">
-              <span className="text-[9px] uppercase text-slate-400 leading-none mb-1">
-                To
-              </span>
+            <div className="h-6 w-px bg-border" />
+            <div className="flex min-w-0 flex-1 items-center gap-1 rounded-lg px-2 sm:flex-none">
               <Input
                 type="date"
                 value={dateRange.end}
-                onChange={(e) =>
-                  setDateRange({ ...dateRange, end: e.target.value })
-                }
-                className="h-7 md:h-8 w-full sm:w-32 md:w-36 border-none bg-transparent p-0 text-xs md:text-sm focus-visible:ring-0"
+                onChange={(e) => {
+                  setFilterMode("custom");
+                  setDateRange({ ...dateRange, end: e.target.value });
+                }}
+                className="h-8 w-full min-w-0 border-0 bg-transparent p-0 text-xs focus-visible:ring-0 sm:w-[120px]"
               />
             </div>
           </div>
-
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-10 w-full items-center gap-2 rounded-lg bg-background sm:w-auto">
+                <SlidersHorizontal className="h-4 w-4" />
+                Manage ({filterMode === "all" ? "All" : "Date"})
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuLabel>Filter Mode</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => setFilterMode("all")}>
+                Show All Data (Default)
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Date Presets</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => applyQuickRange(7)}>
+                Apply Last 7 Days
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => applyQuickRange(30)}>
+                Apply Last 30 Days
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => applyQuickRange(90)}>
+                Apply Last 90 Days
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  {
+                    setFilterMode("custom");
+                    setDateRange({
+                      start: format(new Date(new Date().getFullYear(), 0, 1), "yyyy-MM-dd"),
+                      end: format(new Date(), "yyyy-MM-dd"),
+                    });
+                  }
+                }
+              >
+                Apply YTD
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  {
+                    setFilterMode("custom");
+                    setDateRange({
+                      start: format(subDays(new Date(), 30), "yyyy-MM-dd"),
+                      end: format(new Date(), "yyyy-MM-dd"),
+                    });
+                  }
+                }
+              >
+                Reset Date Range
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <PDFDownloadLink
             document={<HealthPDF data={healthData} dateRange={dateRange} />}
             fileName={`BusinessHealth_${dateRange.start}_${dateRange.end}.pdf`}
-            className="flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-medium text-xs md:text-sm shadow-sm hover:shadow-md hover:bg-primary/90 transition-all active:scale-95"
           >
             {({ loading }) =>
-              loading ? (
-                "Generating..."
-              ) : (
-                <>
-                  <Download className="h-3.5 w-3.5 md:h-4 md:w-4" /> Export
-                  Report
-                </>
-              )
+              <Button size="sm" className="h-10 w-full items-center gap-2 rounded-lg px-4 shadow-sm sm:w-auto" disabled={loading}>
+                <Download className="h-4 w-4" />
+                {loading ? "Generating..." : "Export Report"}
+              </Button>
             }
           </PDFDownloadLink>
         </div>
       </div>
+      </div>
 
-      <Tabs defaultValue="overview" className="space-y-4 md:space-y-6">
-        <TabsList className="bg-white border p-1 rounded-xl h-auto flex-nowrap overflow-x-auto justify-start gap-1 shadow-sm scrollbar-none">
+      <Card className="min-h-0 flex-1 overflow-hidden border border-border/70 bg-background/60 shadow-none">
+        <CardContent className="flex h-full min-h-0 flex-col gap-1.5 p-1 sm:p-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 bg-muted/20 px-3 py-2">
+        <p className="text-xs text-muted-foreground">
+          Active Range: {filterMode === "all" ? "All Data" : `${dateRange.start} to ${dateRange.end}`}
+        </p>
+        <div className="flex items-center gap-1.5">
+          <Badge variant="outline" className="text-[10px] bg-background/80">
+            {filterMode === "all" ? "All Data Mode" : "Date Filter Mode"}
+          </Badge>
+        </div>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto p-1 sm:p-1.5 lg:p-2">
+      <Tabs defaultValue="overview" className="space-y-4 pr-1 md:space-y-6 sm:pr-2">
+        <TabsList className="h-auto justify-start gap-1.5 overflow-x-auto rounded-2xl border border-border/70 bg-muted/30 p-1.5 scrollbar-none">
           <TabsTrigger
             value="overview"
-            className="rounded-lg px-3 md:px-6 py-2 md:py-2.5 font-medium text-xs md:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all shrink-0"
+            className="rounded-xl px-3 md:px-6 py-2 md:py-2.5 font-semibold text-xs md:text-sm data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all shrink-0"
           >
             Overview
           </TabsTrigger>
           <TabsTrigger
             value="financials"
-            className="rounded-lg px-3 md:px-6 py-2 md:py-2.5 font-medium text-xs md:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all shrink-0"
+            className="rounded-xl px-3 md:px-6 py-2 md:py-2.5 font-semibold text-xs md:text-sm data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all shrink-0"
           >
             Financials
           </TabsTrigger>
           <TabsTrigger
             value="inventory"
-            className="rounded-lg px-3 md:px-6 py-2 md:py-2.5 font-medium text-xs md:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all shrink-0"
+            className="rounded-xl px-3 md:px-6 py-2 md:py-2.5 font-semibold text-xs md:text-sm data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all shrink-0"
           >
             Inventory
           </TabsTrigger>
           <TabsTrigger
             value="stakeholders"
-            className="rounded-lg px-3 md:px-6 py-2 md:py-2.5 font-medium text-xs md:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all shrink-0"
+            className="rounded-xl px-3 md:px-6 py-2 md:py-2.5 font-semibold text-xs md:text-sm data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all shrink-0"
           >
             Stakeholders
           </TabsTrigger>
@@ -1571,6 +1643,9 @@ export default function BusinessHealth() {
           </div>
         </TabsContent>
       </Tabs>
+      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

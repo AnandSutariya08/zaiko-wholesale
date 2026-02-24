@@ -1123,87 +1123,82 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-3 sm:space-y-4 md:space-y-6 pb-4 w-full max-w-full overflow-x-hidden">
-      {/* Today's Notes Section - At the Top */}
-
-      {/* Header Section */}
-      <div className="flex flex-col gap-3 sm:gap-4">
-        <div className="page-header-controls">
-          <div className="page-header-title min-w-0 flex-1">
-            <div className="page-header-icon">
-              <BarChart3 className="h-5 w-5 md:h-6 md:w-6" />
+    <div className="flex h-full min-h-0 w-full flex-col gap-1.5 overflow-hidden">
+      <div className="shrink-0 rounded-2xl border border-border/70 bg-background p-2 shadow-sm sm:p-3">
+          <div className="grid gap-2.5 lg:grid-cols-[1fr_auto] lg:items-center">
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-3 sm:p-4">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-md border border-border/60 bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground">
+                <BarChart3 className="h-3.5 w-3.5 text-primary" />
+                Overview
+              </div>
+              <h1 className="truncate text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">
+                Dashboard
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Comprehensive business analytics and insights
+              </p>
             </div>
-            <div>
-            <h1 className="page-title break-words">
-              Dashboard
-            </h1>
-            <p className="page-subtitle break-words">
-              Comprehensive business analytics and insights
-            </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-            {/* Excel Export Button */}
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1 sm:flex-none items-center gap-2 h-9 sm:h-10"
-              onClick={exportToExcel}
-              data-testid="button-export-excel"
-            >
-              <FileSpreadsheet className="h-4 w-4" />
-              Excel
-            </Button>
 
-            {/* PDF Export Button */}
-            <PDFDownloadLink
-              document={
-                <DashboardPDF
-                  stats={stats}
-                  chartData={chartData}
-                  productAnalytics={productAnalytics}
-                  clientAnalytics={clientAnalytics}
-                  bills={billsInRange.slice(0, 50)}
-                  purchaseBills={purchaseBills.slice(0, 50)}
-                  company={companyProfile}
-                  dateRange={dateRange}
-                />
-              }
-              fileName={`Dashboard_Report_${format(new Date(), "dd-MM-yyyy")}.pdf`}
-              className="flex-1 sm:flex-none"
-              onClick={() => toast.success("Generating PDF report...")}
-            >
-              {({ loading }) => (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full items-center gap-2 h-9 sm:h-10"
-                  disabled={loading}
-                >
-                  <FileIcon className="h-4 w-4" />
-                  {loading ? "Generating..." : "PDF"}
-                </Button>
-              )}
-            </PDFDownloadLink>
-
-            {/* Create Bill Button */}
-            <Link to="/bills/new" className="flex-1 sm:flex-none">
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-1.5">
+              <div className="flex items-center gap-2 overflow-x-auto [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary/30 [&::-webkit-scrollbar-track]:bg-transparent">
               <Button
-                size="lg"
-                className="w-full shadow-lg text-xs sm:text-sm md:text-base h-9 sm:h-10"
+                variant="outline"
+                size="sm"
+                className="h-10 shrink-0 items-center gap-2 rounded-lg bg-background px-3"
+                onClick={exportToExcel}
+                data-testid="button-export-excel"
               >
-                <Plus className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                Create Bill
+                <FileSpreadsheet className="h-4 w-4" />
+                Excel
               </Button>
-            </Link>
+
+              <PDFDownloadLink
+                document={
+                  <DashboardPDF
+                    stats={stats}
+                    chartData={chartData}
+                    productAnalytics={productAnalytics}
+                    clientAnalytics={clientAnalytics}
+                    bills={billsInRange.slice(0, 50)}
+                    purchaseBills={purchaseBills.slice(0, 50)}
+                    company={companyProfile}
+                    dateRange={dateRange}
+                  />
+                }
+                fileName={`Dashboard_Report_${format(new Date(), "dd-MM-yyyy")}.pdf`}
+                onClick={() => toast.success("Generating PDF report...")}
+              >
+                {({ loading }) => (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-10 shrink-0 items-center gap-2 rounded-lg bg-background px-3"
+                    disabled={loading}
+                  >
+                    <FileIcon className="h-4 w-4" />
+                    {loading ? "Generating..." : "PDF"}
+                  </Button>
+                )}
+              </PDFDownloadLink>
+
+              <Link to="/bills/new" className="shrink-0">
+                <Button size="sm" className="h-10 shrink-0 rounded-lg px-4 shadow-sm">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create Bill
+                </Button>
+              </Link>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Professional Filters Section - Collapsible */}
-        <Card className="overflow-hidden border-2 shadow-md w-full max-w-full">
+      <Card className="min-h-0 flex-1 overflow-hidden border border-border/70 bg-background/60 shadow-none">
+        <CardContent className="flex h-full min-h-0 flex-col gap-1.5 p-1 sm:p-1.5">
+            {/* Professional Filters Section - Collapsible */}
+            <div className="w-full max-w-full overflow-hidden rounded-xl border border-border/70 bg-background/80">
           <button
             onClick={() => setFiltersOpen(!filtersOpen)}
-            className="w-full p-3 sm:p-4 flex items-center justify-between hover:bg-muted/50 transition-colors touch-manipulation"
+            className="w-full p-2 sm:p-2.5 flex items-center justify-between hover:bg-muted/50 transition-colors touch-manipulation"
           >
             <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
               <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -1231,7 +1226,7 @@ export default function Dashboard() {
           </button>
 
           {filtersOpen && (
-            <div className="p-3 sm:p-4 pt-0 border-t bg-muted/30 w-full max-w-full overflow-x-hidden">
+            <div className="p-2 sm:p-2.5 pt-0 border-t bg-muted/30 w-full max-w-full overflow-x-hidden">
               <div className="flex flex-col gap-3 sm:gap-4">
                 {/* Primary Filters */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 w-full">
@@ -1403,9 +1398,10 @@ export default function Dashboard() {
               </div>
             </div>
           )}
-        </Card>
-      </div>
+            </div>
 
+            <div className="min-h-0 flex-1 overflow-y-auto p-1 sm:p-1.5 lg:p-2">
+              <div className="space-y-4 pr-1 sm:pr-2">
       {todayNotes.length > 0 && (
         <Card className="border-2 shadow-md bg-gradient-to-br from-blue-50/50 to-purple-50/50 dark:from-blue-950/20 dark:to-purple-950/20 w-full max-w-full overflow-hidden">
           <CardHeader className="px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 pb-3 sm:pb-4">
@@ -2026,13 +2022,13 @@ export default function Dashboard() {
               )
             </CardTitle>
           </CardHeader>
-          <CardContent className="h-56 sm:h-64 md:h-72 px-2 sm:px-3 md:px-4 lg:px-6 pb-3 sm:pb-4 md:pb-6 w-full max-w-full overflow-x-auto">
+          <CardContent className="px-2 sm:px-3 md:px-4 lg:px-6 pb-3 sm:pb-4 md:pb-6 w-full max-w-full overflow-x-auto">
             {chartData.monthlySpendVsSales.length === 0 ? (
               <p className="text-muted-foreground text-xs sm:text-sm">
                 No data yet
               </p>
             ) : (
-              <div className="w-full min-w-[300px] h-full">
+              <div className="w-full min-w-[300px] min-h-[220px] aspect-[16/7]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={chartData.monthlySpendVsSales}>
                     <XAxis
@@ -2076,13 +2072,13 @@ export default function Dashboard() {
               Payment Status (Subtotal)
             </CardTitle>
           </CardHeader>
-          <CardContent className="h-56 sm:h-64 md:h-72 px-2 sm:px-3 md:px-4 lg:px-6 pb-3 sm:pb-4 md:pb-6 w-full max-w-full">
+          <CardContent className="px-2 sm:px-3 md:px-4 lg:px-6 pb-3 sm:pb-4 md:pb-6 w-full max-w-full">
             {chartData.paymentBreakdown.length === 0 ? (
               <p className="text-muted-foreground text-xs sm:text-sm">
                 No data yet
               </p>
             ) : (
-              <div className="w-full h-full">
+              <div className="w-full min-h-[220px] aspect-[16/7]">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -2124,13 +2120,13 @@ export default function Dashboard() {
               )
             </CardTitle>
           </CardHeader>
-          <CardContent className="h-56 sm:h-64 md:h-72 px-2 sm:px-3 md:px-4 lg:px-6 pb-3 sm:pb-4 md:pb-6 w-full max-w-full overflow-x-auto">
+          <CardContent className="px-2 sm:px-3 md:px-4 lg:px-6 pb-3 sm:pb-4 md:pb-6 w-full max-w-full overflow-x-auto">
             {chartData.monthlyProfit.length === 0 ? (
               <p className="text-muted-foreground text-xs sm:text-sm">
                 No data yet
               </p>
             ) : (
-              <div className="w-full min-w-[300px] h-full">
+              <div className="w-full min-w-[300px] min-h-[220px] aspect-[16/7]">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData.monthlyProfit}>
                     <XAxis
@@ -2486,7 +2482,7 @@ export default function Dashboard() {
                   </h3>
                   <Card className="w-full max-w-full overflow-hidden">
                     <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4 md:pb-6 w-full max-w-full overflow-x-auto">
-                      <div className="w-full min-w-[300px] h-[250px] sm:h-[300px]">
+                      <div className="w-full min-w-[300px] min-h-[240px] aspect-[16/8]">
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart
                             data={productAnalytics.topProductsByRevenue.slice(
@@ -2539,7 +2535,7 @@ export default function Dashboard() {
                     </h3>
                     <Card className="w-full max-w-full overflow-hidden">
                       <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4 md:pb-6 w-full max-w-full overflow-x-auto">
-                        <div className="w-full min-w-[300px] h-[250px] sm:h-[300px]">
+                        <div className="w-full min-w-[300px] min-h-[240px] aspect-[16/8]">
                           <ResponsiveContainer width="100%" height="100%">
                             <BarChart
                               data={productAnalytics.topProductsByQuantity.slice(
@@ -2780,7 +2776,7 @@ export default function Dashboard() {
                 </h3>
                 <Card className="w-full max-w-full overflow-hidden">
                   <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4 md:pb-6 w-full max-w-full overflow-x-auto">
-                    <div className="w-full min-w-[300px] h-[250px] sm:h-[300px]">
+                    <div className="w-full min-w-[300px] min-h-[240px] aspect-[16/8]">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart
                           data={clientAnalytics.topClientsByRevenue.slice(0, 5)}
@@ -3256,7 +3252,7 @@ export default function Dashboard() {
       })()}
 
       {/* Pending Payments Summary */}
-      {(stats.pendingAmount > 0 || stats.pendingPurchases > 0) && (
+            {(stats.pendingAmount > 0 || stats.pendingPurchases > 0) && (
         <Card className="border-warning/30 bg-warning/5">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-warning">
@@ -3295,8 +3291,12 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
-      )}
-    </div>
+            )}
+              </div>
+            </div>
+        </CardContent>
+      </Card>
+      </div>
   );
 }
 
