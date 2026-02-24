@@ -275,18 +275,19 @@ export default function Expenses() {
   }
 
   return (
-    <div className="h-[calc(100dvh-8.5rem)] w-full overflow-hidden sm:h-[calc(100dvh-9.5rem)]">
-      <div className="relative flex h-full min-h-0 flex-col rounded-[28px] border border-border/70 bg-background p-3 shadow-sm sm:p-5 lg:p-6">
+    <div className="flex h-full min-h-0 w-full flex-col gap-3 overflow-hidden">
         {/* ================= HEADER ================= */}
-        <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background/95 p-3 backdrop-blur sm:p-4">
-          <div className="page-header-controls">
-            <div className="page-header-title">
-              <div className="page-header-icon">
-                <DollarSign className="h-5 w-5 md:h-6 md:w-6" />
+        <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-gradient-to-br from-background via-background to-slate-50/40 p-3 shadow-sm sm:p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 items-center justify-start gap-3 sm:gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-border">
+                <DollarSign className="h-5 w-5" />
               </div>
-              <div>
-                <h1 className="page-title">Expenses</h1>
-                <p className="page-subtitle">
+              <div className="min-w-0 text-left">
+                <h1 className="truncate text-2xl font-semibold leading-tight sm:text-3xl">
+                  Expenses
+                </h1>
+                <p className="text-sm text-muted-foreground">
                   Track and manage your business expenses
                 </p>
               </div>
@@ -303,7 +304,7 @@ export default function Expenses() {
               }}
             >
               <DialogTrigger asChild>
-                <Button className="btn-primary">
+                <Button className="h-10 rounded-xl px-3 text-sm">
                   <Plus className="h-4 w-4 mr-2" />
                   Add Expense
                 </Button>
@@ -474,70 +475,63 @@ export default function Expenses() {
           </div>
         </div>
 
-        <div className="mt-4 flex-1 min-h-0 rounded-2xl border border-border/70 bg-background/60 p-2 sm:p-3">
-          <div className="h-full overflow-y-auto space-y-6 pr-1 sm:pr-2">
+        <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-border/70 bg-background/70 p-2 sm:p-4">
+          <div className="h-full overflow-y-auto space-y-5 pr-1 sm:pr-2">
             {/* ================= PREMIUM SUMMARY TILES ================= */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               {/* TOTAL EXPENSES */}
-              <Card className="relative overflow-hidden border-0 shadow-md bg-gradient-to-br from-rose-500/10 via-rose-500/5 to-transparent">
-                <div className="absolute top-0 right-0 h-24 w-24 bg-rose-500/10 blur-2xl rounded-full" />
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
-                    Total Expenses
-                  </CardTitle>
-                  <div className="h-9 w-9 rounded-full bg-rose-500/15 flex items-center justify-center">
-                    <DollarSign className="h-4 w-4 text-rose-600" />
+              <Card className="border-rose-200 bg-gradient-to-br from-rose-500/10 to-rose-600/5 dark:border-rose-800">
+                <CardContent className="flex h-full min-h-[124px] flex-col justify-between p-4 sm:p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-sm font-medium text-muted-foreground">Total Expenses</p>
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-500/10">
+                      <DollarSign className="h-5 w-5 text-rose-600" />
+                    </div>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-semibold text-rose-600 tracking-tight">
-                    {formatCurrency(totalExpenses)}
+                  <div className="space-y-1">
+                    <p className="text-2xl font-bold leading-none text-rose-600">
+                      {formatCurrency(totalExpenses)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{expenses.length} recorded transactions</p>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {expenses.length} recorded transactions
-                  </p>
                 </CardContent>
               </Card>
 
               {/* THIS MONTH */}
-              <Card className="relative overflow-hidden border-0 shadow-md bg-gradient-to-br from-blue-500/10 via-blue-500/5 to-transparent">
-                <div className="absolute top-0 right-0 h-24 w-24 bg-blue-500/10 blur-2xl rounded-full" />
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
-                    This Month
-                  </CardTitle>
-                  <div className="h-9 w-9 rounded-full bg-blue-500/15 flex items-center justify-center">
-                    <Calendar className="h-4 w-4 text-blue-600" />
+              <Card className="border-blue-200 bg-gradient-to-br from-blue-500/10 to-blue-600/5 dark:border-blue-800">
+                <CardContent className="flex h-full min-h-[124px] flex-col justify-between p-4 sm:p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-sm font-medium text-muted-foreground">This Month</p>
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-500/10">
+                      <Calendar className="h-5 w-5 text-blue-600" />
+                    </div>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-semibold text-blue-600 tracking-tight">
-                    {formatCurrency(thisMonthExpenses)}
+                  <div className="space-y-1">
+                    <p className="text-2xl font-bold leading-none text-blue-600">
+                      {formatCurrency(thisMonthExpenses)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Current month spending</p>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Current month spending
-                  </p>
                 </CardContent>
               </Card>
 
               {/* CATEGORY COUNT */}
-              <Card className="relative overflow-hidden border-0 shadow-md bg-gradient-to-br from-purple-500/10 via-purple-500/5 to-transparent">
-                <div className="absolute top-0 right-0 h-24 w-24 bg-purple-500/10 blur-2xl rounded-full" />
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
-                    Categories Used
-                  </CardTitle>
-                  <div className="h-9 w-9 rounded-full bg-purple-500/15 flex items-center justify-center">
-                    <Tag className="h-4 w-4 text-purple-600" />
+              <Card className="border-purple-200 bg-gradient-to-br from-purple-500/10 to-purple-600/5 dark:border-purple-800">
+                <CardContent className="flex h-full min-h-[124px] flex-col justify-between p-4 sm:p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-sm font-medium text-muted-foreground">Categories Used</p>
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-purple-500/10">
+                      <Tag className="h-5 w-5 text-purple-600" />
+                    </div>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-semibold text-purple-600 tracking-tight">
-                    {Object.keys(expensesByCategory).length}
+                  <div className="space-y-1">
+                    <p className="text-2xl font-bold leading-none text-purple-600">
+                      {Object.keys(expensesByCategory).length}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Out of {availableCategories.length} available
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Out of {availableCategories.length} available
-                  </p>
                 </CardContent>
               </Card>
             </div>
@@ -699,7 +693,6 @@ export default function Expenses() {
             </Card>
           </div>
         </div>
-      </div>
     </div>
   );
 }

@@ -122,8 +122,7 @@ function AppSidebarContent({
                   <div className="h-7 w-7 rounded-md bg-primary/10 flex items-center justify-center">
                     <Sparkles className="h-4 w-4 text-primary" />
                   </div>
-                )
-              }
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <h2 className="font-bold text-sidebar-foreground truncate text-sm tracking-tight">
@@ -146,192 +145,199 @@ function AppSidebarContent({
 
         <SidebarContent className="flex-1 overflow-y-auto px-2 py-2 pb-20 group-data-[collapsible=icon]:pb-32 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary/20 hover:[&::-webkit-scrollbar-thumb]:bg-primary/40 [&::-webkit-scrollbar-track]:bg-transparent">
           <SidebarGroup className="p-0">
-              <SidebarGroupContent>
-                <SidebarMenu className="gap-1">
+            <SidebarGroupContent>
+              <SidebarMenu className="gap-1">
                 {navItems.map((item, index) => {
-                const Icon = item.icon;
-                const active = isActive(item.path);
+                  const Icon = item.icon;
+                  const active = isActive(item.path);
 
-                const menuButton = (
-                  <SidebarMenuButton
-                    tooltip={item.label}
-                    size="default"
-                    onDoubleClick={handleDoubleClick}
-                    className={cn(
-                      "rounded-lg px-3 h-10 transition-all duration-200 relative group/btn",
-                      active && !manageMode
-                        ? "bg-primary/10 text-primary font-semibold shadow-none border-l-2 border-primary rounded-l-none group-data-[collapsible=icon]:border-l-0 group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:bg-primary/20 group-data-[collapsible=icon]:ring-1 group-data-[collapsible=icon]:ring-primary/40 group-data-[collapsible=icon]:shadow-[0_6px_18px_rgba(59,130,246,0.25)] group-data-[collapsible=icon]:scale-[1.04]"
-                        : "hover:bg-sidebar-accent text-sidebar-foreground/70",
-                      manageMode &&
-                        "border border-dashed border-primary/30 bg-primary/5",
-                    )}
-                  >
-                    {manageMode ? (
-                      <GripVertical className="size-4 shrink-0 text-primary/50" />
-                    ) : (
-                      <Icon className="size-5 shrink-0 group-data-[collapsible=icon]:size-6" />
-                    )}
-                    <span className="ml-2 flex-1 truncate">{item.label}</span>
-
-                    {manageMode ? (
-                      <div className="flex items-center gap-0.5 ml-auto">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          disabled={index === 0}
-                          className="h-6 w-6 rounded-sm hover:bg-primary/20 hover:text-primary disabled:opacity-30"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onReorder(item.path, "up");
-                          }}
-                        >
-                          <ChevronUp className="size-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          disabled={index === navItems.length - 1}
-                          className="h-6 w-6 rounded-sm hover:bg-primary/20 hover:text-primary disabled:opacity-30"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onReorder(item.path, "down");
-                          }}
-                        >
-                          <ChevronDown className="size-3" />
-                        </Button>
-                      </div>
-                    ) : (
-                      item.label === "Bills" && (
-                        <ChevronRight
-                          className={cn(
-                            "ml-auto transition-transform duration-200 size-3.5 opacity-50",
-                            "group-data-[state=open]/collapsible:rotate-90",
-                          )}
-                        />
-                      )
-                    )}
-                  </SidebarMenuButton>
-                );
-
-                if (item.label === "Bills" && !manageMode) {
-                  return (
-                    <Collapsible
-                      key={item.path}
-                      asChild
-                      defaultOpen={active}
-                      className="group/collapsible"
+                  const menuButton = (
+                    <SidebarMenuButton
+                      tooltip={item.label}
+                      size="default"
+                      onDoubleClick={handleDoubleClick}
+                      className={cn(
+                        "rounded-lg px-3 h-10 transition-all duration-200 relative group/btn",
+                        active && !manageMode
+                          ? "bg-primary/10 text-primary font-semibold shadow-none border-l-2 border-primary rounded-l-none group-data-[collapsible=icon]:border-l-0 group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:bg-primary/20 group-data-[collapsible=icon]:ring-1 group-data-[collapsible=icon]:ring-primary/40 group-data-[collapsible=icon]:shadow-[0_6px_18px_rgba(59,130,246,0.25)] group-data-[collapsible=icon]:scale-[1.04]"
+                          : "hover:bg-sidebar-accent text-sidebar-foreground/70",
+                        manageMode &&
+                          "border border-dashed border-primary/30 bg-primary/5",
+                      )}
                     >
-                      <SidebarMenuItem>
-                        <CollapsibleTrigger asChild>
-                          <Link to="/bills" onClick={handleNavClick}>
-                            {menuButton}
-                          </Link>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
-                          <SidebarMenuSub className="ml-4 border-l border-sidebar-border pl-2 space-y-0.5 mt-1">
-                            <SidebarMenuSubItem>
-                              <SidebarMenuSubButton
-                                asChild
-                                isActive={location.pathname === "/bills"}
-                                className="h-8 rounded-sm"
-                              >
-                                <Link to="/bills" onClick={handleNavClick}>
-                                  <span className="text-sm">All Bills</span>
-                                </Link>
-                              </SidebarMenuSubButton>
-                            </SidebarMenuSubItem>
-                            <SidebarMenuSubItem>
-                              <SidebarMenuSubButton
-                                asChild
-                                isActive={location.pathname === "/bills/gst"}
-                                className="h-8 rounded-sm"
-                              >
-                                <Link to="/bills/gst" onClick={handleNavClick}>
-                                  <span className="text-sm">GST Bill</span>
-                                </Link>
-                              </SidebarMenuSubButton>
-                            </SidebarMenuSubItem>
-                            <SidebarMenuSubItem>
-                              <SidebarMenuSubButton
-                                asChild
-                                isActive={
-                                  location.pathname === "/bills/non-gst"
-                                }
-                                className="h-8 rounded-sm"
-                              >
-                                <Link
-                                  to="/bills/non-gst"
-                                  onClick={handleNavClick}
-                                >
-                                  <span className="text-sm">Non-GST Bill</span>
-                                </Link>
-                              </SidebarMenuSubButton>
-                            </SidebarMenuSubItem>
-                            <SidebarMenuSubItem>
-                              <SidebarMenuSubButton
-                                asChild
-                                isActive={
-                                  location.pathname === "/bills/international"
-                                }
-                                className="h-8 rounded-sm"
-                              >
-                                <Link
-                                  to="/bills/international"
-                                  onClick={handleNavClick}
-                                >
-                                  <span className="text-sm">
-                                    International Bill
-                                  </span>
-                                </Link>
-                              </SidebarMenuSubButton>
-                            </SidebarMenuSubItem>
-                            <SidebarMenuSubItem>
-                              <SidebarMenuSubButton
-                                asChild
-                                isActive={location.pathname === "/sample-bill"}
-                                className="h-8 rounded-sm"
-                              >
-                                <Link
-                                  to="/sample-bill"
-                                  onClick={handleNavClick}
-                                >
-                                  <span className="text-sm">
-                                    Quotation Bill
-                                  </span>
-                                </Link>
-                              </SidebarMenuSubButton>
-                            </SidebarMenuSubItem>
-                          </SidebarMenuSub>
-                        </CollapsibleContent>
-                      </SidebarMenuItem>
-                    </Collapsible>
+                      {manageMode ? (
+                        <GripVertical className="size-4 shrink-0 text-primary/50" />
+                      ) : (
+                        <Icon className="size-5 shrink-0 group-data-[collapsible=icon]:size-6" />
+                      )}
+                      <span className="ml-2 flex-1 truncate">{item.label}</span>
+
+                      {manageMode ? (
+                        <div className="flex items-center gap-0.5 ml-auto">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={index === 0}
+                            className="h-6 w-6 rounded-sm hover:bg-primary/20 hover:text-primary disabled:opacity-30"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onReorder(item.path, "up");
+                            }}
+                          >
+                            <ChevronUp className="size-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={index === navItems.length - 1}
+                            className="h-6 w-6 rounded-sm hover:bg-primary/20 hover:text-primary disabled:opacity-30"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onReorder(item.path, "down");
+                            }}
+                          >
+                            <ChevronDown className="size-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        item.label === "Bills" && (
+                          <ChevronRight
+                            className={cn(
+                              "ml-auto transition-transform duration-200 size-3.5 opacity-50",
+                              "group-data-[state=open]/collapsible:rotate-90",
+                            )}
+                          />
+                        )
+                      )}
+                    </SidebarMenuButton>
                   );
-                }
 
-                if (item.label === "Sample") return null;
-
-                return (
-                  <SidebarMenuItem key={item.path}>
-                    {manageMode ? (
-                      menuButton
-                    ) : (
-                      <Link
-                        to={item.path}
-                        onClick={handleNavClick}
-                        className="block w-full"
+                  if (item.label === "Bills" && !manageMode) {
+                    return (
+                      <Collapsible
+                        key={item.path}
+                        asChild
+                        defaultOpen={active}
+                        className="group/collapsible"
                       >
-                        {menuButton}
-                      </Link>
-                    )}
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-    </SidebarContent>
-  </div>
-    <SidebarFooter className="sticky bottom-0 border-t border-sidebar-border/40 p-2 bg-sidebar z-10">
+                        <SidebarMenuItem>
+                          <CollapsibleTrigger asChild>
+                            <Link to="/bills" onClick={handleNavClick}>
+                              {menuButton}
+                            </Link>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <SidebarMenuSub className="ml-4 border-l border-sidebar-border pl-2 space-y-0.5 mt-1">
+                              <SidebarMenuSubItem>
+                                <SidebarMenuSubButton
+                                  asChild
+                                  isActive={location.pathname === "/bills"}
+                                  className="h-8 rounded-sm"
+                                >
+                                  <Link to="/bills" onClick={handleNavClick}>
+                                    <span className="text-sm">All Bills</span>
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                              <SidebarMenuSubItem>
+                                <SidebarMenuSubButton
+                                  asChild
+                                  isActive={location.pathname === "/bills/gst"}
+                                  className="h-8 rounded-sm"
+                                >
+                                  <Link
+                                    to="/bills/gst"
+                                    onClick={handleNavClick}
+                                  >
+                                    <span className="text-sm">GST Bill</span>
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                              <SidebarMenuSubItem>
+                                <SidebarMenuSubButton
+                                  asChild
+                                  isActive={
+                                    location.pathname === "/bills/non-gst"
+                                  }
+                                  className="h-8 rounded-sm"
+                                >
+                                  <Link
+                                    to="/bills/non-gst"
+                                    onClick={handleNavClick}
+                                  >
+                                    <span className="text-sm">
+                                      Non-GST Bill
+                                    </span>
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                              <SidebarMenuSubItem>
+                                <SidebarMenuSubButton
+                                  asChild
+                                  isActive={
+                                    location.pathname === "/bills/international"
+                                  }
+                                  className="h-8 rounded-sm"
+                                >
+                                  <Link
+                                    to="/bills/international"
+                                    onClick={handleNavClick}
+                                  >
+                                    <span className="text-sm">
+                                      International Bill
+                                    </span>
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                              <SidebarMenuSubItem>
+                                <SidebarMenuSubButton
+                                  asChild
+                                  isActive={
+                                    location.pathname === "/sample-bill"
+                                  }
+                                  className="h-8 rounded-sm"
+                                >
+                                  <Link
+                                    to="/sample-bill"
+                                    onClick={handleNavClick}
+                                  >
+                                    <span className="text-sm">
+                                      Quotation Bill
+                                    </span>
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                            </SidebarMenuSub>
+                          </CollapsibleContent>
+                        </SidebarMenuItem>
+                      </Collapsible>
+                    );
+                  }
+
+                  if (item.label === "Sample") return null;
+
+                  return (
+                    <SidebarMenuItem key={item.path}>
+                      {manageMode ? (
+                        menuButton
+                      ) : (
+                        <Link
+                          to={item.path}
+                          onClick={handleNavClick}
+                          className="block w-full"
+                        >
+                          {menuButton}
+                        </Link>
+                      )}
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+      </div>
+      <SidebarFooter className="sticky bottom-0 border-t border-sidebar-border/40 p-2 bg-sidebar z-10">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-3">
             <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary shrink-0 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:text-xs">
@@ -370,7 +376,10 @@ function AppSidebarContent({
                   <LogOut className="size-4" />
                 </Button>
               </div>
-              <SidebarTrigger className="h-8 w-8 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10" aria-label="Toggle sidebar" />
+              <SidebarTrigger
+                className="h-8 w-8 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10"
+                aria-label="Toggle sidebar"
+              />
             </div>
           </div>
         </div>
@@ -387,7 +396,11 @@ export function Layout({ children }: LayoutProps) {
     if (pathname === "/") return "Dashboard";
     if (pathname.startsWith("/business-health")) return "Business Health";
     if (pathname.startsWith("/bills")) return "Bills";
-    if (pathname.startsWith("/sample-bill") || pathname.startsWith("/sample-bills")) return "Quotation Bill";
+    if (
+      pathname.startsWith("/sample-bill") ||
+      pathname.startsWith("/sample-bills")
+    )
+      return "Quotation Bill";
     if (pathname.startsWith("/purchases")) return "Buy";
     if (pathname.startsWith("/returns")) return "Returns";
     if (pathname.startsWith("/passbook")) return "Passbook";
@@ -566,16 +579,16 @@ export function Layout({ children }: LayoutProps) {
           </div>
           <div
             className={cn(
-              "mx-auto w-full",
-              isShellManagedRoute
-                ? "h-full max-w-none p-0 md:pt-0"
-                : "max-w-[1800px] p-2 sm:p-3 md:p-4 lg:p-5",
+              "mx-auto w-full p-[10px] lg:px-0",
+
+              "h-full max-w-none",
             )}
           >
             <div
               className={cn(
                 "h-full min-h-0 rounded-[28px]  sm:p-3 md:p-4",
-                isShellManagedRoute && "border-0 bg-transparent p-0 shadow-none",
+                isShellManagedRoute &&
+                  "border-0 bg-transparent p-0 shadow-none",
               )}
             >
               {children}
@@ -586,5 +599,3 @@ export function Layout({ children }: LayoutProps) {
     </SidebarProvider>
   );
 }
-
-

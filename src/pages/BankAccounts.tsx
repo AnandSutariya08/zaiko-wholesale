@@ -25,7 +25,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getBankAccounts, saveBankAccount, deleteBankAccount } from "@/lib/storage";
+import {
+  getBankAccounts,
+  saveBankAccount,
+  deleteBankAccount,
+} from "@/lib/storage";
 import { BankAccount } from "@/types";
 import { toast } from "sonner";
 import { BankStatement } from "@/components/BankStatement";
@@ -47,9 +51,13 @@ export default function BankAccounts() {
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null);
+  const [editingAccount, setEditingAccount] = useState<BankAccount | null>(
+    null,
+  );
   const [saving, setSaving] = useState(false);
-  const [statementAccount, setStatementAccount] = useState<BankAccount | null>(null);
+  const [statementAccount, setStatementAccount] = useState<BankAccount | null>(
+    null,
+  );
   const [formData, setFormData] = useState<Partial<BankAccount>>({
     bankName: "",
     accountHolder: "",
@@ -139,243 +147,308 @@ export default function BankAccounts() {
   };
 
   return (
-    <div className="h-[calc(100dvh-8.5rem)] w-full overflow-hidden sm:h-[calc(100dvh-9.5rem)]">
-      <div className="relative flex h-full min-h-0 flex-col rounded-[28px] border border-border/70 bg-background p-3 shadow-sm sm:p-5 lg:p-6">
-      <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background/95 p-3 backdrop-blur sm:p-4">
-      <div className="page-header-controls">
-        <div className="page-header-title">
-          <div className="page-header-icon">
-            <CreditCard className="h-5 w-5 md:h-6 md:w-6" />
-          </div>
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground">
-              Bank Accounts
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Manage your bank accounts and UPI IDs for payments
-            </p>
+    <div className="flex h-full min-h-0 w-full flex-col gap-3 overflow-hidden">
+      <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-gradient-to-br from-background via-background to-slate-50/40 p-3 shadow-sm sm:p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 items-center justify-start gap-3 sm:gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-border">
+                <CreditCard className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 text-left">
+                <h1 className="truncate text-2xl font-semibold leading-tight sm:text-3xl">
+                  Bank Accounts
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  Manage your bank accounts and UPI IDs for payments
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => handleOpenDialog()}
+              className="h-10 rounded-xl px-3 text-sm gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Add Account
+            </Button>
           </div>
         </div>
-        <Button size="sm" onClick={() => handleOpenDialog()} className="page-header-btn gap-2">
-          <Plus className="h-4 w-4" />
-          Add Account
-        </Button>
-      </div>
-      </div>
 
-      <div className="mt-4 flex-1 min-h-0 rounded-2xl border border-border/70 bg-background/60 p-2 sm:p-3">
-      <div className="h-full overflow-y-auto space-y-6 pr-1 sm:pr-2">
+        <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-border/70 bg-background/70 p-2 sm:p-4">
+          <div className="h-full overflow-y-auto space-y-5 pr-1 sm:pr-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Your Accounts</CardTitle>
+                <CardDescription>
+                  These accounts will be available to select during bill
+                  creation
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : accounts.length === 0 ? (
+                  <div className="text-center py-12 border-2 border-dashed rounded-lg">
+                    <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium">No accounts found</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Add your first bank account to get started
+                    </p>
+                    <Button
+                      onClick={() => handleOpenDialog()}
+                      variant="outline"
+                    >
+                      Add Account
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Bank / Holder</TableHead>
+                          <TableHead>Account Details</TableHead>
+                          <TableHead>UPI ID</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {accounts.map((account) => (
+                          <TableRow key={account.id}>
+                            <TableCell>
+                              <div className="font-medium">
+                                {account.bankName}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {account.accountHolder}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm">
+                                No: {account.accountNumber}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                IFSC: {account.branchAndIFSC}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2 text-sm">
+                                <QrCode className="h-3.5 w-3.5 text-primary" />
+                                {account.upiId || "N/A"}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {account.isDefault ? (
+                                <span className="bg-primary/10 text-primary text-[10px] font-bold uppercase px-2 py-0.5 rounded-full">
+                                  Default
+                                </span>
+                              ) : null}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  title="View Statement"
+                                  onClick={() => setStatementAccount(account)}
+                                >
+                                  <FileText className="h-4 w-4 text-blue-600" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleOpenDialog(account)}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => handleDelete(account.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Your Accounts</CardTitle>
-          <CardDescription>
-            These accounts will be available to select during bill creation
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : accounts.length === 0 ? (
-            <div className="text-center py-12 border-2 border-dashed rounded-lg">
-              <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium">No accounts found</h3>
-              <p className="text-muted-foreground mb-4">Add your first bank account to get started</p>
-              <Button onClick={() => handleOpenDialog()} variant="outline">
-                Add Account
-              </Button>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Bank / Holder</TableHead>
-                    <TableHead>Account Details</TableHead>
-                    <TableHead>UPI ID</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {accounts.map((account) => (
-                    <TableRow key={account.id}>
-                      <TableCell>
-                        <div className="font-medium">{account.bankName}</div>
-                        <div className="text-sm text-muted-foreground">{account.accountHolder}</div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">No: {account.accountNumber}</div>
-                        <div className="text-xs text-muted-foreground">IFSC: {account.branchAndIFSC}</div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2 text-sm">
-                          <QrCode className="h-3.5 w-3.5 text-primary" />
-                          {account.upiId || "N/A"}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {account.isDefault ? (
-                          <span className="bg-primary/10 text-primary text-[10px] font-bold uppercase px-2 py-0.5 rounded-full">
-                            Default
-                          </span>
-                        ) : null}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="View Statement"
-                            onClick={() => setStatementAccount(account)}
-                          >
-                            <FileText className="h-4 w-4 text-blue-600" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenDialog(account)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => handleDelete(account.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogContent className="dialog-form-content sm:max-w-[500px]">
+                <form onSubmit={handleSubmit} className="dialog-form-body">
+                  <DialogHeader className="dialog-form-header">
+                    <DialogTitle>
+                      {editingAccount
+                        ? "Edit Bank Account"
+                        : "Add Bank Account"}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor="bankName"
+                          className="flex items-center gap-2"
+                        >
+                          <Building2 className="h-3.5 w-3.5" />
+                          Bank Name *
+                        </Label>
+                        <Input
+                          id="bankName"
+                          required
+                          value={formData.bankName}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              bankName: e.target.value,
+                            })
+                          }
+                          placeholder="e.g. HDFC Bank"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor="accountHolder"
+                          className="flex items-center gap-2"
+                        >
+                          <User className="h-3.5 w-3.5" />
+                          Account Holder Name *
+                        </Label>
+                        <Input
+                          id="accountHolder"
+                          required
+                          value={formData.accountHolder}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              accountHolder: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="dialog-form-content sm:max-w-[500px]">
-          <form onSubmit={handleSubmit} className="dialog-form-body">
-            <DialogHeader className="dialog-form-header">
-              <DialogTitle>{editingAccount ? "Edit Bank Account" : "Add Bank Account"}</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-1 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="bankName" className="flex items-center gap-2">
-                    <Building2 className="h-3.5 w-3.5" />
-                    Bank Name *
-                  </Label>
-                  <Input
-                    id="bankName"
-                    required
-                    value={formData.bankName}
-                    onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
-                    placeholder="e.g. HDFC Bank"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="accountHolder" className="flex items-center gap-2">
-                    <User className="h-3.5 w-3.5" />
-                    Account Holder Name *
-                  </Label>
-                  <Input
-                    id="accountHolder"
-                    required
-                    value={formData.accountHolder}
-                    onChange={(e) => setFormData({ ...formData, accountHolder: e.target.value })}
-                  />
-                </div>
-              </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor="accountNumber"
+                          className="flex items-center gap-2"
+                        >
+                          <Hash className="h-3.5 w-3.5" />
+                          Account Number *
+                        </Label>
+                        <Input
+                          id="accountNumber"
+                          required
+                          value={formData.accountNumber}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              accountNumber: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor="branchAndIFSC"
+                          className="flex items-center gap-2"
+                        >
+                          <MapPin className="h-3.5 w-3.5" />
+                          Branch & IFSC *
+                        </Label>
+                        <Input
+                          id="branchAndIFSC"
+                          required
+                          value={formData.branchAndIFSC}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              branchAndIFSC: e.target.value,
+                            })
+                          }
+                          placeholder="e.g. Mumbai & HDFC0001234"
+                        />
+                      </div>
+                    </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="accountNumber" className="flex items-center gap-2">
-                    <Hash className="h-3.5 w-3.5" />
-                    Account Number *
-                  </Label>
-                  <Input
-                    id="accountNumber"
-                    required
-                    value={formData.accountNumber}
-                    onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="branchAndIFSC" className="flex items-center gap-2">
-                    <MapPin className="h-3.5 w-3.5" />
-                    Branch & IFSC *
-                  </Label>
-                  <Input
-                    id="branchAndIFSC"
-                    required
-                    value={formData.branchAndIFSC}
-                    onChange={(e) => setFormData({ ...formData, branchAndIFSC: e.target.value })}
-                    placeholder="e.g. Mumbai & HDFC0001234"
-                  />
-                </div>
-              </div>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="upiId"
+                        className="flex items-center gap-2"
+                      >
+                        <QrCode className="h-3.5 w-3.5" />
+                        UPI ID (for Scan & Pay QR)
+                      </Label>
+                      <Input
+                        id="upiId"
+                        value={formData.upiId}
+                        onChange={(e) =>
+                          setFormData({ ...formData, upiId: e.target.value })
+                        }
+                        placeholder="e.g. name@bank"
+                      />
+                    </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="upiId" className="flex items-center gap-2">
-                  <QrCode className="h-3.5 w-3.5" />
-                  UPI ID (for Scan & Pay QR)
-                </Label>
-                <Input
-                  id="upiId"
-                  value={formData.upiId}
-                  onChange={(e) => setFormData({ ...formData, upiId: e.target.value })}
-                  placeholder="e.g. name@bank"
-                />
-              </div>
+                    <div className="flex items-center space-x-2 pt-2">
+                      <input
+                        type="checkbox"
+                        id="isDefault"
+                        checked={formData.isDefault}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            isDefault: e.target.checked,
+                          })
+                        }
+                        className="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4"
+                      />
+                      <Label
+                        htmlFor="isDefault"
+                        className="text-sm font-medium leading-none cursor-pointer"
+                      >
+                        Set as default account
+                      </Label>
+                    </div>
+                  </div>
+                  <DialogFooter className="dialog-form-footer">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsDialogOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={saving}>
+                      {saving && (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      )}
+                      {editingAccount ? "Update Account" : "Add Account"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
 
-              <div className="flex items-center space-x-2 pt-2">
-                <input
-                  type="checkbox"
-                  id="isDefault"
-                  checked={formData.isDefault}
-                  onChange={(e) => setFormData({ ...formData, isDefault: e.target.checked })}
-                  className="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4"
-                />
-                <Label htmlFor="isDefault" className="text-sm font-medium leading-none cursor-pointer">
-                  Set as default account
-                </Label>
-              </div>
-            </div>
-            <DialogFooter className="dialog-form-footer">
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={saving}>
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {editingAccount ? "Update Account" : "Add Account"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {statementAccount && (
-        <BankStatement
-          account={statementAccount}
-          isOpen={!!statementAccount}
-          onClose={() => setStatementAccount(null)}
-        />
-      )}
-      </div>
-      </div>
+            {statementAccount && (
+              <BankStatement
+                account={statementAccount}
+                isOpen={!!statementAccount}
+                onClose={() => setStatementAccount(null)}
+              />
+            )}
+          </div>
       </div>
     </div>
   );
 }
-
-
-
-
-
