@@ -122,34 +122,46 @@ export default function BillDetail() {
   }
 
   return (
-    <div className="space-y-4 pb-4">
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 print:hidden">
-        <div className="flex gap-2 w-full sm:w-auto">
-          <Button variant="outline" onClick={() => navigate('/bills')} className="flex-1 sm:flex-initial">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <Button variant="outline" onClick={() => setEwayDialogOpen(true)} disabled={generating} className="flex-1 sm:flex-initial text-blue-600 border-blue-200">
-            <Truck className="h-4 w-4 mr-2" />
-            E-Way Bill
-          </Button>
-          <Button variant="outline" onClick={() => handleGenerateEBill('download')} disabled={generating} className="flex-1 sm:flex-initial">
-            {generating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
-            E-Bill
-          </Button>
-          <Button variant="outline" onClick={() => handleGenerateEBill('share')} disabled={generating} className="p-2 sm:p-2.5">
-            <Share2 className="h-4 w-4" />
-          </Button>
+    <div className="flex h-full min-h-0 w-full flex-col gap-2 overflow-hidden">
+      <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background p-2 shadow-sm print:hidden sm:p-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <Button variant="outline" onClick={() => navigate('/bills')} className="h-10 shrink-0 rounded-lg bg-background px-3">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+            <div className="min-w-0">
+              <h1 className="truncate text-2xl font-semibold leading-tight sm:text-3xl">{bill.billNumber}</h1>
+              <p className="text-sm text-muted-foreground">Bill details and actions</p>
+            </div>
+          </div>
+          <div className="flex w-full flex-wrap gap-2 rounded-lg border border-border/60 bg-muted/20 p-1.5 lg:w-auto lg:justify-end">
+            <Button variant="outline" onClick={() => setEwayDialogOpen(true)} disabled={generating} className="h-10 rounded-lg text-blue-600 border-blue-200 bg-background">
+              <Truck className="h-4 w-4 mr-2" />
+              E-Way Bill
+            </Button>
+            <Button variant="outline" onClick={() => handleGenerateEBill('download')} disabled={generating} className="h-10 rounded-lg bg-background">
+              {generating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+              E-Bill
+            </Button>
+            <Button variant="outline" onClick={() => handleGenerateEBill('share')} disabled={generating} className="h-10 w-10 rounded-lg p-0 bg-background">
+              <Share2 className="h-4 w-4" />
+            </Button>
+            <Link to={`/bills/${bill.id}/edit`}>
+              <Button className="h-10 rounded-lg">
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Bill
+              </Button>
+            </Link>
+          </div>
         </div>
-        <Link to={`/bills/${bill.id}/edit`} className="w-full sm:w-auto">
-          <Button className="w-full sm:w-auto">
-            <Edit className="h-4 w-4 mr-2" />
-            Edit Bill
-          </Button>
-        </Link>
       </div>
 
-      <BillView bill={bill} />
+      <div className="min-h-0 flex-1 rounded-2xl border border-border/70 bg-background/60 p-2 sm:p-3">
+        <div className="h-full overflow-y-auto pr-1 sm:pr-2">
+          <BillView bill={bill} />
+        </div>
+      </div>
       
       <EWayBillDialog 
         open={ewayDialogOpen}
