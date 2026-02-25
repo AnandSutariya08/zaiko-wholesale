@@ -96,6 +96,7 @@ export interface Product {
   whereToBuy: string;
   vendorId?: string; // Link to Vendor
   variantKey?: string; // Mobile variant identity: name/model/storage/color/itemNo
+  trackingType?: "serialized" | "standard"; // serialized = IMEI based, standard = quantity based
   itemNo?: string;
   brand?: string;
   model?: string;
@@ -290,10 +291,15 @@ export interface InventoryUnit {
   imeiNormalized: string;
   serialNumber?: string;
   variantKey?: string;
+  itemNo?: string;
+  model?: string;
+  storage?: string;
+  color?: string;
   vendorId?: string;
   vendorName?: string;
   purchaseBillId?: string;
   purchasePrice?: number;
+  sellingPrice?: number;
   status: InventoryUnitStatus;
   soldBillId?: string;
   soldAt?: string;

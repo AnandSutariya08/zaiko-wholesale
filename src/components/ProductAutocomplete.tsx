@@ -51,10 +51,21 @@ export function ProductAutocomplete({
     
     const search = inputValue.toLowerCase()
     return products.filter((product) => {
+      const blob = [
+        product.name,
+        product.hsnCode,
+        product.model || "",
+        product.itemNo || "",
+        product.storage || "",
+        product.color || "",
+        product.barcode || "",
+      ]
+        .join(" ")
+        .toLowerCase()
       if (type === "name") {
-        return product.name.toLowerCase().includes(search)
+        return blob.includes(search)
       } else {
-        return product.hsnCode.toLowerCase().includes(search)
+        return blob.includes(search)
       }
     }).slice(0, 50) // Limit results for performance
   }, [products, inputValue, type])
@@ -140,9 +151,16 @@ export function ProductAutocomplete({
                   />
                   <div className="flex flex-col">
                     <span>{product.name}</span>
-                    {product.hsnCode && (
-                       <span className="text-xs text-muted-foreground">HSN: {product.hsnCode}</span>
-                    )}
+                    <span className="text-xs text-muted-foreground">
+                      {[
+                        product.model || "",
+                        product.storage || "",
+                        product.color || "",
+                        product.hsnCode ? `HSN: ${product.hsnCode}` : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" | ")}
+                    </span>
                   </div>
                 </CommandItem>
               ))}

@@ -332,6 +332,17 @@ export default function Dashboard() {
       const purchaseBillsInRange = allPurchaseBills.filter((pb) =>
         filterByYearMonth(pb.createdAt || pb.billDate || pb.id),
       );
+      const returnsInRange = allReturns.filter((ret) => {
+        if (
+          !dateRange.start &&
+          !dateRange.end &&
+          selectedYear === "all" &&
+          selectedMonth === "all"
+        ) {
+          return true; // Include all returns if no filters
+        }
+        return filterByYearMonth(ret.returnDate || ret.createdAt);
+      });
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -912,19 +923,7 @@ export default function Dashboard() {
         });
       });
 
-      // Process returns for product analytics (filter by date range if set)
-      const returnsInRange = allReturns.filter((ret) => {
-        if (
-          !dateRange.start &&
-          !dateRange.end &&
-          selectedYear === "all" &&
-          selectedMonth === "all"
-        ) {
-          return true; // Include all returns if no filters
-        }
-        return filterByYearMonth(ret.returnDate || ret.createdAt);
-      });
-
+      // Process returns for product analytics (filtered by current range)
       returnsInRange.forEach((returnItem) => {
         returnItem.items.forEach((returnItemData) => {
           const product = products.find(

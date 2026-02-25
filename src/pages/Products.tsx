@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -30,10 +30,11 @@ import {
   getVendors,
   getProductTransactions,
   getInventoryTransactions,
+  getInventoryUnits,
   getBills,
   getBillReturns,
 } from "@/lib/storage";
-import { Product, Vendor } from "@/types";
+import { CompanyProfile, InventoryUnit, Product, Vendor } from "@/types";
 import {
   Plus,
   Edit,
@@ -82,15 +83,26 @@ import { ProductsPDF } from "@/components/ProductsPDF";
 import { ProductForm } from "@/components/ProductForm";
 
 export default function Products() {
+  type StockSortOrder =
+    | "none"
+    | "stock-low-to-high"
+    | "stock-high-to-low"
+    | "value-high-to-low"
+    | "value-low-to-high"
+    | "name-asc"
+    | "name-desc";
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
+  const [inventoryUnits, setInventoryUnits] = useState<InventoryUnit[]>([]);
   const [page, setPage] = useState(1);
   const pageSize = 10;
   const [isOpen, setIsOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [historyProduct, setHistoryProduct] = useState<Product | null>(null);
   const [saving, setSaving] = useState(false);
-  const [companyProfile, setCompanyProfile] = useState<any>(null);
+  const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(
+    null,
+  );
   const [isAddStockOpen, setIsAddStockOpen] = useState(false);
   const [addingStock, setAddingStock] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string>("");
@@ -115,9 +127,7 @@ export default function Products() {
     hsnCode: "",
     gstRate: "",
     unit: "kg",
-    price: "",
     purchasePrice: "",
-    sellingPrice: "",
     stock: "",
     whereToBuy: "",
     weight: "",
@@ -127,15 +137,7 @@ export default function Products() {
     quantity: "",
     purchasePrice: "",
   });
-  const [stockSortOrder, setStockSortOrder] = useState<
-    | "none"
-    | "stock-low-to-high"
-    | "stock-high-to-low"
-    | "value-high-to-low"
-    | "value-low-to-high"
-    | "name-asc"
-    | "name-desc"
-  >("none");
+  const [stockSortOrder, setStockSortOrder] = useState<StockSortOrder>("none");
 
   // Helper: get effective purchase price for a product (avg if available, else product price)
   const getEffectivePrice = (product: Product) =>
@@ -243,8 +245,12 @@ export default function Products() {
   const loadProducts = async () => {
     try {
       setLoading(true);
-      const productsData = await getProducts();
+      const [productsData, unitsData] = await Promise.all([
+        getProducts(),
+        getInventoryUnits(),
+      ]);
       setProducts(productsData);
+      setInventoryUnits(unitsData);
       setPage(1);
     } catch (error) {
       console.error("Error loading products:", error);
@@ -284,8 +290,6 @@ export default function Products() {
     try {
       const gstRateNum = parseFloat(formData.gstRate) || 0;
       const purchasePriceNum = parseFloat(formData.purchasePrice) || 0;
-      const sellingPriceNum =
-        parseFloat(formData.sellingPrice) || parseFloat(formData.price) || 0;
       const weightNum = parseFloat(formData.weight) || 0;
 
       const product: Product = {
@@ -294,9 +298,9 @@ export default function Products() {
         hsnCode: formData.hsnCode.trim(),
         gstRate: gstRateNum,
         unit: formData.unit,
-        price: sellingPriceNum || purchasePriceNum,
+        price: 0,
         purchasePrice: purchasePriceNum,
-        sellingPrice: sellingPriceNum,
+        sellingPrice: 0,
         stock: editingProduct?.stock || 0,
         whereToBuy: formData.whereToBuy,
         weight: weightNum,
@@ -344,15 +348,9 @@ export default function Products() {
       hsnCode: product.hsnCode,
       gstRate: String(product.gstRate),
       unit: product.unit,
-      price: product.price ? String(product.price) : "",
       purchasePrice: currentAveragePrices[product.id]
         ? Number(currentAveragePrices[product.id]).toFixed(2)
         : "",
-      sellingPrice: product.sellingPrice
-        ? String(product.sellingPrice)
-        : product.price
-          ? String(product.price)
-          : "",
       stock: product.stock ? String(product.stock) : "",
       whereToBuy: product.whereToBuy || "",
       weight: product.weight ? String(product.weight) : "",
@@ -375,9 +373,7 @@ export default function Products() {
       hsnCode: "",
       gstRate: "",
       unit: companyProfile?.defaultUnit || "kg",
-      price: "",
       purchasePrice: "",
-      sellingPrice: "",
       stock: "",
       whereToBuy: "",
       weight: "",
@@ -490,15 +486,9 @@ export default function Products() {
         hsnCode: formData.hsnCode.trim(),
         gstRate: parseFloat(formData.gstRate) || 0,
         unit: formData.unit,
-        price:
-          parseFloat(formData.sellingPrice) ||
-          parseFloat(formData.price) ||
-          purchasePriceNum,
+        price: 0,
         purchasePrice: purchasePriceNum,
-        sellingPrice:
-          parseFloat(formData.sellingPrice) ||
-          parseFloat(formData.price) ||
-          purchasePriceNum,
+        sellingPrice: 0,
         stock: 0,
         whereToBuy: formData.whereToBuy,
         weight: weightNum,
@@ -522,20 +512,57 @@ export default function Products() {
     }
   };
 
+  const inventorySummaryByProduct = useMemo(() => {
+    const map: Record<
+      string,
+      {
+        totalUnits: number;
+        inStock: number;
+        sold: number;
+        deadstock: number;
+        imeiSearchBlob: string;
+      }
+    > = {};
+    for (const unit of inventoryUnits) {
+      const key = unit.productId;
+      if (!key) continue;
+      if (!map[key]) {
+        map[key] = {
+          totalUnits: 0,
+          inStock: 0,
+          sold: 0,
+          deadstock: 0,
+          imeiSearchBlob: "",
+        };
+      }
+      map[key].totalUnits += 1;
+      if (unit.status === "in_stock") map[key].inStock += 1;
+      if (unit.status === "sold") map[key].sold += 1;
+      if (unit.status === "deadstock") map[key].deadstock += 1;
+      if (unit.imeiNumber) {
+        map[key].imeiSearchBlob += ` ${unit.imeiNumber}`;
+      }
+    }
+    return map;
+  }, [inventoryUnits]);
+
   const filteredProducts = products
     .filter((product) => {
       if (!searchQuery.trim()) return true;
       const query = searchQuery.toLowerCase().trim();
+      const inventorySummary = inventorySummaryByProduct[product.id];
       return (
         product.name.toLowerCase().includes(query) ||
         product.hsnCode.toLowerCase().includes(query) ||
         (product.unit && product.unit.toLowerCase().includes(query)) ||
         (product.itemNo && product.itemNo.toLowerCase().includes(query)) ||
         (product.model && product.model.toLowerCase().includes(query)) ||
-        (product.imeiNumber && product.imeiNumber.toLowerCase().includes(query)) ||
+        (product.barcode && product.barcode.toLowerCase().includes(query)) ||
         (product.storage && product.storage.toLowerCase().includes(query)) ||
         (product.color && product.color.toLowerCase().includes(query)) ||
-        (product.whereToBuy && product.whereToBuy.toLowerCase().includes(query))
+        ((product.trackingType || "standard").toLowerCase().includes(query)) ||
+        (product.whereToBuy && product.whereToBuy.toLowerCase().includes(query)) ||
+        (inventorySummary?.imeiSearchBlob || "").toLowerCase().includes(query)
       );
     })
     .sort((a, b) => {
@@ -567,7 +594,6 @@ export default function Products() {
         totalProducts: 0,
         totalStock: 0,
         averagePurchasePrice: 0,
-        averageSellingPrice: 0,
         averageWithCommission: 0,
         totalInventoryValue: 0,
         totalValueWithCommission: 0,
@@ -584,16 +610,8 @@ export default function Products() {
       0,
     );
 
-    const totalSellingValue = products.reduce(
-      (sum, p) => sum + p.stock * (p.sellingPrice || p.price || 0),
-      0,
-    );
-
     const averagePurchasePrice =
       totalStock > 0 ? totalPurchaseValue / totalStock : 0;
-
-    const averageSellingPrice =
-      totalStock > 0 ? totalSellingValue / totalStock : 0;
 
     const averageWithCommission = calculateSellingPriceFromCommission(
       averagePurchasePrice,
@@ -612,7 +630,7 @@ export default function Products() {
 
     const totalProfitPotential = totalValueWithCommission - totalInventoryValue;
 
-    const averageMargin = averageSellingPrice - averagePurchasePrice;
+    const averageMargin = averageWithCommission - averagePurchasePrice;
     const averageMarginPercent =
       averagePurchasePrice > 0
         ? (averageMargin / averagePurchasePrice) * 100
@@ -622,7 +640,6 @@ export default function Products() {
       totalProducts: products.length,
       totalStock,
       averagePurchasePrice,
-      averageSellingPrice,
       averageWithCommission,
       totalInventoryValue,
       totalValueWithCommission,
@@ -661,16 +678,11 @@ export default function Products() {
         "Unit",
         "Stock",
         "Purchase Price",
-        "Selling Price",
         "Stock Value",
-        "Margin %",
       ],
     ];
     products.forEach((p) => {
       const currentAvg = getEffectivePrice(p);
-      const selling = p.sellingPrice || p.price || 0;
-      const margin =
-        currentAvg > 0 ? ((selling - currentAvg) / currentAvg) * 100 : 0;
       productsData.push([
         p.name,
         p.hsnCode,
@@ -678,9 +690,7 @@ export default function Products() {
         p.unit,
         String(p.stock),
         String(currentAvg),
-        String(selling),
         String(getStockValue(p)),
-        margin.toFixed(2),
       ]);
     });
     const productsSheet = XLSX.utils.aoa_to_sheet(productsData);
@@ -692,8 +702,6 @@ export default function Products() {
       { wch: 10 },
       { wch: 15 },
       { wch: 15 },
-      { wch: 15 },
-      { wch: 10 },
     ];
     XLSX.utils.book_append_sheet(workbook, productsSheet, "All Products");
 
@@ -1010,7 +1018,9 @@ export default function Products() {
               <div className="flex flex-wrap items-center gap-2">
                 <Select
                   value={stockSortOrder}
-                  onValueChange={(value: any) => setStockSortOrder(value)}
+                  onValueChange={(value) =>
+                    setStockSortOrder(value as StockSortOrder)
+                  }
                 >
                   <SelectTrigger className="h-9 flex-1 min-w-[130px] text-sm">
                     <SelectValue placeholder="Sort by" />
@@ -1387,28 +1397,41 @@ export default function Products() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {pagedProducts.map((product) => {
-                  const sellingPrice = roundToTwoDecimals(
-                    product.sellingPrice || product.price || 0,
-                  );
                   const purchasePrice = roundToTwoDecimals(
                     product.purchasePrice || 0,
                   );
                   const currentAvgPurchasePrice = roundToTwoDecimals(
                     getEffectivePrice(product),
                   );
-                  const margin = roundToTwoDecimals(
-                    sellingPrice - currentAvgPurchasePrice,
-                  );
-                  const marginPercent =
-                    currentAvgPurchasePrice > 0
-                      ? roundToTwoDecimals(
-                          (margin / currentAvgPurchasePrice) * 100,
-                        )
-                      : 0;
                   const productVendorName =
                     vendors.find((v) => v.id === product.vendorId)?.name ||
                     product.whereToBuy ||
                     "N/A";
+                  const trackingType = product.trackingType || "standard";
+                  const unitSummary = inventorySummaryByProduct[product.id] || {
+                    totalUnits: 0,
+                    inStock: 0,
+                    sold: 0,
+                    deadstock: 0,
+                    imeiSearchBlob: "",
+                  };
+                  const imeiInStock = unitSummary.inStock;
+                  const imeiSold = unitSummary.sold;
+                  const imeiDeadstock = unitSummary.deadstock;
+                  const effectiveStock =
+                    trackingType === "serialized" ? imeiInStock : product.stock;
+                  const stockStateLabel =
+                    effectiveStock <= 0
+                      ? "Out of stock"
+                      : effectiveStock < 5
+                        ? "Low stock"
+                        : "Healthy stock";
+                  const stockStateClass =
+                    effectiveStock <= 0
+                      ? "bg-red-100 text-red-700"
+                      : effectiveStock < 5
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-emerald-100 text-emerald-700";
                   // Computed inline — no state lookup needed
                   const stockValue = roundToTwoDecimals(getStockValue(product));
                   const stockValueWithCommission = roundToTwoDecimals(
@@ -1504,67 +1527,95 @@ export default function Products() {
                             <span className="text-xs text-muted-foreground">
                               GST: {product.gstRate}%
                             </span>
+                            <span
+                              className={`text-xs px-2 py-0.5 rounded font-semibold ${
+                                trackingType === "serialized"
+                                  ? "bg-sky-100 text-sky-700"
+                                  : "bg-slate-100 text-slate-700"
+                              }`}
+                            >
+                              {trackingType === "serialized"
+                                ? "IMEI Tracked"
+                                : "Standard"}
+                            </span>
+                            <span
+                              className={`text-xs px-2 py-0.5 rounded font-semibold ${stockStateClass}`}
+                            >
+                              {stockStateLabel}
+                            </span>
                           </div>
                         </div>
                       </div>
 
                       <CardContent className="relative space-y-3 pt-0">
                         <div className="rounded-xl border border-border/70 bg-muted/35 p-3">
-                          <div className="mb-2 flex items-center justify-between">
-                            <span className="text-sm font-medium text-muted-foreground">
-                              Stock
-                            </span>
-                            <span
-                              className={`text-lg font-bold leading-none ${
-                                product.stock < 10
-                                  ? "text-orange-600"
-                                  : "text-emerald-600"
-                              }`}
-                            >
-                              {product.stock % 1 === 0
-                                ? product.stock
-                                : roundToTwoDecimals(product.stock).toFixed(
-                                    2,
-                                  )}{" "}
-                              {product.unit}
-                            </span>
+                          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            Product Master
+                          </p>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div className="rounded-md bg-background/70 p-2">
+                              <p className="text-muted-foreground">Model</p>
+                              <p className="font-medium">{product.model || "N/A"}</p>
+                            </div>
+                            <div className="rounded-md bg-background/70 p-2">
+                              <p className="text-muted-foreground">Unit</p>
+                              <p className="font-medium">{product.unit || "pcs"}</p>
+                            </div>
+                            <div className="rounded-md bg-background/70 p-2">
+                              <p className="text-muted-foreground">Vendor</p>
+                              <p className="truncate font-medium">{productVendorName}</p>
+                            </div>
+                            <div className="rounded-md bg-background/70 p-2">
+                              <p className="text-muted-foreground">Avg Purchase</p>
+                              <p className="font-medium">
+                                {formatCurrency(
+                                  averagePrices[product.id] || purchasePrice,
+                                )}
+                              </p>
+                            </div>
                           </div>
-                          <div className="flex items-center justify-between text-xs text-muted-foreground">
-                            <span>Avg Purchase Price</span>
-                            <span className="font-medium">
-                              {formatCurrency(
-                                averagePrices[product.id] || purchasePrice,
-                              )}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center text-xs text-muted-foreground mt-1">
-                            <span>Model</span>
-                            <span className="font-medium">{product.model || "N/A"}</span>
-                          </div>
-                          <div className="flex justify-between items-center text-xs text-muted-foreground mt-1">
-                            <span>IMEI</span>
-                            <span className="font-medium">{product.imeiNumber || "N/A"}</span>
-                          </div>
-                          <div className="flex justify-between items-center text-xs text-muted-foreground mt-1">
-                            <span>Storage / Color</span>
-                            <span className="font-medium">
-                              {product.storage || "N/A"}
-                              {product.color ? ` / ${product.color}` : ""}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center text-xs text-muted-foreground mt-1">
-                            <span>Weight</span>
-                            <span className="font-medium">
-                              {product.weight != null ? product.weight : "N/A"}{" "}
-                              {product.weightUnit || ""}
-                            </span>
-                          </div>
-                          <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
-                            <span>Vendor</span>
-                            <span className="max-w-[65%] truncate font-medium text-right">
-                              {productVendorName}
-                            </span>
-                          </div>
+
+                          <p className="mb-2 mt-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            Inventory Units
+                          </p>
+                          {trackingType === "serialized" ? (
+                            <div className="grid grid-cols-4 gap-2 text-xs">
+                              <div className="rounded-md border border-emerald-200 bg-emerald-50 p-2">
+                                <p className="text-muted-foreground">In Stock</p>
+                                <p className="text-base font-bold text-emerald-700">
+                                  {imeiInStock}
+                                </p>
+                              </div>
+                              <div className="rounded-md border border-blue-200 bg-blue-50 p-2">
+                                <p className="text-muted-foreground">Sold</p>
+                                <p className="text-base font-bold text-blue-700">
+                                  {imeiSold}
+                                </p>
+                              </div>
+                              <div className="rounded-md border border-rose-200 bg-rose-50 p-2">
+                                <p className="text-muted-foreground">Deadstock</p>
+                                <p className="text-base font-bold text-rose-700">
+                                  {imeiDeadstock}
+                                </p>
+                              </div>
+                              <div className="rounded-md border border-slate-200 bg-slate-50 p-2">
+                                <p className="text-muted-foreground">Total</p>
+                                <p className="text-base font-bold text-slate-700">
+                                  {unitSummary.totalUnits}
+                                </p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="rounded-md border border-slate-200 bg-slate-50 p-2 text-xs">
+                              <p className="text-muted-foreground">Current Stock</p>
+                              <p className="text-base font-bold text-slate-700">
+                                {product.stock % 1 === 0
+                                  ? product.stock
+                                  : roundToTwoDecimals(product.stock).toFixed(2)}{" "}
+                                {product.unit}
+                              </p>
+                            </div>
+                          )}
                         </div>
 
                         {currentAvgPurchasePrice > 0 && (
@@ -1589,14 +1640,6 @@ export default function Products() {
                               <>
                               <div className="flex items-center justify-between text-sm">
                                 <span className="text-muted-foreground">
-                                  Selling Price
-                                </span>
-                                <span className="font-medium text-purple-600">
-                                  {formatCurrency(sellingPrice)}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between text-sm">
-                                <span className="text-muted-foreground">
                                   Profit Potential
                                 </span>
                                 <span className="font-medium text-emerald-600">
@@ -1605,7 +1648,9 @@ export default function Products() {
                               </div>
                               <div className="flex items-center justify-between text-xs text-muted-foreground">
                                 <span>Margin %</span>
-                                <span className="font-medium">{marginPercent.toFixed(2)}%</span>
+                                <span className="font-medium">
+                                  {roundToTwoDecimals(stats.averageMarginPercent).toFixed(2)}%
+                                </span>
                               </div>
                               </>
                             )}

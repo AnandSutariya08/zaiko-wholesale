@@ -61,7 +61,6 @@ import { PaymentDialog } from "@/components/PaymentDialog";
 import {
   formatCurrency,
   formatDate,
-  calculateSellingPriceFromCommission,
 } from "@/lib/billUtils";
 import { PurchaseReturnForm } from "@/components/PurchaseReturnForm";
 import {
@@ -180,16 +179,10 @@ function PurchaseBills() {
     description?: string;
     name?: string;
     model?: string;
-    storage?: string;
-    color?: string;
-    itemNo?: string;
   }) =>
     [
       normalizeVariantPart(item.description || item.name),
       normalizeVariantPart(item.model),
-      normalizeVariantPart(item.storage),
-      normalizeVariantPart(item.color),
-      normalizeVariantPart(item.itemNo),
     ].join("|");
 
   const isVariantSensitiveItem = (item: {
@@ -228,11 +221,16 @@ function PurchaseBills() {
       description?: string;
       quantity: number;
       imeiNumber?: string;
+      imeiListText?: string;
       productId?: string;
       vendorId?: string;
       isNewProduct?: boolean;
     }>,
-    opts?: { checkAgainstProducts?: boolean; requireInventoryFields?: boolean },
+    opts?: {
+      checkAgainstProducts?: boolean;
+      requireInventoryFields?: boolean;
+      allowListQuantity?: boolean;
+    },
   ): string | null => {
     const seenImeis = new Set<string>();
     for (let i = 0; i < items.length; i++) {
@@ -253,7 +251,7 @@ function PurchaseBills() {
 
       if (!normalizedImei) continue;
 
-      if (Number(item.quantity) !== 1) {
+      if (!opts?.allowListQuantity && Number(item.quantity) !== 1) {
         return `${lineLabel}: quantity must be 1 when IMEI/Serial is provided.`;
       }
 
@@ -272,6 +270,38 @@ function PurchaseBills() {
       }
     }
     return null;
+  };
+
+  const splitImeiList = (raw?: string): string[] => {
+    if (!raw) return [];
+    return Array.from(
+      new Set(
+        raw
+          .split(/[\n,;]+/g)
+          .map((v) => v.trim())
+          .filter(Boolean),
+      ),
+    );
+  };
+
+  const getInventoryRowImeis = (item: {
+    imeiNumber?: string;
+    imeiListText?: string;
+  }): string[] => {
+    const list = splitImeiList(item.imeiListText || "");
+    if (list.length > 0) return list;
+    const single = (item.imeiNumber || "").trim();
+    return single ? [single] : [];
+  };
+
+  const isSerializedInventoryRow = (item: {
+    productId?: string;
+    imeiNumber?: string;
+    imeiListText?: string;
+  }): boolean => {
+    const selectedProduct = products.find((p) => p.id === item.productId);
+    const trackingType = (selectedProduct as any)?.trackingType || "standard";
+    return trackingType === "serialized" || getInventoryRowImeis(item).length > 0;
   };
 
   const getAvailableStockForBill = (bill: PurchaseBill) => {
@@ -408,13 +438,13 @@ function PurchaseBills() {
       itemNo?: string;
       model?: string;
       imeiNumber?: string;
+      imeiListText?: string;
       storage?: string;
       color?: string;
       hsnCode: string;
       quantity: number;
       unit: string;
       purchasePrice: number;
-      sellingPrice: number;
       gstRate: number;
       weight: number;
       weightUnit: string;
@@ -1313,8 +1343,7 @@ function PurchaseBills() {
       return;
     }
 
-    // Open dialog to enter selling prices
-    // Use commission settings from company profile to calculate default selling price
+    // Open dialog to confirm inventory mapping details before add
     const products = await getProducts();
     const items = bill.items.map((item) => {
       const itemVariantSensitive = isVariantSensitiveItem(item);
@@ -1332,6 +1361,7 @@ function PurchaseBills() {
         itemNo: (item as any).itemNo || "",
         model: (item as any).model || "",
         imeiNumber: (item as any).imeiNumber || "",
+        imeiListText: (item as any).imeiNumber || "",
         storage: (item as any).storage || "",
         color: (item as any).color || "",
         hsnCode: item.hsnCode || "",
@@ -1339,10 +1369,6 @@ function PurchaseBills() {
         quantity: item.quantity,
         unit: item.unit,
         purchasePrice: item.rate,
-        sellingPrice: calculateSellingPriceFromCommission(
-          item.rate,
-          companyProfile?.commissionSettings,
-        ),
         gstRate: item.gstRate || 0,
         whereToBuy: (item as any).whereToBuy || bill.vendorName || "",
         weight: (item as any).weight || 0,
@@ -1404,23 +1430,10 @@ function PurchaseBills() {
         }
       }
 
-      // Validate all selling prices
-      const hasInvalidPrices = inventoryItems.some(
-        (item) => item.sellingPrice <= 0,
-      );
-      if (hasInvalidPrices) {
-        toast({
-          title: "Invalid Prices",
-          description: "Please enter valid selling prices for all items",
-          variant: "destructive",
-        });
-        setLoadingInventory(null);
-        return;
-      }
-
       const inventoryValidationError = validatePhoneItemRules(inventoryItems, {
         checkAgainstProducts: true,
         requireInventoryFields: true,
+        allowListQuantity: true,
       });
       if (inventoryValidationError) {
         toast({
@@ -1432,29 +1445,91 @@ function PurchaseBills() {
         return;
       }
 
-      const itemsInput: InventoryItemInput[] = inventoryItems.map((item) => ({
-        description: item.description,
-        itemNo: item.itemNo || "",
-        model: item.model || "",
-        imeiNumber: item.imeiNumber || "",
-        storage: item.storage || "",
-        color: item.color || "",
-        hsnCode: item.hsnCode,
-        barcode: item.barcode, // Pass barcode to inventory service
-        vendorId: item.vendorId,
-        quantity: item.quantity,
-        unit: item.unit,
-        purchasePrice: item.purchasePrice,
-        sellingPrice: item.sellingPrice,
-        gstRate: item.gstRate,
-        productId: item.productId,
-        isNewProduct: item.isNewProduct,
-        whereToBuy: item.isNewProduct
-          ? (inventoryDialogBill as any).vendorName
-          : undefined,
-        weight: item.weight,
-        weightUnit: item.weightUnit,
-      }));
+      for (let i = 0; i < inventoryItems.length; i += 1) {
+        const row = inventoryItems[i];
+        const rowImeis = getInventoryRowImeis(row);
+        const rowLabel = row.description?.trim() || `Item ${i + 1}`;
+        if (isSerializedInventoryRow(row)) {
+          if (rowImeis.length === 0) {
+            toast({
+              title: "Serialized IMEI Required",
+              description: `${rowLabel}: add IMEI list for serialized item.`,
+              variant: "destructive",
+            });
+            setLoadingInventory(null);
+            return;
+          }
+          if (Number(row.quantity) !== rowImeis.length) {
+            toast({
+              title: "IMEI Count Mismatch",
+              description: `${rowLabel}: quantity ${row.quantity} must match ${rowImeis.length} IMEI entries.`,
+              variant: "destructive",
+            });
+            setLoadingInventory(null);
+            return;
+          }
+        }
+      }
+
+      const itemsInput: InventoryItemInput[] = inventoryItems.flatMap((item) => {
+        const rowImeis = getInventoryRowImeis(item);
+        const serialized = isSerializedInventoryRow(item);
+        const base = {
+          description: item.description,
+          itemNo: item.itemNo || "",
+          model: item.model || "",
+          storage: item.storage || "",
+          color: item.color || "",
+          hsnCode: item.hsnCode,
+          barcode: item.barcode,
+          vendorId: item.vendorId,
+          purchasePrice: item.purchasePrice,
+          sellingPrice: 0,
+          gstRate: item.gstRate,
+          productId: item.productId,
+          isNewProduct: item.isNewProduct,
+          whereToBuy: item.isNewProduct
+            ? (inventoryDialogBill as any).vendorName
+            : undefined,
+          weight: item.weight,
+          weightUnit: item.weightUnit,
+        };
+        if (!serialized) {
+          return [
+            {
+              ...base,
+              imeiNumber: "",
+              quantity: item.quantity,
+              unit: item.unit,
+            },
+          ] satisfies InventoryItemInput[];
+        }
+        return rowImeis.map(
+          (imei) =>
+            ({
+              ...base,
+              imeiNumber: imei,
+              quantity: 1,
+              unit: "pcs",
+            }) satisfies InventoryItemInput,
+        );
+      });
+
+      const seenInputImeis = new Set<string>();
+      for (const inputItem of itemsInput) {
+        const normalizedImei = normalizeImei(inputItem.imeiNumber);
+        if (!normalizedImei) continue;
+        if (seenInputImeis.has(normalizedImei)) {
+          toast({
+            title: "Duplicate IMEI",
+            description: `Duplicate IMEI/Serial found in inventory entries: ${inputItem.imeiNumber}`,
+            variant: "destructive",
+          });
+          setLoadingInventory(null);
+          return;
+        }
+        seenInputImeis.add(normalizedImei);
+      }
 
       const result = await addPurchaseItemsToInventory(
         inventoryDialogBill,
@@ -1468,7 +1543,7 @@ function PurchaseBills() {
         setPendingInventoryBill(inventoryDialogBill);
         setPendingInventoryItems(itemsInput);
         setProductConflicts(result.conflicts);
-        setInventoryDialogBill(null); // Close the selling price dialog
+        setInventoryDialogBill(null); // Close inventory mapping dialog
         setLoadingInventory(null);
         return;
       }
@@ -1581,15 +1656,6 @@ function PurchaseBills() {
     } finally {
       setLoadingInventory(null);
     }
-  };
-
-  const updateInventoryItemSellingPrice = (
-    index: number,
-    sellingPrice: number,
-  ) => {
-    const items = [...inventoryItems];
-    items[index].sellingPrice = sellingPrice;
-    setInventoryItems(items);
   };
 
   const startEditing = (bill: PurchaseBill) => {
@@ -4302,7 +4368,7 @@ function PurchaseBills() {
         </DialogContent>
       </Dialog>
 
-      {/* Inventory Dialog - Enter Selling Prices */}
+      {/* Inventory Dialog - Confirm Inventory Mapping */}
       <Dialog
         open={!!inventoryDialogBill}
         onOpenChange={(open) => !open && setInventoryDialogBill(null)}
@@ -4311,7 +4377,7 @@ function PurchaseBills() {
           <DialogHeader className="dialog-form-header">
             <DialogTitle className="flex items-center gap-2">
               <PackagePlus className="h-5 w-5 text-emerald-600" />
-              Add to Inventory - Set Selling Prices
+              Add to Inventory
             </DialogTitle>
           </DialogHeader>
 
@@ -4362,12 +4428,17 @@ function PurchaseBills() {
               </div>
             )}
             <p className="text-sm text-muted-foreground">
-              Enter the selling price for each item. Purchase price is shown for
-              reference.
+              Confirm IMEI and product mapping for each row. Purchase rate will be
+              saved as cost only.
             </p>
 
             <div className="space-y-3">
-              {inventoryItems.map((item, index) => (
+              {inventoryItems.map((item, index) => {
+                const rowImeis = getInventoryRowImeis(item);
+                const serializedRow = isSerializedInventoryRow(item);
+                const imeiCountMismatch =
+                  serializedRow && Number(item.quantity) !== rowImeis.length;
+                return (
                 <div key={index} className="border rounded-lg p-3 bg-muted/30">
                   <div className="flex justify-between items-start mb-2">
                     <div>
@@ -4376,6 +4447,20 @@ function PurchaseBills() {
                         {item.quantity} {item.unit} | HSN:{" "}
                         {item.hsnCode || "N/A"}
                       </p>
+                      {serializedRow ? (
+                        <p
+                          className={`text-xs mt-1 ${
+                            imeiCountMismatch
+                              ? "text-amber-600"
+                              : "text-emerald-600"
+                          }`}
+                        >
+                          IMEI entries: {rowImeis.length}
+                          {imeiCountMismatch
+                            ? ` (must match qty ${item.quantity})`
+                            : ""}
+                        </p>
+                      ) : null}
                       {((item.itemNo || item.model || item.imeiNumber || item.storage || item.color) && (
                         <p className="text-xs text-muted-foreground mt-1">
                           {item.itemNo ? `Item: ${item.itemNo} | ` : ""}
@@ -4390,6 +4475,33 @@ function PurchaseBills() {
                       GST: {item.gstRate}%
                     </Badge>
                   </div>
+
+                  <details className="rounded-md border border-dashed bg-background/60 p-2">
+                    <summary className="cursor-pointer text-xs font-semibold text-muted-foreground">
+                      IMEI List (one per line, comma, or semicolon)
+                    </summary>
+                    <div className="mt-2 space-y-2">
+                      <Textarea
+                        rows={3}
+                        value={item.imeiListText || item.imeiNumber || ""}
+                        onChange={(e) => {
+                          const newItems = [...inventoryItems];
+                          newItems[index].imeiListText = e.target.value;
+                          const parsed = getInventoryRowImeis(newItems[index]);
+                          newItems[index].imeiNumber = parsed[0] || "";
+                          if (parsed.length > 0) {
+                            newItems[index].unit = "pcs";
+                          }
+                          setInventoryItems(newItems);
+                        }}
+                        placeholder="350108720225827&#10;350108720225828"
+                        className="text-xs"
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Parsed IMEI count: {rowImeis.length}
+                      </p>
+                    </div>
+                  </details>
 
                   {/* Matching Option */}
                   <div className="mt-2 p-2 bg-background/50 rounded-md border border-dashed">
@@ -4456,7 +4568,7 @@ function PurchaseBills() {
                                 value={p.id}
                                 className="text-xs"
                               >
-                                {p.name} (₹{p.sellingPrice})
+                                {p.name}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -4567,8 +4679,10 @@ function PurchaseBills() {
                         onChange={(e) => {
                           const newItems = [...inventoryItems];
                           newItems[index].imeiNumber = e.target.value;
+                          if (!newItems[index].imeiListText) {
+                            newItems[index].imeiListText = e.target.value;
+                          }
                           if (normalizeImei(e.target.value)) {
-                            newItems[index].quantity = 1;
                             newItems[index].unit = "pcs";
                           }
                           setInventoryItems(newItems);
@@ -4621,36 +4735,9 @@ function PurchaseBills() {
                         className="h-9"
                       />
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Selling Price *</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={item.sellingPrice}
-                        onChange={(e) =>
-                          updateInventoryItemSellingPrice(
-                            index,
-                            parseFloat(e.target.value) || 0,
-                          )
-                        }
-                        className="h-9"
-                      />
-                    </div>
                   </div>
-                  {item.sellingPrice > 0 && (
-                    <p className="text-xs text-emerald-600 mt-2">
-                      Margin: ₹
-                      {(item.sellingPrice - item.purchasePrice).toFixed(2)}(
-                      {(
-                        ((item.sellingPrice - item.purchasePrice) /
-                          item.purchasePrice) *
-                        100
-                      ).toFixed(1)}
-                      %)
-                    </p>
-                  )}
                 </div>
-              ))}
+              )})}
             </div>
 
             <div className="dialog-form-footer flex gap-2 justify-end pt-2">

@@ -157,6 +157,9 @@ export function BillForm({
   const [productComboOpenIndex, setProductComboOpenIndex] = useState<
     number | null
   >(null);
+  const [imeiComboOpenIndex, setImeiComboOpenIndex] = useState<number | null>(
+    null,
+  );
   const [productSearch, setProductSearch] = useState("");
   const [barcodeScannerOpen, setBarcodeScannerOpen] = useState(false);
   const [barcodeInput, setBarcodeInput] = useState("");
@@ -342,6 +345,35 @@ export function BillForm({
       return;
     }
 
+    const isSerializedProduct = (productId: string) => {
+      const product = products.find((p) => p.id === productId);
+      return (product?.trackingType || "standard") === "serialized";
+    };
+
+    const serializedValidationError = billItems.find((item) => {
+      if (!isSerializedProduct(item.productId)) return false;
+      const hasImei = Boolean(normalizeImei(item.imeiNumber || ""));
+      return !hasImei || item.quantity !== 1;
+    });
+    if (serializedValidationError) {
+      toast.error(
+        `Serialized item "${serializedValidationError.productName}" requires one IMEI and quantity 1.`,
+      );
+      return;
+    }
+
+    const standardWithImei = billItems.find(
+      (item) =>
+        !isSerializedProduct(item.productId) &&
+        Boolean(normalizeImei(item.imeiNumber || "")),
+    );
+    if (standardWithImei) {
+      toast.error(
+        `Standard item "${standardWithImei.productName}" should not include IMEI.`,
+      );
+      return;
+    }
+
     const imeiList = billItems
       .map((item) => (item.imeiNumber || "").replace(/\s+/g, "").trim())
       .filter(Boolean);
@@ -475,7 +507,7 @@ export function BillForm({
       const discountNum =
         discountValue === "" ? 0 : parseFloat(discountValue) || 0;
       const totals = calculateBillTotals(
-        billItems,
+        finalBillItems,
         companyProfile,
         otherChargesNum,
         discountNum,
@@ -699,7 +731,7 @@ export function BillForm({
           gstRate: product.gstRate,
           quantity: qty,
           unit: product.unit,
-          ratePerUnit: product.sellingPrice || product.price || 0,
+          ratePerUnit: getDefaultSellingRateForProduct(product),
           amount: 0,
           cgst: 0,
           sgst: 0,
@@ -962,7 +994,7 @@ export function BillForm({
     item.productName = product.name;
     item.itemNo = product.itemNo || "";
     item.model = product.model || "";
-    item.imeiNumber = product.imeiNumber || "";
+    item.imeiNumber = "";
     item.inventoryUnitId = undefined;
     item.storage = product.storage || "";
     item.color = product.color || "";
@@ -972,12 +1004,14 @@ export function BillForm({
     item.hsnCode = product.hsnCode;
     item.gstRate = product.gstRate;
     item.unit = product.unit;
-    item.ratePerUnit = product.sellingPrice || product.price || 0;
-    if (normalizeImei(item.imeiNumber || "")) {
-      const unit = findSelectableUnitByImei(item.imeiNumber || "", product.id);
+    item.ratePerUnit = getDefaultSellingRateForProduct(product);
+    if (isSerializedProductId(product.id)) {
+      const selectableUnits = getSelectableUnitsForProduct(product.id);
+      const unit = selectableUnits.length === 1 ? selectableUnits[0] : null;
       if (unit) {
         item.inventoryUnitId = unit.id;
         item.imeiNumber = unit.imeiNumber;
+        item.purchasePrice = unit.purchasePrice ?? item.purchasePrice;
       }
       item.quantity = 1;
       item.unit = "pcs";
@@ -1003,9 +1037,40 @@ export function BillForm({
   const normalizeLookupText = (value: string) =>
     value.replace(/\s+/g, "").trim().toLowerCase();
   const normalizeImei = (value: string) => normalizeLookupText(value);
+  const getDefaultSellingRateForProduct = (product: Product): number => {
+    void product;
+    return 0;
+  };
 
   const isUnitSelectable = (unit: InventoryUnit) =>
     unit.status === "in_stock" || (isEdit && unit.soldBillId === bill?.id);
+
+  const isSerializedProductId = (productId: string) =>
+    (products.find((p) => p.id === productId)?.trackingType || "standard") ===
+    "serialized";
+
+  const getSelectableUnitsForProduct = (productId: string) =>
+    inventoryUnits.filter(
+      (u) =>
+        u.productId === productId &&
+        isUnitSelectable(u) &&
+        Boolean(normalizeImei(u.imeiNormalized || u.imeiNumber)),
+    );
+
+  const getSelectableUnitsForLine = (index: number, productId?: string) => {
+    if (!productId) return [] as InventoryUnit[];
+    const usedImeis = new Set(
+      billItems
+        .filter((_, i) => i !== index)
+        .map((row) => normalizeImei(row.imeiNumber || ""))
+        .filter(Boolean),
+    );
+    return getSelectableUnitsForProduct(productId).filter((u) => {
+      const normalized = normalizeImei(u.imeiNormalized || u.imeiNumber);
+      const currentRowImei = normalizeImei(billItems[index]?.imeiNumber || "");
+      return normalized === currentRowImei || !usedImeis.has(normalized);
+    });
+  };
 
   const findSelectableUnitByImei = (imei: string, productId?: string) => {
     const normalized = normalizeImei(imei);
@@ -1022,7 +1087,7 @@ export function BillForm({
 
   const buildBillItemFromProduct = (product: Product): BillItem => {
     const quantity = 1;
-    const ratePerUnit = product.sellingPrice || product.price || 0;
+    const ratePerUnit = getDefaultSellingRateForProduct(product);
     const amount = roundToTwoDecimals(quantity * ratePerUnit);
 
     let cgst = 0;
@@ -1043,7 +1108,7 @@ export function BillForm({
       productName: product.name,
       itemNo: product.itemNo || "",
       model: product.model || "",
-      imeiNumber: product.imeiNumber || "",
+      imeiNumber: "",
       storage: product.storage || "",
       color: product.color || "",
       vendorId: product.vendorId || "",
@@ -1068,6 +1133,11 @@ export function BillForm({
     const base = buildBillItemFromProduct(product);
     base.inventoryUnitId = unit.id;
     base.imeiNumber = unit.imeiNumber;
+    base.itemNo = unit.itemNo || base.itemNo;
+    base.model = unit.model || base.model;
+    base.storage = unit.storage || base.storage;
+    base.color = unit.color || base.color;
+    base.purchasePrice = unit.purchasePrice ?? base.purchasePrice;
     base.quantity = 1;
     base.unit = "pcs";
     base.amount = roundToTwoDecimals(base.quantity * base.ratePerUnit);
@@ -1155,7 +1225,7 @@ export function BillForm({
         item.productName = product.name;
         item.itemNo = product.itemNo || "";
         item.model = product.model || "";
-        item.imeiNumber = product.imeiNumber || "";
+        item.imeiNumber = "";
         item.inventoryUnitId = undefined;
         item.storage = product.storage || "";
         item.color = product.color || "";
@@ -1165,15 +1235,14 @@ export function BillForm({
         item.hsnCode = product.hsnCode;
         item.gstRate = product.gstRate;
         item.unit = product.unit;
-        item.ratePerUnit = product.sellingPrice || product.price || 0;
-        if (normalizeImei(item.imeiNumber || "")) {
-          const unit = findSelectableUnitByImei(
-            item.imeiNumber || "",
-            product.id,
-          );
+        item.ratePerUnit = getDefaultSellingRateForProduct(product);
+        if (isSerializedProductId(product.id)) {
+          const selectableUnits = getSelectableUnitsForProduct(product.id);
+          const unit = selectableUnits.length === 1 ? selectableUnits[0] : null;
           if (unit) {
             item.inventoryUnitId = unit.id;
             item.imeiNumber = unit.imeiNumber;
+            item.purchasePrice = unit.purchasePrice ?? item.purchasePrice;
           }
           item.quantity = 1;
           item.unit = "pcs";
@@ -1192,6 +1261,13 @@ export function BillForm({
       if (field === "imeiNumber") {
         const unit = findSelectableUnitByImei(String(value), item.productId);
         item.inventoryUnitId = unit?.id;
+        if (unit) {
+          item.itemNo = unit.itemNo || item.itemNo;
+          item.model = unit.model || item.model;
+          item.storage = unit.storage || item.storage;
+          item.color = unit.color || item.color;
+          item.purchasePrice = unit.purchasePrice ?? item.purchasePrice;
+        }
         item.quantity = normalizeImei(String(value)) ? 1 : item.quantity;
         if (normalizeImei(String(value))) {
           item.unit = "pcs";
@@ -1265,7 +1341,11 @@ export function BillForm({
     if (!product) return 0;
 
     const originalQty = getOriginalQuantity(productId);
-    return product.stock + originalQty;
+    const baseStock =
+      (product.trackingType || "standard") === "serialized"
+        ? getSelectableUnitsForProduct(productId).length
+        : product.stock;
+    return baseStock + originalQty;
   };
 
   const lookupTerm = normalizeLookupText(imeiLookup);
@@ -1836,7 +1916,7 @@ export function BillForm({
                             <p className="text-muted-foreground">
                               Rate:{" "}
                               {formatToTwoDecimals(
-                                product?.sellingPrice || product?.price || 0,
+                                0,
                               )}
                             </p>
                           </div>
@@ -1861,15 +1941,7 @@ export function BillForm({
         <CardContent className="pt-0">
           <div className="space-y-4">
             {billItems.map((item, index) => {
-              const selectedProductIds = billItems
-                .filter((_, i) => i !== index)
-                .map((bi) => bi.productId)
-                .filter((id) => id);
-
-              const availableProducts = products.filter(
-                (p) =>
-                  !selectedProductIds.includes(p.id) || p.id === item.productId,
-              );
+              const availableProducts = products;
 
               const availableStock = getAvailableStock(item.productId);
               const originalQty = getOriginalQuantity(item.productId);
@@ -2011,7 +2083,12 @@ export function BillForm({
                                           product.name,
                                           product.model || "",
                                           product.itemNo || "",
-                                          product.imeiNumber || "",
+                                          product.storage || "",
+                                          product.color || "",
+                                          product.hsnCode || "",
+                                          product.barcode || "",
+                                          product.whereToBuy || "",
+                                          product.trackingType || "",
                                         ].join(" ")}
                                         onSelect={() => {
                                           updateItem(
@@ -2037,7 +2114,10 @@ export function BillForm({
                                           <span className="text-xs text-muted-foreground">
                                             {[
                                               product.itemNo,
-                                              product.imeiNumber,
+                                              product.model,
+                                              product.storage,
+                                              product.color,
+                                              `HSN: ${product.hsnCode || "-"}`,
                                               `Stock: ${availStock % 1 === 0 ? availStock : availStock.toFixed(2)} ${product.unit}`,
                                             ]
                                               .filter(Boolean)
@@ -2173,13 +2253,86 @@ export function BillForm({
                       </div>
                       <div>
                         <Label>IMEI / Serial</Label>
-                        <Input
-                          value={item.imeiNumber || ""}
-                          onChange={(e) =>
-                            updateItem(index, "imeiNumber", e.target.value)
+                        <Popover
+                          open={imeiComboOpenIndex === index}
+                          onOpenChange={(open) =>
+                            setImeiComboOpenIndex(open ? index : null)
                           }
-                          placeholder="350108720225827"
-                        />
+                        >
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={imeiComboOpenIndex === index}
+                              className="w-full justify-between"
+                              disabled={!item.productId}
+                            >
+                              {item.imeiNumber || "Select or type IMEI..."}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[360px] p-0" align="start">
+                            <Command>
+                              <CommandInput
+                                placeholder="Search IMEI..."
+                                value={item.imeiNumber || ""}
+                                onValueChange={(value) =>
+                                  updateItem(index, "imeiNumber", value)
+                                }
+                              />
+                              <CommandList>
+                                <CommandEmpty>No IMEI found for this product.</CommandEmpty>
+                                <CommandGroup>
+                                  {getSelectableUnitsForLine(index, item.productId).map(
+                                    (unit) => (
+                                      <CommandItem
+                                        key={unit.id}
+                                        value={[
+                                          unit.imeiNumber,
+                                          unit.model || "",
+                                          unit.storage || "",
+                                          unit.color || "",
+                                          unit.itemNo || "",
+                                        ].join(" ")}
+                                        onSelect={() => {
+                                          updateItem(index, "imeiNumber", unit.imeiNumber);
+                                          setImeiComboOpenIndex(null);
+                                        }}
+                                      >
+                                        <Check
+                                          className={cn(
+                                            "mr-2 h-4 w-4",
+                                            normalizeImei(item.imeiNumber || "") ===
+                                              normalizeImei(
+                                                unit.imeiNormalized || unit.imeiNumber,
+                                              )
+                                              ? "opacity-100"
+                                              : "opacity-0",
+                                          )}
+                                        />
+                                        <div className="flex flex-col">
+                                          <span className="font-mono text-xs">
+                                            {unit.imeiNumber}
+                                          </span>
+                                          <span className="text-xs text-muted-foreground">
+                                            {[
+                                              unit.model,
+                                              unit.storage,
+                                              unit.color,
+                                              unit.itemNo,
+                                            ]
+                                              .filter(Boolean)
+                                              .join(" / ")}
+                                          </span>
+                                        </div>
+                                      </CommandItem>
+                                    ),
+                                  )}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                       <div>
                         <Label>Storage</Label>

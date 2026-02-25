@@ -64,24 +64,34 @@ export default function IMEITimeline() {
     load();
   }, []);
 
+  const imeiUnits = useMemo(
+    () =>
+      units.filter((u) =>
+        Boolean(normalizeImei(u.imeiNormalized || u.imeiNumber)),
+      ),
+    [units],
+  );
+
   const filteredUnits = useMemo(() => {
     const term = query.trim().toLowerCase();
-    if (!term) return units;
-    return units.filter((u) =>
+    if (!term) return imeiUnits;
+    return imeiUnits.filter((u) =>
       [
         u.imeiNumber,
+        u.imeiNormalized,
         u.productName,
         u.variantKey,
         u.vendorName,
         u.status,
         u.purchaseBillId,
         u.soldBillId,
+        u.notes,
       ]
         .join(" ")
         .toLowerCase()
         .includes(term),
     );
-  }, [query, units]);
+  }, [query, imeiUnits]);
 
   const selectedUnit = useMemo(() => {
     if (!filteredUnits.length) return null;
@@ -104,12 +114,21 @@ export default function IMEITimeline() {
 
   const events = useMemo(() => {
     if (!selectedUnit) return [] as DeviceEvent[];
+    const selectedImei = normalizeImei(
+      selectedUnit.imeiNormalized || selectedUnit.imeiNumber,
+    );
     const list: DeviceEvent[] = [];
+    const seenEventIds = new Set<string>();
+    const pushEvent = (event: DeviceEvent) => {
+      if (seenEventIds.has(event.id)) return;
+      seenEventIds.add(event.id);
+      list.push(event);
+    };
 
     if (selectedUnit.purchaseBillId) {
       const pb = purchaseBills.find((b) => b.id === selectedUnit.purchaseBillId);
       if (pb) {
-        list.push({
+        pushEvent({
           id: `purchase-bill-${pb.id}`,
           date: pb.billDate || pb.createdAt,
           type: "purchase",
@@ -126,9 +145,9 @@ export default function IMEITimeline() {
       if (sb) {
         const soldItem = sb.items.find(
           (i) =>
-            normalizeImei(i.imeiNumber) === normalizeImei(selectedUnit.imeiNumber),
+            normalizeImei(i.imeiNumber) === selectedImei,
         );
-        list.push({
+        pushEvent({
           id: `sale-bill-${sb.id}`,
           date: sb.date || sb.createdAt,
           type: "sale",
@@ -140,21 +159,62 @@ export default function IMEITimeline() {
       }
     }
 
-    const imeiTx = transactions.filter(
-      (t) => normalizeImei(t.imeiNumber) === normalizeImei(selectedUnit.imeiNumber),
+    const matchingTransactions = transactions.filter((t) => {
+      if (t.inventoryUnitId && t.inventoryUnitId === selectedUnit.id) return true;
+      return normalizeImei(t.imeiNumber) === selectedImei;
+    });
+
+    const purchaseTxWithBill = matchingTransactions.find(
+      (t) => t.type === "purchase" && t.billId,
     );
-    imeiTx.forEach((t) => {
-      list.push({
+    if (purchaseTxWithBill && purchaseTxWithBill.billId) {
+      const pb = purchaseBills.find((b) => b.id === purchaseTxWithBill.billId);
+      if (pb) {
+        pushEvent({
+          id: `purchase-bill-${pb.id}`,
+          date: pb.billDate || pb.createdAt,
+          type: "purchase",
+          title: "Purchased",
+          subtitle: `Vendor: ${pb.vendorName}${pb.billNumber ? ` | Bill #${pb.billNumber}` : ""}`,
+          amount: selectedUnit.purchasePrice || pb.total,
+          linkTo: `/purchases?id=${pb.id}`,
+        });
+      }
+    }
+
+    const saleTxWithBill = matchingTransactions.find(
+      (t) => t.type === "sale" && t.billId,
+    );
+    if (saleTxWithBill && saleTxWithBill.billId) {
+      const sb = bills.find((b) => b.id === saleTxWithBill.billId);
+      if (sb) {
+        const soldItem = sb.items.find(
+          (i) => normalizeImei(i.imeiNumber) === selectedImei,
+        );
+        pushEvent({
+          id: `sale-bill-${sb.id}`,
+          date: sb.date || sb.createdAt,
+          type: "sale",
+          title: "Sold",
+          subtitle: `Client: ${sb.client?.name || "N/A"} | Bill #${sb.billNumber}`,
+          amount: soldItem?.ratePerUnit || sb.total,
+          linkTo: `/bills/${sb.id}`,
+        });
+      }
+    }
+
+    matchingTransactions.forEach((t) => {
+      pushEvent({
         id: `tx-${t.id}`,
         date: t.date,
         type: "inventory",
-        title: `Inventory ${t.type}`,
+        title: `Inventory ${t.type.replace(/_/g, " ")}`,
         subtitle: `Qty: ${t.quantity} | ${t.model || t.itemNo || t.productId}`,
         amount: t.sellingPrice || t.purchasePrice,
       });
     });
 
-    list.push({
+    pushEvent({
       id: `status-${selectedUnit.id}`,
       date: selectedUnit.updatedAt || selectedUnit.createdAt,
       type: "status",

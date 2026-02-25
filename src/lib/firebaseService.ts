@@ -25,6 +25,7 @@ import {
   Client,
   Product,
   Bill,
+  BillItem,
   InventoryTransaction,
   PurchaseBill,
   BillReturn,
@@ -96,6 +97,8 @@ const removeUndefined = (obj: any): any => {
   }
   return obj;
 };
+
+const roundToTwo = (value: number): number => Math.round(value * 100) / 100;
 
 // Creators
 export const getCreators = async (): Promise<any[]> => {
@@ -443,10 +446,18 @@ export const getProducts = async (): Promise<Product[]> => {
 
     const products = querySnapshot.docs.map((doc) => {
       const data = doc.data();
+      const trackingType =
+        data.trackingType ||
+        ((data.imeiNumber || "").toString().trim() ? "serialized" : "standard");
+      const sellingPrice =
+        trackingType === "serialized"
+          ? data.sellingPrice || 0
+          : data.sellingPrice || data.price || 0;
       return {
         ...data,
         purchasePrice: data.purchasePrice || 0,
-        sellingPrice: data.sellingPrice || data.price || 0,
+        sellingPrice,
+        trackingType,
         weight: typeof data.weight === "string" ? parseFloat(data.weight) || 0 : (data.weight || 0),
         weightUnit: (data.weightUnit as string) || (data.unit === "kg" ? "kg" : "g"),
         vendorId: data.vendorId || "",
@@ -594,7 +605,8 @@ export const saveBill = async (bill: Bill): Promise<void> => {
     } else {
       // For new bills, deduct full quantities
       for (const item of bill.items) {
-        stockAdjustments.set(item.productId, -item.quantity);
+        const currentAdjustment = stockAdjustments.get(item.productId) || 0;
+        stockAdjustments.set(item.productId, currentAdjustment - item.quantity);
       }
     }
 
@@ -608,13 +620,18 @@ export const saveBill = async (bill: Bill): Promise<void> => {
         if (productSnap.exists()) {
           const product = productSnap.data() as Product;
           const requiredStock = Math.abs(adjustment);
+          const isSerializedProduct =
+            (product.trackingType || "standard") === "serialized";
+          const availableStock = isSerializedProduct
+            ? (await getAvailableInventoryUnits(productId)).length
+            : product.stock || 0;
 
-          if (product.stock < requiredStock) {
+          if (availableStock < requiredStock) {
             const productName =
               bill.items.find((i) => i.productId === productId)?.productName ||
               "Unknown";
             throw new Error(
-              `Insufficient stock for ${productName}. Available: ${product.stock.toFixed(
+              `Insufficient stock for ${productName}. Available: ${availableStock.toFixed(
                 2
               )}, Required: ${requiredStock.toFixed(2)}`
             );
@@ -625,31 +642,67 @@ export const saveBill = async (bill: Bill): Promise<void> => {
       }
     }
 
-    const imeiItems = bill.items.filter((item) =>
-      Boolean(normalizeImeiText(item.imeiNumber)),
+    const allProducts = await getProducts();
+    const productMap = new Map(allProducts.map((p) => [p.id, p]));
+    const isSerializedBillItem = (item: BillItem) =>
+      (productMap.get(item.productId)?.trackingType || "standard") ===
+      "serialized";
+
+    const serializedItems = bill.items.filter((item) =>
+      isSerializedBillItem(item),
+    );
+    for (const item of serializedItems) {
+      const hasImei = Boolean(normalizeImeiText(item.imeiNumber));
+      const hasUnitId = Boolean(item.inventoryUnitId);
+      if (!hasImei && !hasUnitId) {
+        throw new Error(
+          `Serialized item "${item.productName}" requires IMEI/Serial selection.`,
+        );
+      }
+      if (item.quantity !== 1) {
+        throw new Error(
+          `Serialized item "${item.productName}" must have quantity 1.`,
+        );
+      }
+    }
+
+    const imeiItems = bill.items.filter(
+      (item) =>
+        isSerializedBillItem(item) ||
+        Boolean(normalizeImeiText(item.imeiNumber)) ||
+        Boolean(item.inventoryUnitId),
     );
     const seenImeis = new Set<string>();
     for (const item of imeiItems) {
       const imei = normalizeImeiText(item.imeiNumber);
-      if (item.quantity !== 1) {
+      if (imei && seenImeis.has(imei)) {
+        throw new Error(`Duplicate IMEI in bill: ${item.imeiNumber}`);
+      }
+      if (imei) {
+        seenImeis.add(imei);
+      }
+      if (isSerializedBillItem(item) && item.quantity !== 1) {
         throw new Error(
           `IMEI item "${item.productName}" must have quantity 1.`,
         );
       }
-      if (seenImeis.has(imei)) {
-        throw new Error(`Duplicate IMEI in bill: ${item.imeiNumber}`);
-      }
-      seenImeis.add(imei);
     }
 
     const inventoryUnits = await getInventoryUnits();
     const soldByThisBill = inventoryUnits.filter((u) => u.soldBillId === bill.id);
-    const requiredImeis = new Set(imeiItems.map((i) => normalizeImeiText(i.imeiNumber)));
+    const requiredImeis = new Set(
+      imeiItems
+        .map((i) => normalizeImeiText(i.imeiNumber))
+        .filter(Boolean),
+    );
+    const requiredUnitIds = new Set(
+      imeiItems.map((i) => i.inventoryUnitId).filter(Boolean),
+    );
 
     if (isUpdate) {
       for (const unit of soldByThisBill) {
         const unitImei = normalizeImeiText(unit.imeiNormalized || unit.imeiNumber);
-        if (!requiredImeis.has(unitImei)) {
+        if (!requiredImeis.has(unitImei) && !requiredUnitIds.has(unit.id)) {
           const unitRef = doc(db, COLLECTIONS.INVENTORY_UNITS, unit.id);
           batch.update(unitRef, {
             status: "in_stock",
@@ -663,18 +716,41 @@ export const saveBill = async (bill: Bill): Promise<void> => {
 
     for (const item of imeiItems) {
       const imei = normalizeImeiText(item.imeiNumber);
-      const candidate = inventoryUnits.find(
-        (u) =>
-          normalizeImeiText(u.imeiNormalized || u.imeiNumber) === imei &&
-          u.productId === item.productId &&
-          (u.status === "in_stock" || u.soldBillId === bill.id),
-      );
+      const candidate =
+        inventoryUnits.find(
+          (u) =>
+            Boolean(item.inventoryUnitId) &&
+            u.id === item.inventoryUnitId &&
+            u.productId === item.productId &&
+            (u.status === "in_stock" || u.soldBillId === bill.id),
+        ) ||
+        inventoryUnits.find(
+          (u) =>
+            Boolean(imei) &&
+            normalizeImeiText(u.imeiNormalized || u.imeiNumber) === imei &&
+            u.productId === item.productId &&
+            (u.status === "in_stock" || u.soldBillId === bill.id),
+        );
       if (!candidate) {
         throw new Error(
           `IMEI ${item.imeiNumber} is not available in inventory for ${item.productName}.`,
         );
       }
       item.inventoryUnitId = candidate.id;
+      item.imeiNumber = candidate.imeiNumber;
+      if (typeof candidate.purchasePrice === "number") {
+        item.purchasePrice = candidate.purchasePrice;
+      }
+      item.amount = roundToTwo(item.quantity * item.ratePerUnit);
+      if (bill.gstType === "igst") {
+        item.igst = roundToTwo((item.amount * item.gstRate) / 100);
+        item.cgst = 0;
+        item.sgst = 0;
+      } else {
+        item.cgst = roundToTwo((item.amount * item.gstRate) / 200);
+        item.sgst = roundToTwo((item.amount * item.gstRate) / 200);
+        item.igst = 0;
+      }
       const unitRef = doc(db, COLLECTIONS.INVENTORY_UNITS, candidate.id);
       batch.update(unitRef, {
         status: "sold",
@@ -683,6 +759,38 @@ export const saveBill = async (bill: Bill): Promise<void> => {
         updatedAt: now,
       });
     }
+
+    for (const item of bill.items) {
+      item.amount = roundToTwo(item.quantity * item.ratePerUnit);
+      if (bill.gstType === "igst") {
+        item.igst = roundToTwo((item.amount * item.gstRate) / 100);
+        item.cgst = 0;
+        item.sgst = 0;
+      } else {
+        item.cgst = roundToTwo((item.amount * item.gstRate) / 200);
+        item.sgst = roundToTwo((item.amount * item.gstRate) / 200);
+        item.igst = 0;
+      }
+    }
+
+    const subtotal = roundToTwo(
+      bill.items.reduce((sum, item) => sum + (item.amount || 0), 0),
+    );
+    const totalTax = roundToTwo(
+      bill.items.reduce(
+        (sum, item) => sum + (item.cgst || 0) + (item.sgst || 0) + (item.igst || 0),
+        0,
+      ),
+    );
+    const otherCharges = roundToTwo(bill.otherCharges || 0);
+    const discount = Math.min(roundToTwo(bill.discount || 0), subtotal);
+    const rawTotal = roundToTwo(subtotal - discount + totalTax + otherCharges);
+    const roundedTotal = Math.round(rawTotal);
+    bill.subtotal = subtotal;
+    bill.totalTax = totalTax;
+    bill.discount = discount;
+    bill.roundOff = roundToTwo(roundedTotal - rawTotal);
+    bill.total = roundedTotal;
 
     // Save bill
     const cleanedBillData = removeUndefined({ ...bill, userId });
@@ -785,6 +893,7 @@ export const saveBill = async (bill: Bill): Promise<void> => {
         billId: bill.id,
         type: "sale" as const,
         quantity: item.quantity,
+        purchasePrice: item.purchasePrice || 0,
         sellingPrice: item.ratePerUnit,
         itemNo: item.itemNo || "",
         model: item.model || "",
@@ -1521,6 +1630,9 @@ export const saveInventoryUnit = async (unit: InventoryUnit): Promise<void> => {
 const normalizeImeiText = (value?: string): string =>
   (value || "").toString().replace(/\s+/g, "").trim().toLowerCase();
 
+const isSerializedTracking = (product?: Product | null): boolean =>
+  (product?.trackingType || "standard") === "serialized";
+
 const normalizeVariantPart = (value?: string): string =>
   (value || "").toString().trim().toLowerCase();
 
@@ -1533,28 +1645,23 @@ const buildVariantKey = (item: {
   model?: string;
   storage?: string;
   color?: string;
-  itemNo?: string;
 }): string =>
   [
     normalizeVariantPart(item.description || item.name),
     normalizeVariantPart(item.model),
     normalizeVariantPart(item.storage),
     normalizeVariantPart(item.color),
-    normalizeVariantPart(item.itemNo),
   ].join("|");
 
-const isVariantSensitiveItem = (item: {
+const buildProductMasterKey = (item: {
+  description?: string;
+  name?: string;
   model?: string;
-  storage?: string;
-  color?: string;
-  itemNo?: string;
-}): boolean =>
-  Boolean(
-    normalizeVariantPart(item.model) ||
-      normalizeVariantPart(item.storage) ||
-      normalizeVariantPart(item.color) ||
-      normalizeVariantPart(item.itemNo),
-  );
+}): string =>
+  [
+    normalizeVariantPart(item.description || item.name),
+    normalizeVariantPart(item.model),
+  ].join("|");
 
 export const addPurchaseItemsToInventory = async (
   bill: PurchaseBill,
@@ -1574,13 +1681,31 @@ export const addPurchaseItemsToInventory = async (
 
     for (const item of itemsWithSellingPrice) {
       const normalizedImei = normalizeImei(item.imeiNumber);
-      if (!normalizedImei) continue;
+      const selectedProduct = item.productId
+        ? products.find((p) => p.id === item.productId)
+        : undefined;
+      const isSerializedItem =
+        isSerializedTracking(selectedProduct) || Boolean(normalizedImei);
 
-      if (Number(item.quantity) !== 1) {
+      if (isSerializedItem) {
+        if (!normalizedImei) {
+          throw new Error(
+            `IMEI/Serial is required for serialized item "${item.description}".`,
+          );
+        }
+        if (Number(item.quantity) !== 1) {
+          throw new Error(
+            `IMEI/Serial item "${item.description}" must have quantity 1.`,
+          );
+        }
+      } else if (normalizedImei) {
         throw new Error(
-          `IMEI/Serial item "${item.description}" must have quantity 1.`,
+          `Standard item "${item.description}" should not contain IMEI/Serial.`,
         );
       }
+
+      if (!normalizedImei) continue;
+
 
       if (seenImeis.has(normalizedImei)) {
         throw new Error(
@@ -1605,8 +1730,7 @@ export const addPurchaseItemsToInventory = async (
     }
 
     for (const item of itemsWithSellingPrice) {
-      const itemVariantKey = buildVariantKey(item);
-      const itemIsVariantSensitive = isVariantSensitiveItem(item);
+      const itemMasterKey = buildProductMasterKey(item);
 
       // 1. Check for manual product selection (isNewProduct = false)
       if (item.isNewProduct === false && item.productId) {
@@ -1635,10 +1759,12 @@ export const addPurchaseItemsToInventory = async (
           productsWithSameHSN.find(
             (p) =>
               p.name === chosenName &&
-              (!itemIsVariantSensitive ||
-                buildVariantKey(p) === itemVariantKey),
+              buildProductMasterKey(p) === itemMasterKey,
           ) ||
-          productsWithSameHSN.find((p) => buildVariantKey(p) === itemVariantKey) ||
+          productsWithSameHSN.find(
+            (p) => buildProductMasterKey(p) === itemMasterKey,
+          ) ||
+          productsWithSameHSN.find((p) => p.name === chosenName) ||
           productsWithSameHSN[0];
 
         if (productToUpdate) {
@@ -1658,9 +1784,8 @@ export const addPurchaseItemsToInventory = async (
       // 4. Default automated matching logic
       if (!item.hsnCode) {
         const existingProduct = products.find((p) =>
-          itemIsVariantSensitive
-            ? buildVariantKey(p) === itemVariantKey
-            : p.name.toLowerCase() === item.description.toLowerCase(),
+          buildProductMasterKey(p) === itemMasterKey ||
+          p.name.toLowerCase() === item.description.toLowerCase(),
         );
         if (existingProduct) {
           await updateExistingProduct(existingProduct, item, bill, batch, userId);
@@ -1682,18 +1807,12 @@ export const addPurchaseItemsToInventory = async (
         continue;
       }
 
-      const variantMatch = productsWithSameHSN.find(
-        (p) => buildVariantKey(p) === itemVariantKey,
+      const masterMatch = productsWithSameHSN.find(
+        (p) => buildProductMasterKey(p) === itemMasterKey,
       );
-      if (variantMatch) {
-        await updateExistingProduct(variantMatch, item, bill, batch, userId);
+      if (masterMatch) {
+        await updateExistingProduct(masterMatch, item, bill, batch, userId);
         updated++;
-        continue;
-      }
-
-      if (itemIsVariantSensitive) {
-        await createNewProduct(item, bill, batch, userId);
-        added++;
         continue;
       }
 
@@ -1746,7 +1865,7 @@ export interface InventoryItemInput {
   quantity: number;
   unit: string;
   purchasePrice: number;
-  sellingPrice: number;
+  sellingPrice?: number;
   gstRate?: number;
   productId?: string;
   isNewProduct?: boolean;
@@ -1778,10 +1897,15 @@ const addInventoryUnitForPurchase = (
       color: item.color || product.color || "",
       itemNo: item.itemNo || product.itemNo || "",
     }),
+    itemNo: item.itemNo || product.itemNo || "",
+    model: item.model || product.model || "",
+    storage: item.storage || product.storage || "",
+    color: item.color || product.color || "",
     vendorId: item.vendorId || bill.vendorId || "",
     vendorName: bill.vendorName || "",
     purchaseBillId: bill.id,
     purchasePrice: item.purchasePrice,
+    sellingPrice: item.sellingPrice,
     status: "in_stock",
     createdAt: now,
     updatedAt: now,
@@ -1816,17 +1940,16 @@ const updateExistingProduct = async (
   const updates: any = {
     stock: newStock,
     purchasePrice: newPurchasePrice,
-    variantKey: buildVariantKey({
+    trackingType:
+      normalizeImei(item.imeiNumber) ? "serialized" : existingProduct.trackingType || "standard",
+    variantKey: buildProductMasterKey({
       description: item.description || existingProduct.name,
       model: item.model || existingProduct.model || "",
-      storage: item.storage || existingProduct.storage || "",
-      color: item.color || existingProduct.color || "",
-      itemNo: item.itemNo || existingProduct.itemNo || "",
     }),
     model: item.model || existingProduct.model || "",
-    imeiNumber: item.imeiNumber || existingProduct.imeiNumber || "",
-    storage: item.storage || existingProduct.storage || "",
-    color: item.color || existingProduct.color || "",
+    imeiNumber: existingProduct.imeiNumber || "",
+    storage: existingProduct.storage || "",
+    color: existingProduct.color || "",
     itemNo: item.itemNo || existingProduct.itemNo || "",
   };
 
@@ -1859,7 +1982,10 @@ const updateExistingProduct = async (
   const cleanedTransactionData = removeUndefined(transaction);
   batch.set(transactionRef, cleanedTransactionData);
 
-  addInventoryUnitForPurchase(batch, userId, item, existingProduct, bill);
+  const productForUnit: Product = { ...existingProduct, ...updates };
+  if (isSerializedTracking(productForUnit)) {
+    addInventoryUnitForPurchase(batch, userId, item, productForUnit, bill);
+  }
 };
 
 const updateExistingProductWithNameChange = async (
@@ -1889,19 +2015,18 @@ const updateExistingProductWithNameChange = async (
     name: chosenName, // Update name
     stock: newStock,
     purchasePrice: newPurchasePrice,
-    variantKey: buildVariantKey({
+    trackingType:
+      normalizeImei(item.imeiNumber) ? "serialized" : existingProduct.trackingType || "standard",
+    variantKey: buildProductMasterKey({
       description: chosenName,
       model: item.model || existingProduct.model || "",
-      storage: item.storage || existingProduct.storage || "",
-      color: item.color || existingProduct.color || "",
-      itemNo: item.itemNo || existingProduct.itemNo || "",
     }),
     gstRate: item.gstRate || existingProduct.gstRate,
     unit: item.unit || existingProduct.unit,
     model: item.model || existingProduct.model || "",
-    imeiNumber: item.imeiNumber || existingProduct.imeiNumber || "",
-    storage: item.storage || existingProduct.storage || "",
-    color: item.color || existingProduct.color || "",
+    imeiNumber: existingProduct.imeiNumber || "",
+    storage: existingProduct.storage || "",
+    color: existingProduct.color || "",
     itemNo: item.itemNo || existingProduct.itemNo || "",
   };
 
@@ -1934,7 +2059,10 @@ const updateExistingProductWithNameChange = async (
   const cleanedTransactionData = removeUndefined(transaction);
   batch.set(transactionRef, cleanedTransactionData);
 
-  addInventoryUnitForPurchase(batch, userId, item, existingProduct, bill);
+  const productForUnit: Product = { ...existingProduct, ...updates };
+  if (isSerializedTracking(productForUnit)) {
+    addInventoryUnitForPurchase(batch, userId, item, productForUnit, bill);
+  }
 };
 
 const createNewProduct = async (
@@ -1943,21 +2071,23 @@ const createNewProduct = async (
   batch: any,
   userId: string
 ) => {
+  const isSerializedItem = Boolean(normalizeImei(item.imeiNumber));
   const newProduct: Product = {
     id: crypto.randomUUID(),
     name: item.description,
-    variantKey: buildVariantKey(item),
+    variantKey: buildProductMasterKey(item),
+    trackingType: isSerializedItem ? "serialized" : "standard",
     itemNo: item.itemNo || "",
     model: item.model || "",
-    imeiNumber: item.imeiNumber || "",
-    storage: item.storage || "",
-    color: item.color || "",
+    imeiNumber: "",
+    storage: "",
+    color: "",
     hsnCode: item.hsnCode || "",
     gstRate: item.gstRate || 0,
     unit: item.unit || "pcs",
-    price: item.sellingPrice || item.purchasePrice,
+    price: item.sellingPrice || 0,
     purchasePrice: item.purchasePrice,
-    sellingPrice: item.sellingPrice || item.purchasePrice,
+    sellingPrice: item.sellingPrice || 0,
     stock: item.quantity,
     createdAt: new Date().toISOString(),
     whereToBuy: bill.vendorName || "",
@@ -1991,7 +2121,9 @@ const createNewProduct = async (
   const cleanedTransactionData = removeUndefined(transaction);
   batch.set(transactionRef, cleanedTransactionData);
 
-  addInventoryUnitForPurchase(batch, userId, item, newProduct, bill);
+  if (isSerializedTracking(newProduct)) {
+    addInventoryUnitForPurchase(batch, userId, item, newProduct, bill);
+  }
 };
 
 export const isPurchaseBillDuplicate = async (
@@ -2074,11 +2206,15 @@ export const checkStockAvailability = async (
     }
 
     const product = productSnap.data() as Product;
-    const available = product.stock >= requiredQty && product.stock > 0;
+    const isSerializedProduct = (product.trackingType || "standard") === "serialized";
+    const currentStock = isSerializedProduct
+      ? (await getAvailableInventoryUnits(productId)).length
+      : product.stock || 0;
+    const available = currentStock >= requiredQty && currentStock > 0;
 
     return {
       available,
-      stock: product.stock,
+      stock: currentStock,
       productName: product.name,
     };
   } catch (error) {
@@ -2092,6 +2228,7 @@ export const validateBillStock = async (
 ): Promise<{ valid: boolean; errors: string[] }> => {
   try {
     const errors: string[] = [];
+    const requiredByProduct = new Map<string, number>();
 
     for (const item of items) {
       if (item.quantity <= 0) {
@@ -2104,14 +2241,20 @@ export const validateBillStock = async (
         errors.push(`${productName}: Quantity must be greater than 0`);
         continue;
       }
-
-      const { available, stock, productName } = await checkStockAvailability(
+      requiredByProduct.set(
         item.productId,
-        item.quantity
+        (requiredByProduct.get(item.productId) || 0) + item.quantity,
+      );
+    }
+
+    for (const [productId, requiredQty] of requiredByProduct.entries()) {
+      const { available, stock, productName } = await checkStockAvailability(
+        productId,
+        requiredQty,
       );
       if (!available) {
         errors.push(
-          `${productName}: Required ${item.quantity.toFixed(
+          `${productName}: Required ${requiredQty.toFixed(
             2
           )}, Available ${stock.toFixed(2)}`
         );

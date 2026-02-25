@@ -1,5 +1,6 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { Product } from '@/types';
+import { calculateSellingPriceFromCommission } from '@/lib/billUtils';
 
 const styles = StyleSheet.create({
   page: {
@@ -225,10 +226,6 @@ export const ProductsPDF = ({
             <Text style={styles.tableCellValue}>{formatCurrency(stats.averagePurchasePrice)}</Text>
           </View>
           <View style={styles.tableRow}>
-            <Text style={styles.tableCellLabel}>Average Selling Price</Text>
-            <Text style={styles.tableCellValue}>{formatCurrency(stats.averageSellingPrice)}</Text>
-          </View>
-          <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Average with Commission</Text>
             <Text style={styles.tableCellValue}>{formatCurrency(stats.averageWithCommission)}</Text>
           </View>
@@ -314,29 +311,32 @@ export const ProductsPDF = ({
       </Text>
     </Page>
 
-    {/* PAGE 3: TOP PRODUCTS BY MARGIN */}
+    {/* PAGE 3: TOP PRODUCTS BY COMMISSION MARGIN */}
     <Page size="A4" style={styles.page}>
       <View style={styles.header}>
         <Text style={styles.companyName}>{companyProfile?.name || 'INVENTORY REPORT'}</Text>
-        <Text style={styles.reportTitle}>Top Products by Profit Margin</Text>
+        <Text style={styles.reportTitle}>Top Products by Commission Margin</Text>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionHeader}>TOP 20 PRODUCTS BY MARGIN</Text>
+        <Text style={styles.sectionHeader}>TOP 20 PRODUCTS BY COMMISSION MARGIN</Text>
         <View style={styles.table}>
           <View style={styles.tableRowHeader}>
             <Text style={styles.rankBadge}>#</Text>
             <Text style={styles.productName}>Product Name</Text>
             <Text style={styles.metric}>Purchase</Text>
-            <Text style={styles.metric}>Selling</Text>
+            <Text style={styles.metric}>With Commission</Text>
             <Text style={styles.metric}>Margin %</Text>
           </View>
           {[...products]
             .map(p => {
               const currentAvgPrice = currentAveragePrices[p.id] || p.purchasePrice || 0;
-              const sellingPrice = p.sellingPrice || p.price || 0;
-              const margin = currentAvgPrice > 0 ? ((sellingPrice - currentAvgPrice) / currentAvgPrice) * 100 : 0;
-              return { ...p, margin, currentAvgPrice, sellingPrice };
+              const commissionPrice = calculateSellingPriceFromCommission(
+                currentAvgPrice,
+                companyProfile?.commissionSettings,
+              );
+              const margin = currentAvgPrice > 0 ? ((commissionPrice - currentAvgPrice) / currentAvgPrice) * 100 : 0;
+              return { ...p, margin, currentAvgPrice, commissionPrice };
             })
             .sort((a, b) => b.margin - a.margin)
             .slice(0, 20)
@@ -345,7 +345,7 @@ export const ProductsPDF = ({
                 <Text style={styles.rankBadge}>{index + 1}</Text>
                 <Text style={styles.productName}>{product.name}</Text>
                 <Text style={styles.metric}>{formatCurrency(product.currentAvgPrice)}</Text>
-                <Text style={styles.metric}>{formatCurrency(product.sellingPrice)}</Text>
+                <Text style={styles.metric}>{formatCurrency(product.commissionPrice)}</Text>
                 <Text style={[styles.metric, styles.profit]}>
                   {product.margin.toFixed(1)}%
                 </Text>
