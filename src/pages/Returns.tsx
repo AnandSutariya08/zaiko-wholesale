@@ -90,6 +90,12 @@ export default function Returns() {
     Record<string, Record<string, number>>
   >({});
   const [processingReturn, setProcessingReturn] = useState(false);
+  const [returnMode, setReturnMode] = useState<
+    "item_wise" | "full_bill" | "amount_only"
+  >("item_wise");
+  const [customReturnAmount, setCustomReturnAmount] = useState("");
+  const [refundPaidAmount, setRefundPaidAmount] = useState("");
+  const [refundNote, setRefundNote] = useState("");
   const [productTransactionsMap, setProductTransactionsMap] = useState<
     Record<string, any[]>
   >({});
@@ -336,6 +342,10 @@ export default function Returns() {
     );
 
     setReturnItems(items);
+    setReturnMode("item_wise");
+    setCustomReturnAmount("");
+    setRefundPaidAmount("");
+    setRefundNote("");
     setShowReturnDialog(true);
   };
 
@@ -350,19 +360,97 @@ export default function Returns() {
 
   const handleProcessReturn = async () => {
     setProcessingReturn(true);
-    const itemsToReturn = returnItems.filter((item) => item.quantity > 0);
+    const itemsToReturn =
+      returnMode === "amount_only"
+        ? []
+        : returnMode === "full_bill"
+          ? returnItems
+              .filter((item) => item.maxQuantity > 0)
+              .map((item) => ({ ...item, quantity: item.maxQuantity }))
+          : returnItems.filter((item) => item.quantity > 0);
 
-    if (itemsToReturn.length === 0) {
+    const amountOnlyReturn = parseFloat(customReturnAmount || "0") || 0;
+    const calculatedItemReturnAmount = itemsToReturn.reduce((sum, item) => {
+      const matchedBillItem =
+        selectedBill?.items.find(
+          (billItem) =>
+            Boolean(item.inventoryUnitId) &&
+            Boolean(billItem.inventoryUnitId) &&
+            billItem.inventoryUnitId === item.inventoryUnitId,
+        ) ||
+        selectedBill?.items.find(
+          (billItem) =>
+            normalizeImei(item.imeiNumber) &&
+            normalizeImei(billItem.imeiNumber) === normalizeImei(item.imeiNumber),
+        ) ||
+        selectedBill?.items.find((billItem) => billItem.productId === item.productId);
+      if (!matchedBillItem || matchedBillItem.quantity <= 0) return sum;
+      const lineTotal =
+        (matchedBillItem.amount || 0) +
+        (matchedBillItem.cgst || 0) +
+        (matchedBillItem.sgst || 0) +
+        (matchedBillItem.igst || 0);
+      const perUnit = lineTotal / matchedBillItem.quantity;
+      return sum + item.quantity * perUnit;
+    }, 0);
+    const effectiveReturnAmount =
+      returnMode === "amount_only" ? amountOnlyReturn : calculatedItemReturnAmount;
+    const refundPaid = parseFloat(refundPaidAmount || "0") || 0;
+    const billTotal = selectedBill?.total || 0;
+    const billPaid = selectedBill?.paidAmount || 0;
+
+    if (returnMode !== "amount_only" && itemsToReturn.length === 0) {
       toast({
         title: "No items selected",
         description: "Please select at least one item to return",
         variant: "destructive",
       });
+      setProcessingReturn(false);
+      return;
+    }
+
+    if (returnMode === "amount_only" && amountOnlyReturn <= 0) {
+      toast({
+        title: "Invalid return amount",
+        description: "Enter a return amount greater than 0",
+        variant: "destructive",
+      });
+      setProcessingReturn(false);
+      return;
+    }
+
+    if (effectiveReturnAmount > billTotal) {
+      toast({
+        title: "Invalid return value",
+        description: "Return value cannot be greater than the bill value",
+        variant: "destructive",
+      });
+      setProcessingReturn(false);
+      return;
+    }
+
+    if (refundPaid < 0 || refundPaid > effectiveReturnAmount) {
+      toast({
+        title: "Invalid refund paid",
+        description: "Refund paid must be between 0 and total return value",
+        variant: "destructive",
+      });
+      setProcessingReturn(false);
+      return;
+    }
+
+    if (refundPaid > billPaid) {
+      toast({
+        title: "Invalid refund paid",
+        description: "Refund paid cannot be more than amount received",
+        variant: "destructive",
+      });
+      setProcessingReturn(false);
       return;
     }
 
     // Validate quantities
-    for (const item of itemsToReturn) {
+    for (const item of itemsToReturn.filter((i) => returnMode !== "amount_only")) {
       if (item.quantity > item.maxQuantity) {
         toast({
           title: "Invalid quantity",
@@ -382,7 +470,12 @@ export default function Returns() {
     }
 
     try {
-      await processBillReturn(selectedBill!.id, itemsToReturn);
+      await processBillReturn(selectedBill!.id, itemsToReturn, {
+        returnMode,
+        customReturnAmount: returnMode === "amount_only" ? amountOnlyReturn : 0,
+        refundPaidAmount: refundPaid,
+        refundNote,
+      });
 
       const goodItems = itemsToReturn.filter((i) => i.condition === "good");
       const badItems = itemsToReturn.filter((i) => i.condition === "bad");
@@ -816,8 +909,49 @@ export default function Returns() {
                 {selectedBill?.client.name}
               </span>
             </div>
+            <div className="space-y-2 rounded-lg border border-border/70 bg-muted/30 p-3">
+              <Label className="text-xs sm:text-sm font-medium">Return Type</Label>
+              <RadioGroup
+                value={returnMode}
+                onValueChange={(value) =>
+                  setReturnMode(value as "item_wise" | "full_bill" | "amount_only")
+                }
+                className="flex flex-col gap-2 sm:flex-row sm:gap-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="item_wise" id="return-item-wise" />
+                  <Label htmlFor="return-item-wise" className="text-xs sm:text-sm">
+                    Item-wise Return
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="full_bill" id="return-full-bill" />
+                  <Label htmlFor="return-full-bill" className="text-xs sm:text-sm">
+                    Full Bill Return
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="amount_only" id="return-amount-only" />
+                  <Label htmlFor="return-amount-only" className="text-xs sm:text-sm">
+                    Amount-only Return
+                  </Label>
+                </div>
+              </RadioGroup>
+              {returnMode === "amount_only" && (
+                <div className="grid grid-cols-1 gap-2 sm:max-w-xs">
+                  <Label className="text-xs sm:text-sm">Return Amount</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={customReturnAmount}
+                    onChange={(e) => setCustomReturnAmount(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
 
-            {returnItems.length === 0 ? (
+            {returnMode !== "amount_only" && returnItems.length === 0 ? (
               <div className="text-center py-6 sm:py-8 text-muted-foreground">
                 <CheckCircle className="h-8 w-8 sm:h-10 sm:w-10 mx-auto mb-2 sm:mb-3 opacity-50" />
                 <p className="text-sm sm:text-base">
@@ -854,15 +988,18 @@ export default function Returns() {
                           <Label className="text-xs sm:text-sm">
                             Return Quantity
                           </Label>
-                          <Input
-                            type="number"
-                            min={0}
-                            max={item.maxQuantity}
-                            value={item.quantity}
-                            disabled={Boolean(item.imeiNumber || item.inventoryUnitId)}
-                            onChange={(e) =>
-                              updateReturnItem(index, {
-                                quantity: parseInt(e.target.value) || 0,
+                            <Input
+                              type="number"
+                              min={0}
+                              max={item.maxQuantity}
+                              value={returnMode === "full_bill" ? item.maxQuantity : item.quantity}
+                              disabled={
+                                returnMode === "full_bill" ||
+                                Boolean(item.imeiNumber || item.inventoryUnitId)
+                              }
+                              onChange={(e) =>
+                                updateReturnItem(index, {
+                                  quantity: parseInt(e.target.value) || 0,
                               })
                             }
                             className="text-sm mt-1"
@@ -947,6 +1084,69 @@ export default function Returns() {
             )}
           </div>
 
+          <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 p-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <Label className="text-xs sm:text-sm">Refund Paid Now</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={refundPaidAmount}
+                  onChange={(e) => setRefundPaidAmount(e.target.value)}
+                  className="mt-1"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Received: {formatCurrency(selectedBill?.paidAmount || 0)}
+                </p>
+              </div>
+              <div>
+                <Label className="text-xs sm:text-sm">Refund Note (optional)</Label>
+                <Input
+                  value={refundNote}
+                  onChange={(e) => setRefundNote(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Return value:{" "}
+              <span className="font-semibold text-foreground">
+                {formatCurrency(
+                  returnMode === "amount_only"
+                    ? parseFloat(customReturnAmount || "0") || 0
+                    : returnItems.reduce((sum, item) => {
+                        const qty = returnMode === "full_bill" ? item.maxQuantity : item.quantity;
+                        if (qty <= 0) return sum;
+                        const matchedBillItem =
+                          selectedBill?.items.find(
+                            (billItem) =>
+                              Boolean(item.inventoryUnitId) &&
+                              Boolean(billItem.inventoryUnitId) &&
+                              billItem.inventoryUnitId === item.inventoryUnitId,
+                          ) ||
+                          selectedBill?.items.find(
+                            (billItem) =>
+                              normalizeImei(item.imeiNumber) &&
+                              normalizeImei(billItem.imeiNumber) ===
+                                normalizeImei(item.imeiNumber),
+                          ) ||
+                          selectedBill?.items.find(
+                            (billItem) => billItem.productId === item.productId,
+                          );
+                        if (!matchedBillItem || matchedBillItem.quantity <= 0) return sum;
+                        const lineTotal =
+                          (matchedBillItem.amount || 0) +
+                          (matchedBillItem.cgst || 0) +
+                          (matchedBillItem.sgst || 0) +
+                          (matchedBillItem.igst || 0);
+                        return sum + (lineTotal / matchedBillItem.quantity) * qty;
+                      }, 0),
+                )}
+              </span>
+            </p>
+          </div>
+
           <DialogFooter className="dialog-form-footer flex-col sm:flex-row gap-2">
             <Button
               variant="outline"
@@ -959,7 +1159,10 @@ export default function Returns() {
               onClick={handleProcessReturn}
               disabled={
                 processingReturn ||
-                returnItems.filter((i) => i.quantity > 0).length === 0
+                (returnMode !== "amount_only" &&
+                  returnItems.filter((i) => i.quantity > 0).length === 0) ||
+                (returnMode === "amount_only" &&
+                  (parseFloat(customReturnAmount || "0") || 0) <= 0)
               }
               className="w-full sm:w-auto text-sm"
             >

@@ -157,12 +157,16 @@ export default function Passbook() {
 
       // Add sales returns
       returns.forEach((returnItem) => {
+        const refundPaidAmount =
+          typeof returnItem.refundPaidAmount === "number"
+            ? returnItem.refundPaidAmount
+            : returnItem.totalReturnValue;
         allEntries.push({
           id: `return-${returnItem.id}`,
           date: returnItem.returnDate,
           type: "return",
           description: `Return - Bill #${returnItem.billNumber} - ${returnItem.clientName}`,
-          amount: -returnItem.totalReturnValue,
+          amount: -refundPaidAmount,
           balance: 0,
           details: returnItem,
         });

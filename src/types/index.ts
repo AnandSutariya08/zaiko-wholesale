@@ -326,6 +326,9 @@ export interface BillReturn {
   clientName: string;
   items: ReturnItem[];
   totalReturnValue: number;
+  returnMode?: "full_bill" | "item_wise" | "amount_only";
+  refundPaidAmount?: number;
+  refundNote?: string;
   returnDate: string;
   createdAt: string;
 }

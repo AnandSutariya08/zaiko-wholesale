@@ -2377,7 +2377,13 @@ export const processBillReturn = async (
     condition: "good" | "bad";
     returnReason?: string;
     costPrice: number;
-  }[]
+  }[],
+  options?: {
+    returnMode?: "full_bill" | "item_wise" | "amount_only";
+    customReturnAmount?: number;
+    refundPaidAmount?: number;
+    refundNote?: string;
+  },
 ): Promise<BillReturn> => {
   try {
     const userId = getUserId();
@@ -2389,6 +2395,67 @@ export const processBillReturn = async (
     }
 
     const bill = billSnap.data() as Bill;
+    const returnMode = options?.returnMode || "item_wise";
+    const customReturnAmount = roundToTwo(options?.customReturnAmount || 0);
+    const refundPaidAmount = roundToTwo(options?.refundPaidAmount || 0);
+    const refundNote = (options?.refundNote || "").trim();
+
+    if (returnMode === "amount_only" && customReturnAmount <= 0) {
+      throw new Error("Return amount must be greater than 0 for amount-only returns.");
+    }
+
+    const findMatchedBillItem = (item: {
+      productId: string;
+      inventoryUnitId?: string;
+      imeiNumber?: string;
+    }) =>
+      bill.items.find(
+        (b) =>
+          Boolean(item.inventoryUnitId) &&
+          Boolean((b as any).inventoryUnitId) &&
+          (b as any).inventoryUnitId === item.inventoryUnitId,
+      ) ||
+      bill.items.find(
+        (b) =>
+          normalizeImeiText(item.imeiNumber) &&
+          normalizeImeiText((b as any).imeiNumber) ===
+            normalizeImeiText(item.imeiNumber),
+      ) ||
+      bill.items.find((b) => b.productId === item.productId);
+
+    const computeItemWiseReturnValue = () =>
+      roundToTwo(
+        returnItems.reduce((sum, item) => {
+          const matchedBillItem = findMatchedBillItem(item);
+          if (!matchedBillItem || matchedBillItem.quantity <= 0) return sum;
+          const lineTotal =
+            (matchedBillItem.amount || 0) +
+            (matchedBillItem.cgst || 0) +
+            (matchedBillItem.sgst || 0) +
+            (matchedBillItem.igst || 0);
+          const perUnitValue = lineTotal / matchedBillItem.quantity;
+          return sum + item.quantity * perUnitValue;
+        }, 0),
+      );
+
+    const totalReturnValue =
+      returnMode === "amount_only"
+        ? customReturnAmount
+        : computeItemWiseReturnValue();
+
+    if (refundPaidAmount < 0) {
+      throw new Error("Refund paid amount cannot be negative.");
+    }
+    if (refundPaidAmount > totalReturnValue) {
+      throw new Error("Refund paid amount cannot exceed total return value.");
+    }
+    if (refundPaidAmount > (bill.paidAmount || 0)) {
+      throw new Error("Refund paid amount cannot exceed amount received.");
+    }
+    if (totalReturnValue > (bill.total || 0)) {
+      throw new Error("Return value cannot be greater than bill value.");
+    }
+
     const billReturn: BillReturn = {
       id: crypto.randomUUID(),
       billId,
@@ -2403,10 +2470,10 @@ export const processBillReturn = async (
         condition: item.condition,
         returnReason: item.returnReason,
       })),
-      totalReturnValue: returnItems.reduce(
-        (sum, item) => sum + item.quantity * item.costPrice,
-        0
-      ),
+      totalReturnValue,
+      returnMode,
+      refundPaidAmount,
+      refundNote: refundNote || undefined,
       returnDate: new Date().toISOString(),
       createdAt: new Date().toISOString(),
     };
@@ -2503,7 +2570,10 @@ export const processBillReturn = async (
     }
 
     // Update the original bill
-    await updateBillAfterReturn(billId, returnItems);
+    await updateBillAfterReturn(billId, returnItems, {
+      customReturnAmount: returnMode === "amount_only" ? customReturnAmount : 0,
+      refundPaidAmount,
+    });
 
     // Save bill return
     const returnRef = doc(db, COLLECTIONS.BILL_RETURNS, billReturn.id);
@@ -2526,7 +2596,11 @@ export const updateBillAfterReturn = async (
     costPrice: number;
     productName?: string;
     returnReason?: string;
-  }[]
+  }[],
+  options?: {
+    customReturnAmount?: number;
+    refundPaidAmount?: number;
+  },
 ): Promise<void> => {
   try {
     const billRef = doc(db, COLLECTIONS.BILLS, billId);
@@ -2536,10 +2610,15 @@ export const updateBillAfterReturn = async (
 
     const bill = billSnap.data() as Bill;
     let totalReturnValue = 0;
+    const customReturnAmount = roundToTwo(options?.customReturnAmount || 0);
+    const refundPaidAmount = roundToTwo(options?.refundPaidAmount || 0);
 
     // Update item quantities in the bill
     const isIGST = bill.gstType === "igst";
-    const updatedItems = bill.items
+    const updatedItems =
+      returnItems.length === 0
+        ? [...bill.items]
+        : bill.items
       .map((item) => {
         const returnItem = returnItems.find(
           (r) => r.productId === item.productId
@@ -2578,15 +2657,33 @@ export const updateBillAfterReturn = async (
       })
       .filter((item) => item.quantity > 0);
 
+    if (returnItems.length === 0) {
+      totalReturnValue = customReturnAmount;
+    }
+
     // Recalculate bill totals
-    const subtotal = updatedItems.reduce((sum, item) => sum + item.amount, 0);
-    const totalTax = updatedItems.reduce(
-      (sum, item) => sum + item.cgst + item.sgst + (item.igst || 0),
-      0
+    const subtotal = roundToTwo(
+      updatedItems.reduce((sum, item) => sum + item.amount, 0),
     );
-    const rawTotal = subtotal + totalTax;
+    const totalTax = roundToTwo(
+      updatedItems.reduce(
+        (sum, item) => sum + item.cgst + item.sgst + (item.igst || 0),
+        0,
+      ),
+    );
+    const rawTotal = Math.max(0, roundToTwo(subtotal + totalTax - totalReturnValue));
     const roundedTotal = Math.round(rawTotal);
-    const roundOff = roundedTotal - rawTotal;
+    const roundOff = roundToTwo(roundedTotal - rawTotal);
+
+    const nextPaidAmount = Math.max(0, roundToTwo((bill.paidAmount || 0) - refundPaidAmount));
+    let paymentStatus: Bill["paymentStatus"] = "pending";
+    if (nextPaidAmount >= roundedTotal) {
+      paymentStatus = nextPaidAmount > roundedTotal ? "overpaid" : "paid";
+    } else if (nextPaidAmount > 0) {
+      paymentStatus = "pending";
+    } else if (bill.dueDate && new Date(bill.dueDate) < new Date()) {
+      paymentStatus = "overdue";
+    }
 
     const existingComment = bill.returnComment || "";
     const returnDate = new Date().toISOString();
@@ -2607,6 +2704,8 @@ export const updateBillAfterReturn = async (
       totalTax,
       roundOff,
       total: roundedTotal,
+      paidAmount: nextPaidAmount,
+      paymentStatus,
       returnComment,
       updatedAt: new Date().toISOString(),
     });
