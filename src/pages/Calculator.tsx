@@ -237,33 +237,34 @@ const CalculatorPage = () => {
     <div className="flex h-full min-h-0 w-full flex-col gap-3 overflow-hidden">
       {/* Header Section */}
       <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-gradient-to-br from-background via-background to-slate-50/40 p-3 shadow-sm sm:p-4">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-border">
-            <CalcIcon className="w-6 h-6 text-primary" />
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-center justify-start gap-3 sm:gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-border">
+              <CalcIcon className="h-5 w-5 text-primary" />
+            </div>
+            <div className="min-w-0 text-left">
+              <h1 className="truncate text-2xl font-semibold leading-tight sm:text-3xl">
+                Calculator
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Financial precision for your business
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="truncate text-2xl font-semibold leading-tight sm:text-3xl">Calculator</h1>
-            <p className="text-sm text-muted-foreground">
-              Financial precision for your business
-            </p>
+          <div className="grid w-full grid-cols-1 gap-2 rounded-xl border border-border/70 bg-muted/30 p-2 lg:w-auto">
+            <Button
+              variant="outline"
+              onClick={() => setShowHistory(!showHistory)}
+              className={cn(
+                "h-10 rounded-xl px-3 text-sm gap-2 transition-all",
+                showHistory && "bg-primary/10 border-primary/50 text-primary",
+              )}
+            >
+              <History className="h-4 w-4" />
+              {showHistory ? "Hide History" : "History"}
+            </Button>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowHistory(!showHistory)}
-            className={cn(
-              "h-8 gap-1.5 text-xs transition-all",
-              showHistory && "bg-primary/10 border-primary/50 text-primary",
-            )}
-          >
-            <History className="w-3.5 h-3.5" />
-            {showHistory ? "Hide" : "History"}
-          </Button>
-        </div>
-      </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-border/70 bg-background/70 p-2 sm:p-4">

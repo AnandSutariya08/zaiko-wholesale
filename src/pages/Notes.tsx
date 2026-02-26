@@ -176,20 +176,21 @@ export default function Notes() {
             </div>
           </div>
 
-          <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
-              <Button
-                size="sm"
-                className="h-10 rounded-xl px-3 text-sm"
-                onClick={() => {
-                  setEditingNote(null);
-                  resetForm();
-                }}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Note
-              </Button>
-            </DialogTrigger>
+          <div className="grid w-full grid-cols-1 gap-2 rounded-xl border border-border/70 bg-muted/30 p-2 lg:w-auto">
+            <Dialog open={isOpen} onOpenChange={setIsOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  size="sm"
+                  className="h-10 rounded-xl px-3 text-sm"
+                  onClick={() => {
+                    setEditingNote(null);
+                    resetForm();
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Note
+                </Button>
+              </DialogTrigger>
 
             <DialogContent className="dialog-form-content sm:max-w-[500px]">
               <DialogHeader className="dialog-form-header">
@@ -268,7 +269,8 @@ export default function Notes() {
                 </div>
               </form>
             </DialogContent>
-          </Dialog>
+            </Dialog>
+          </div>
         </div>
       </div>
 

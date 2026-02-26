@@ -46,6 +46,37 @@ interface PassbookEntry {
   category?: string;
 }
 
+const PAYMENT_METHODS = [
+  "Cash",
+  "UPI",
+  "Card",
+  "Bank Transfer",
+  "Cheque",
+  "Other",
+] as const;
+
+const normalizePaymentMethod = (method?: string) => {
+  const normalized = method?.trim().toLowerCase() || "";
+
+  if (!normalized) return "Other";
+  if (normalized.includes("cash")) return "Cash";
+  if (normalized.includes("upi")) return "UPI";
+  if (normalized.includes("card")) return "Card";
+  if (
+    normalized.includes("bank") ||
+    normalized.includes("transfer") ||
+    normalized.includes("neft") ||
+    normalized.includes("rtgs") ||
+    normalized.includes("imps")
+  ) {
+    return "Bank Transfer";
+  }
+  if (normalized.includes("cheque") || normalized.includes("check")) {
+    return "Cheque";
+  }
+  return "Other";
+};
+
 export default function Passbook() {
   const [entries, setEntries] = useState<PassbookEntry[]>([]);
   const [filteredEntries, setFilteredEntries] = useState<PassbookEntry[]>([]);
@@ -334,7 +365,11 @@ export default function Passbook() {
     .filter((e) => e.type === "payment")
     .reduce(
       (acc, entry) => {
-        const method = entry.details?.currentPayment?.method || "Other";
+        const rawMethod =
+          entry.details?.currentPayment?.method ||
+          entry.details?.paymentType ||
+          entry.details?.modeOfPayment;
+        const method = normalizePaymentMethod(rawMethod);
         acc[method] = (acc[method] || 0) + entry.amount;
         return acc;
       },
@@ -377,12 +412,12 @@ export default function Passbook() {
     <div className="flex h-full min-h-0 w-full flex-col gap-3 overflow-hidden">
       {/* Header */}
       <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-gradient-to-br from-background via-background to-slate-50/40 p-3 shadow-sm sm:p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-center justify-start gap-3 sm:gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-border">
               <BookOpen className="h-5 w-5" />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 text-left">
               <h1 className="truncate text-2xl font-semibold leading-tight sm:text-3xl">
                 Passbook
               </h1>
@@ -391,15 +426,16 @@ export default function Passbook() {
               </p>
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={exportToExcel}
-            className="self-start sm:self-auto"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Export Excel
-          </Button>
+          <div className="grid w-full grid-cols-1 gap-2 rounded-xl border border-border/70 bg-muted/30 p-2 lg:w-auto">
+            <Button
+              variant="outline"
+              onClick={exportToExcel}
+              className="h-10 rounded-xl px-3 text-sm"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export Excel
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -407,107 +443,107 @@ export default function Passbook() {
       <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-border/70 bg-background/70 p-2 sm:p-4">
         <div className="h-full overflow-y-auto space-y-4 pr-1 sm:pr-2">
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-5">
             <Card
-              className={`${netBalance >= 0 ? "border-primary/20 bg-primary/5" : "border-destructive/20 bg-destructive/5"}`}
+              className={`min-h-[122px] ${netBalance >= 0 ? "border-primary/20 bg-primary/5" : "border-destructive/20 bg-destructive/5"}`}
             >
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2.5 sm:px-4 sm:pt-3 sm:pb-2">
                 <CardTitle
-                  className={`text-xs font-medium tracking-wide uppercase ${netBalance >= 0 ? "text-primary" : "text-destructive"}`}
+                  className={`text-[10px] font-semibold tracking-wide uppercase sm:text-xs ${netBalance >= 0 ? "text-primary" : "text-destructive"}`}
                 >
                   Net Balance
                 </CardTitle>
                 <div
-                  className={`h-9 w-9 rounded-full flex items-center justify-center ${netBalance >= 0 ? "bg-primary/10" : "bg-destructive/10"}`}
+                  className={`flex h-8 w-8 items-center justify-center rounded-full ${netBalance >= 0 ? "bg-primary/10" : "bg-destructive/10"}`}
                 >
                   <BookOpen
-                    className={`h-4 w-4 ${netBalance >= 0 ? "text-primary" : "text-destructive"}`}
+                    className={`h-3.5 w-3.5 ${netBalance >= 0 ? "text-primary" : "text-destructive"}`}
                   />
                 </div>
               </CardHeader>
-              <CardContent className="pt-1">
+              <CardContent className="px-3 pt-0 pb-3 sm:px-4">
                 <div
-                  className={`text-xl font-bold mb-1 ${netBalance >= 0 ? "text-emerald-600" : "text-rose-600"}`}
+                  className={`mb-0.5 text-lg font-bold leading-tight sm:text-xl ${netBalance >= 0 ? "text-emerald-600" : "text-rose-600"}`}
                 >
                   {formatCurrency(netBalance)}
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[11px] leading-snug text-muted-foreground">
                   Current account balance
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="border-emerald-200 bg-emerald-50/70">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xs font-medium tracking-wide uppercase text-emerald-600">
+            <Card className="min-h-[122px] border-emerald-200 bg-emerald-50/70">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2.5 sm:px-4 sm:pt-3 sm:pb-2">
+                <CardTitle className="text-[10px] font-semibold tracking-wide uppercase text-emerald-600 sm:text-xs">
                   Total Income
                 </CardTitle>
-                <div className="h-9 w-9 rounded-full bg-emerald-100 flex items-center justify-center">
-                  <Plus className="h-4 w-4 text-emerald-600" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100">
+                  <Plus className="h-3.5 w-3.5 text-emerald-600" />
                 </div>
               </CardHeader>
-              <CardContent className="pt-1">
-                <div className="text-xl font-bold text-emerald-600 mb-1">
+              <CardContent className="px-3 pt-0 pb-3 sm:px-4">
+                <div className="mb-0.5 text-lg font-bold leading-tight text-emerald-600 sm:text-xl">
                   {formatCurrency(totalIncome)}
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[11px] leading-snug text-muted-foreground">
                   Actual cash received
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="border-rose-200 bg-rose-50/70">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xs font-medium tracking-wide uppercase text-rose-600">
+            <Card className="min-h-[122px] border-rose-200 bg-rose-50/70">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2.5 sm:px-4 sm:pt-3 sm:pb-2">
+                <CardTitle className="text-[10px] font-semibold tracking-wide uppercase text-rose-600 sm:text-xs">
                   Total Outflow
                 </CardTitle>
-                <div className="h-9 w-9 rounded-full bg-rose-100 flex items-center justify-center">
-                  <TrendingDown className="h-4 w-4 text-rose-600" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-100">
+                  <TrendingDown className="h-3.5 w-3.5 text-rose-600" />
                 </div>
               </CardHeader>
-              <CardContent className="pt-1">
-                <div className="text-xl font-bold text-rose-600 mb-1">
+              <CardContent className="px-3 pt-0 pb-3 sm:px-4">
+                <div className="mb-0.5 text-lg font-bold leading-tight text-rose-600 sm:text-xl">
                   {formatCurrency(totalOutflow)}
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[11px] leading-snug text-muted-foreground">
                   Purchases + Expenses
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="border-amber-200 bg-amber-50/70">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xs font-medium tracking-wide uppercase text-amber-600">
+            <Card className="min-h-[122px] border-amber-200 bg-amber-50/70">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2.5 sm:px-4 sm:pt-3 sm:pb-2">
+                <CardTitle className="text-[10px] font-semibold tracking-wide uppercase text-amber-600 sm:text-xs">
                   Total Inventory
                 </CardTitle>
-                <div className="h-9 w-9 rounded-full bg-amber-100 flex items-center justify-center">
-                  <BookOpen className="h-4 w-4 text-amber-600" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100">
+                  <BookOpen className="h-3.5 w-3.5 text-amber-600" />
                 </div>
               </CardHeader>
-              <CardContent className="pt-1">
-                <div className="text-xl font-bold text-amber-600 mb-1">
+              <CardContent className="px-3 pt-0 pb-3 sm:px-4">
+                <div className="mb-0.5 text-lg font-bold leading-tight text-amber-600 sm:text-xl">
                   {formatCurrency(inventoryValue)}
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[11px] leading-snug text-muted-foreground">
                   Stock value in hand
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="border-blue-200 bg-blue-50/70">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xs font-medium tracking-wide uppercase text-blue-600">
+            <Card className="min-h-[122px] border-blue-200 bg-blue-50/70">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2.5 sm:px-4 sm:pt-3 sm:pb-2">
+                <CardTitle className="text-[10px] font-semibold tracking-wide uppercase text-blue-600 sm:text-xs">
                   Purchase Returns
                 </CardTitle>
-                <div className="h-9 w-9 rounded-full bg-blue-100 flex items-center justify-center">
-                  <ArrowUpDown className="h-4 w-4 text-blue-600" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
+                  <ArrowUpDown className="h-3.5 w-3.5 text-blue-600" />
                 </div>
               </CardHeader>
-              <CardContent className="pt-1">
-                <div className="text-xl font-bold text-blue-600 mb-1">
+              <CardContent className="px-3 pt-0 pb-3 sm:px-4">
+                <div className="mb-0.5 text-lg font-bold leading-tight text-blue-600 sm:text-xl">
                   {formatCurrency(totalPurchaseReturns)}
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[11px] leading-snug text-muted-foreground">
                   Collected/remaining returns
                 </p>
               </CardContent>
@@ -516,24 +552,24 @@ export default function Passbook() {
 
           {/* Collections by Payment Mode */}
           <Card className="border-border/70">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+            <CardHeader className="px-3 pb-1.5 pt-3 sm:px-4">
+              <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
                 <TrendingUp className="h-4 w-4 text-emerald-600" />
                 Collections by Payment Mode
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
-                {["Cash", "UPI", "Bank Transfer", "Cheque", "Other"].map(
+            <CardContent className="px-3 pb-3 pt-1.5 sm:px-4 sm:pb-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-6">
+                {PAYMENT_METHODS.map(
                   (method) => (
                     <div
                       key={method}
-                      className="rounded-lg border border-border/70 bg-background/80 p-3"
+                      className="rounded-lg border border-border/70 bg-background/80 p-2.5 sm:p-3"
                     >
-                      <p className="text-[10px] font-medium uppercase text-muted-foreground">
+                      <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                         {method}
                       </p>
-                      <p className="mt-1 text-base font-bold">
+                      <p className="mt-1 text-sm font-bold leading-tight sm:text-base">
                         {formatCurrency(
                           paymentMethodTotals[method as any] || 0,
                         )}

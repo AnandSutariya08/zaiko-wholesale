@@ -768,7 +768,7 @@ export default function Products() {
               </div>
             </div>
 
-            <div className="hidden w-full items-center gap-2 sm:flex lg:w-auto">
+            <div className="hidden w-full items-center gap-2 rounded-xl border border-border/70 bg-muted/30 p-2 sm:flex lg:w-auto">
               <ProductForm
                 open={isOpen}
                 onOpenChange={(open) => {

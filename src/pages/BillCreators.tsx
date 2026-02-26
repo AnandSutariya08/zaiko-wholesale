@@ -648,14 +648,16 @@ export default function BillCreators() {
               </p>
             </div>
           </div>
-          <Button
-            size="sm"
-            className="h-10 rounded-xl px-3 text-sm"
-            onClick={() => setIsAddDialogOpen(true)}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Creator
-          </Button>
+          <div className="grid w-full grid-cols-1 gap-2 rounded-xl border border-border/70 bg-muted/30 p-2 lg:w-auto">
+            <Button
+              size="sm"
+              className="h-10 rounded-xl px-3 text-sm"
+              onClick={() => setIsAddDialogOpen(true)}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Creator
+            </Button>
+          </div>
         </div>
       </div>
 
