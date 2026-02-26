@@ -58,6 +58,7 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [sessionExpiry, setSessionExpiry] = useState<Date | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingSignature, setUploadingSignature] = useState(false);
   const [formData, setFormData] = useState<CompanyProfile>({
     id: "1",
     name: "",
@@ -68,6 +69,7 @@ export default function Settings() {
     phone: "",
     email: "",
     logo: logo,
+    signature: "",
     upiId: "",
     defaultUnit: "kg",
     unitOptions: ["kg", "pcs", "box"],
@@ -226,6 +228,59 @@ export default function Settings() {
     }
   };
 
+  const handleSignatureUploadWithCleanup = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Signature file size should be less than 5MB");
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select a valid image file");
+      return;
+    }
+
+    setUploadingSignature(true);
+
+    try {
+      if (formData.signature && formData.signature.includes("firebase")) {
+        try {
+          const oldSignatureRef = ref(storage, formData.signature);
+          await deleteObject(oldSignatureRef);
+        } catch {
+          console.log("Old signature not found or already deleted");
+        }
+      }
+
+      const timestamp = Date.now();
+      const fileName = `company-signatures/${timestamp}_${file.name}`;
+      const storageRef = ref(storage, fileName);
+
+      await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(storageRef);
+
+      const updatedProfile = {
+        ...formData,
+        signature: downloadURL,
+      };
+
+      await saveCompanyProfile(updatedProfile);
+      setFormData(updatedProfile);
+
+      toast.success("Signature uploaded successfully!");
+    } catch (error: any) {
+      console.error("Error uploading signature:", error);
+      toast.error(`Failed to upload signature: ${error.message}`);
+    } finally {
+      setUploadingSignature(false);
+      e.target.value = "";
+    }
+  };
+
   useEffect(() => {
     const loadProfile = async () => {
       const profile = await getCompanyProfile();
@@ -233,6 +288,7 @@ export default function Settings() {
         const fullProfile = {
           ...profile,
           upiId: profile.upiId || "",
+          signature: profile.signature || "",
           defaultUnit: profile.defaultUnit || "kg",
           unitOptions: profile.unitOptions || ["kg", "pcs", "box"],
           commissionSettings: profile.commissionSettings || {
@@ -357,49 +413,90 @@ export default function Settings() {
             <Card className="border-2 shadow-lg w-full max-w-full overflow-hidden">
               <CardContent className="pt-4 sm:pt-5 md:pt-6 p-4 sm:p-5 md:p-6">
                 <div className="flex flex-col md:flex-row gap-4 sm:gap-6 items-center md:items-start">
-                  <div className="relative group flex-shrink-0">
-                    <div className="absolute -inset-1 bg-gradient-to-r from-primary to-purple-600 rounded-full opacity-20 group-hover:opacity-30 transition-opacity blur"></div>
-                    <Avatar className="h-20 w-20 sm:h-24 sm:w-24 md:h-32 md:w-32 lg:h-36 lg:w-36 border-4 border-primary/20 relative z-10 shadow-xl">
-                      <AvatarImage
-                        src={formData.logo || logo}
-                        alt="Company Logo"
-                        className="object-contain p-2"
+                  <div className="flex-shrink-0 flex flex-col items-center gap-3">
+                    <div className="relative group">
+                      <div className="absolute -inset-1 bg-gradient-to-r from-primary to-purple-600 rounded-full opacity-20 group-hover:opacity-30 transition-opacity blur"></div>
+                      <Avatar className="h-20 w-20 sm:h-24 sm:w-24 md:h-32 md:w-32 lg:h-36 lg:w-36 border-4 border-primary/20 relative z-10 shadow-xl">
+                        <AvatarImage
+                          src={formData.logo || logo}
+                          alt="Company Logo"
+                          className="object-contain p-2"
+                        />
+                        <AvatarFallback className="text-lg sm:text-xl md:text-2xl bg-gradient-to-br from-primary to-purple-600">
+                          <Building2 className="h-10 w-10 sm:h-12 sm:w-12 md:h-16 md:w-16 text-white" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleLogoUploadWithCleanup}
+                        className="hidden"
+                        id="logo-upload"
+                        disabled={uploadingLogo}
                       />
-                      <AvatarFallback className="text-lg sm:text-xl md:text-2xl bg-gradient-to-br from-primary to-purple-600">
-                        <Building2 className="h-10 w-10 sm:h-12 sm:w-12 md:h-16 md:w-16 text-white" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleLogoUploadWithCleanup}
-                      className="hidden"
-                      id="logo-upload"
-                      disabled={uploadingLogo}
-                    />
 
-                    <Label
-                      htmlFor="logo-upload"
-                      className={`cursor-pointer ${
-                        uploadingLogo ? "pointer-events-none" : ""
-                      }`}
-                    >
-                      <div className="absolute inset-0 bg-black/70 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 z-20">
-                        {uploadingLogo ? (
-                          <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 md:h-8 md:w-8 text-white animate-spin" />
-                        ) : (
-                          <Upload className="h-5 w-5 sm:h-6 sm:w-6 md:h-8 md:w-8 text-white" />
-                        )}
-                      </div>
-                    </Label>
-
-                    {uploadingLogo && (
-                      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 z-30">
-                        <div className="bg-primary text-primary-foreground text-xs px-3 py-1 rounded-full shadow-lg whitespace-nowrap">
-                          Uploading...
+                      <Label
+                        htmlFor="logo-upload"
+                        className={`cursor-pointer ${
+                          uploadingLogo ? "pointer-events-none" : ""
+                        }`}
+                      >
+                        <div className="absolute inset-0 bg-black/70 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 z-20">
+                          {uploadingLogo ? (
+                            <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 md:h-8 md:w-8 text-white animate-spin" />
+                          ) : (
+                            <Upload className="h-5 w-5 sm:h-6 sm:w-6 md:h-8 md:w-8 text-white" />
+                          )}
                         </div>
+                      </Label>
+                    </div>
+
+                    <div className="w-40 sm:w-48">
+                      <p className="mb-1 text-xs font-medium text-muted-foreground text-center">
+                        Authorized Signature
+                      </p>
+                      <div className="rounded-lg border border-dashed border-border bg-muted/30 p-2">
+                        <div className="h-16 w-full rounded bg-background flex items-center justify-center overflow-hidden">
+                          {formData.signature ? (
+                            <img
+                              src={formData.signature}
+                              alt="Company Signature"
+                              className="h-full w-full object-contain"
+                            />
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground">
+                              No signature uploaded
+                            </span>
+                          )}
+                        </div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleSignatureUploadWithCleanup}
+                          className="hidden"
+                          id="signature-upload"
+                          disabled={uploadingSignature}
+                        />
+                        <Label
+                          htmlFor="signature-upload"
+                          className={`mt-2 inline-flex w-full items-center justify-center rounded-md border px-2 py-1.5 text-xs font-medium cursor-pointer transition-colors hover:bg-muted ${
+                            uploadingSignature ? "pointer-events-none opacity-70" : ""
+                          }`}
+                        >
+                          {uploadingSignature ? (
+                            <>
+                              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                              Uploading...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="mr-1.5 h-3.5 w-3.5" />
+                              {formData.signature ? "Change Signature" : "Upload Signature"}
+                            </>
+                          )}
+                        </Label>
                       </div>
-                    )}
+                    </div>
                   </div>
                   <div className="flex-1 text-center md:text-left space-y-2 sm:space-y-3 w-full min-w-0">
                     <div>

@@ -99,12 +99,19 @@ export const EWayBillPDF = ({
   company: any;
   ewayDetails: EWayBillDetails;
 }) => {
+  const ewayBillDisplayNo =
+    String(bill?.billNumber || "").trim() ||
+    String(ewayDetails?.transDocNo || "").trim() ||
+    "N/A";
+
   return (
     <Document>
       <Page size="A4" style={styles.page}>
         <Text style={styles.header}>FORM GST EWB-01</Text>
         <Text style={{ textAlign: "center", marginBottom: 10 }}>(See Rule 138)</Text>
-        <Text style={{ fontWeight: "bold", marginBottom: 5 }}>E-Way Bill No: ____________________</Text>
+        <Text style={{ fontWeight: "bold", marginBottom: 5 }}>
+          E-Way Bill No: {ewayBillDisplayNo}
+        </Text>
         <Text style={{ fontWeight: "bold", marginBottom: 10 }}>E-Way Bill Date: {formatDate(bill.date)}</Text>
 
         <View style={styles.section}>

@@ -207,25 +207,26 @@ export default function Clients() {
               </p>
             </div>
           </div>
-          <Dialog
-            open={isOpen}
-            onOpenChange={(open) => {
-              setIsOpen(open);
-              if (!open) resetForm();
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button size="sm" className="h-10 rounded-xl px-3 text-sm">
-                <Plus className="h-5 w-5 mr-2" />
-                Add Client
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="dialog-form-content sm:max-w-[600px]">
-              <DialogHeader className="dialog-form-header">
-                <DialogTitle>
-                  {editingClient ? "Edit Client" : "Add Client"}
-                </DialogTitle>
-              </DialogHeader>
+          <div className="grid w-full grid-cols-1 gap-2 rounded-xl border border-border/70 bg-muted/30 p-2 lg:w-auto">
+            <Dialog
+              open={isOpen}
+              onOpenChange={(open) => {
+                setIsOpen(open);
+                if (!open) resetForm();
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button size="sm" className="h-10 rounded-xl px-3 text-sm">
+                  <Plus className="h-5 w-5 mr-2" />
+                  Add Client
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="dialog-form-content sm:max-w-[600px]">
+                <DialogHeader className="dialog-form-header">
+                  <DialogTitle>
+                    {editingClient ? "Edit Client" : "Add Client"}
+                  </DialogTitle>
+                </DialogHeader>
               <form
                 onSubmit={handleSubmit}
                 className="dialog-form-body space-y-5"
@@ -316,9 +317,10 @@ export default function Clients() {
                     {editingClient ? "Update" : "Add"} Client
                   </Button>
                 </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
       </div>
 

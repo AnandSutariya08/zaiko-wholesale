@@ -293,28 +293,29 @@ export default function Expenses() {
               </div>
             </div>
 
-            <Dialog
-              open={isOpen}
-              onOpenChange={(open) => {
-                setIsOpen(open);
-                if (!open) {
-                  setEditingExpense(null);
-                  resetForm();
-                }
-              }}
-            >
-              <DialogTrigger asChild>
-                <Button className="h-10 rounded-xl px-3 text-sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Expense
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>
-                    {editingExpense ? "Edit Expense" : "Add New Expense"}
-                  </DialogTitle>
-                </DialogHeader>
+            <div className="grid w-full grid-cols-1 gap-2 rounded-xl border border-border/70 bg-muted/30 p-2 lg:w-auto">
+              <Dialog
+                open={isOpen}
+                onOpenChange={(open) => {
+                  setIsOpen(open);
+                  if (!open) {
+                    setEditingExpense(null);
+                    resetForm();
+                  }
+                }}
+              >
+                <DialogTrigger asChild>
+                  <Button className="h-10 rounded-xl px-3 text-sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Expense
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>
+                      {editingExpense ? "Edit Expense" : "Add New Expense"}
+                    </DialogTitle>
+                  </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-4 py-4">
                   <div className="grid grid-cols-2 gap-4">
@@ -470,8 +471,9 @@ export default function Expenses() {
                     </Button>
                   </div>
                 </form>
-              </DialogContent>
-            </Dialog>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
         </div>
 

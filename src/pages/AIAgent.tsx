@@ -1014,8 +1014,9 @@ JSON structure:
 
       <div className="flex h-full min-h-0 w-full flex-col gap-3 overflow-hidden">
         {/* ── Header ──────────────────────────────────────────── */}
-        <div className="sticky top-0 z-20 flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-gradient-to-br from-background via-background to-slate-50/40 p-3 shadow-sm sm:p-4">
-          <div className="flex items-center gap-3">
+        <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-gradient-to-br from-background via-background to-slate-50/40 p-3 shadow-sm sm:p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-center justify-start gap-3 sm:gap-4">
             <Button
               variant="ghost"
               size="icon"
@@ -1024,11 +1025,11 @@ JSON structure:
             >
               <ChevronRight className="rotate-180" />
             </Button>
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-border">
               <Bot className="h-5 w-5" />
             </div>
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">
+            <div className="min-w-0 text-left">
+              <h2 className="truncate text-2xl font-semibold leading-tight sm:text-3xl text-foreground">
                 Business Growth AI
               </h2>
               <div className="mt-0.5 flex items-center gap-1.5">
@@ -1041,6 +1042,7 @@ JSON structure:
           </div>
 
           {isAnalyzed && rawBusinessData && (
+            <div className="grid w-full grid-cols-1 gap-2 rounded-xl border border-border/70 bg-muted/30 p-2 lg:w-auto">
             <div className="flex items-center gap-2">
               {!pdfReady ? (
                 <Button
@@ -1105,7 +1107,9 @@ JSON structure:
 
            
             </div>
+            </div>
           )}
+          </div>
         </div>
 
         {/* ── Chat area ───────────────────────────────────────── */}

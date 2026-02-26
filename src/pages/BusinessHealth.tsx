@@ -21,6 +21,7 @@ import {
   getVendors,
   getCreators,
   getPurchaseReturns,
+  getProductTransactions,
 } from "@/lib/storage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -418,13 +419,16 @@ export default function BusinessHealth() {
 
   const healthData = useMemo(() => {
     if (!rawData) return null;
-    const { bills, products, clients, returns, expenses, purchases } = rawData;
+    const { bills, products, clients, returns, expenses, purchases, productTransactionsMap, deadstock } = rawData;
 
-    const start = startOfDay(new Date(dateRange.start));
-    const end = endOfDay(new Date(dateRange.end));
+    const requestedStart = startOfDay(new Date(dateRange.start));
+    const requestedEnd = endOfDay(new Date(dateRange.end));
     const inSelectedRange = (dateValue: string) => {
       if (filterMode === "all") return true;
-      return isWithinInterval(new Date(dateValue), { start, end });
+      return isWithinInterval(new Date(dateValue), {
+        start: requestedStart,
+        end: requestedEnd,
+      });
     };
 
     const filteredBills = bills.filter((b: any) =>
@@ -442,6 +446,33 @@ export default function BusinessHealth() {
     const filteredPurchaseReturns = (rawData.purchaseReturns || []).filter(
       (r: any) => inSelectedRange(r.date),
     );
+    const filteredDeadstock = (deadstock || []).filter((d: any) =>
+      inSelectedRange(d.createdAt),
+    );
+
+    const allRelevantDates: Date[] = [
+      ...filteredBills
+        .map((b: any) => (b?.date ? new Date(b.date) : null))
+        .filter((d: Date | null): d is Date => !!d && !Number.isNaN(d.getTime())),
+      ...filteredPurchases
+        .map((p: any) =>
+          p?.createdAt || p?.billDate || p?.id
+            ? new Date(p.createdAt || p.billDate || p.id)
+            : null,
+        )
+        .filter((d: Date | null): d is Date => !!d && !Number.isNaN(d.getTime())),
+    ];
+
+    const computedStart =
+      filterMode === "all" && allRelevantDates.length > 0
+        ? startOfDay(
+            new Date(Math.min(...allRelevantDates.map((d) => d.getTime()))),
+          )
+        : requestedStart;
+    const computedEnd =
+      filterMode === "all" && allRelevantDates.length > 0
+        ? endOfDay(new Date(Math.max(...allRelevantDates.map((d) => d.getTime()))))
+        : requestedEnd;
 
     // Granular Analysis: User, Client, Vendor
     const userAnalysis: Record<string, any> = {};
@@ -449,16 +480,27 @@ export default function BusinessHealth() {
       const user = b.createdBy || "System";
       if (!userAnalysis[user])
         userAnalysis[user] = { name: user, sales: 0, count: 0 };
-      userAnalysis[user].sales += b.total;
+      const paymentRatio = (b.paidAmount || 0) / (b.total || 1);
+      const recognizedSales = (b.subtotal - (b.discount || 0)) * paymentRatio;
+      userAnalysis[user].sales += recognizedSales;
       userAnalysis[user].count += 1;
     });
 
     const clientAnalysis: Record<string, any> = {};
+    const clientsById: Record<string, any> = Object.fromEntries(
+      (clients || []).map((c: any) => [c.id, c]),
+    );
     filteredBills.forEach((b) => {
-      const client = b.clientName || "Unknown";
+      const client =
+        b.clientName ||
+        b.client?.name ||
+        clientsById[b.clientId]?.name ||
+        "Walk-in Client";
       if (!clientAnalysis[client])
         clientAnalysis[client] = { name: client, sales: 0, count: 0 };
-      clientAnalysis[client].sales += b.total;
+      const paymentRatio = (b.paidAmount || 0) / (b.total || 1);
+      const recognizedSales = (b.subtotal - (b.discount || 0)) * paymentRatio;
+      clientAnalysis[client].sales += recognizedSales;
       clientAnalysis[client].count += 1;
     });
 
@@ -471,14 +513,99 @@ export default function BusinessHealth() {
       vendorAnalysis[vendor].count += 1;
     });
 
-    // Executive Summary Metrics
-    const totalSales = filteredBills.reduce(
-      (s: number, b: any) => s + b.total,
-      0,
+    const productById = Object.fromEntries(
+      products.map((p: any) => [p.id, p]),
+    ) as Record<string, any>;
+
+    const getHistoricalAverageCost = (
+      productId: string,
+      saleDate: string,
+    ): number => {
+      const product = productById[productId];
+      if (!product) return 0;
+
+      const transactions = (productTransactionsMap?.[productId] || []) as any[];
+      if (!transactions.length) {
+        return roundToTwoDecimals(product.purchasePrice || product.price || 0);
+      }
+
+      const saleDateTime = new Date(saleDate).getTime();
+      let totalPurchaseValue = 0;
+      let totalPurchaseQuantity = 0;
+      let currentInventory = 0;
+      let currentInventoryValue = 0;
+
+      for (const transaction of transactions) {
+        const transactionDate = new Date(transaction.date).getTime();
+        if (transactionDate >= saleDateTime) continue;
+
+        if (transaction.type === "purchase" && transaction.purchasePrice) {
+          const purchaseValue = transaction.quantity * transaction.purchasePrice;
+          currentInventory += transaction.quantity;
+          currentInventoryValue += purchaseValue;
+          totalPurchaseValue += purchaseValue;
+          totalPurchaseQuantity += transaction.quantity;
+          continue;
+        }
+
+        if (transaction.type === "sale") {
+          if (currentInventory > 0) {
+            const avgCost = currentInventoryValue / currentInventory;
+            const soldValue = transaction.quantity * avgCost;
+            currentInventory -= transaction.quantity;
+            currentInventoryValue -= soldValue;
+          } else {
+            currentInventory = Math.max(0, currentInventory - transaction.quantity);
+          }
+          continue;
+        }
+
+        if (transaction.type === "return") {
+          const returnItem = filteredReturns.find((r: any) => r.id === transaction.billId);
+          const returnItemData = returnItem?.items?.find((i: any) => i.productId === productId);
+          if (returnItemData?.condition !== "good") continue;
+
+          if (currentInventory > 0) {
+            const avgCost = currentInventoryValue / currentInventory;
+            currentInventory += transaction.quantity;
+            currentInventoryValue += transaction.quantity * avgCost;
+          } else {
+            const lastPurchase = transactions
+              .filter(
+                (t: any) =>
+                  t.type === "purchase" &&
+                  t.purchasePrice &&
+                  new Date(t.date).getTime() < transactionDate,
+              )
+              .slice(-1)[0];
+            if (lastPurchase?.purchasePrice) {
+              currentInventory += transaction.quantity;
+              currentInventoryValue += transaction.quantity * lastPurchase.purchasePrice;
+            }
+          }
+        }
+      }
+
+      if (currentInventory > 0) {
+        return roundToTwoDecimals(currentInventoryValue / currentInventory);
+      }
+      if (totalPurchaseQuantity > 0) {
+        return roundToTwoDecimals(totalPurchaseValue / totalPurchaseQuantity);
+      }
+      return roundToTwoDecimals(product.purchasePrice || product.price || 0);
+    };
+
+    // Executive Summary Metrics (single consistent net-profit logic)
+    const totalSales = roundToTwoDecimals(
+      filteredBills.reduce((s: number, b: any) => {
+        const totalAmount = b.total || 1;
+        const paymentRatio = (b.paidAmount || 0) / totalAmount;
+        const recognizedSales = (b.subtotal - (b.discount || 0)) * paymentRatio;
+        return s + recognizedSales;
+      }, 0),
     );
-    const totalExpenses = filteredExpenses.reduce(
-      (s: number, e: any) => s + e.amount,
-      0,
+    const totalExpenses = roundToTwoDecimals(
+      filteredExpenses.reduce((s: number, e: any) => s + e.amount, 0),
     );
     const totalReturns = filteredReturns.reduce(
       (s: number, r: any) => s + (r.total || 0),
@@ -488,50 +615,107 @@ export default function BusinessHealth() {
       (s: number, r: any) => s + (r.total || 0),
       0,
     );
-    const totalRevenue = filteredBills.reduce(
-      (s: number, b: any) => s + (b.subtotal - (b.discount || 0)),
-      0,
-    );
-
-    // COGS calculation fix
+    // COGS aligned with Dashboard: recognize cost by payment ratio
     let rangeCogs = 0;
     filteredBills.forEach((b: any) => {
+      const totalAmount = b.total || 1;
+      const paymentRatio = (b.paidAmount || 0) / totalAmount;
+      let billCogs = 0;
       b.items.forEach((item: any) => {
-        const prod = products.find((p: any) => p.id === item.productId);
-        const cost = (prod as any)?.purchasePrice || (prod as any)?.price || 0;
-        rangeCogs += item.quantity * cost;
+        const cost = getHistoricalAverageCost(item.productId, b.date);
+        billCogs += roundToTwoDecimals(item.quantity * cost);
       });
+      rangeCogs += roundToTwoDecimals(billCogs * paymentRatio);
     });
-    const totalProfit = totalRevenue - rangeCogs - totalExpenses;
+
+    const deadstockLoss = roundToTwoDecimals(
+      filteredDeadstock.reduce(
+        (sum: number, item: any) => sum + (item.costPrice || 0) * (item.quantity || 0),
+        0,
+      ),
+    );
+    const totalProfit = roundToTwoDecimals(
+      totalSales - rangeCogs - totalExpenses - deadstockLoss,
+    );
     const avgMargin =
-      totalRevenue > 0
-        ? roundToTwoDecimals((totalProfit / totalRevenue) * 100)
+      totalSales > 0
+        ? roundToTwoDecimals((totalProfit / totalSales) * 100)
         : 0;
 
     // Trend Analysis
-    const dateInterval = eachDayOfInterval({ start, end });
+    const intervalStart =
+      computedStart.getTime() <= computedEnd.getTime() ? computedStart : computedEnd;
+    const intervalEnd =
+      computedStart.getTime() <= computedEnd.getTime() ? computedEnd : computedStart;
+    const dateInterval = eachDayOfInterval({ start: intervalStart, end: intervalEnd });
     const trendData = dateInterval.map((day) => {
       const dayStr = format(day, "yyyy-MM-dd");
-      const dayBills = filteredBills.filter((b: any) => b.date === dayStr);
-      const dayPurchases = filteredPurchases.filter((p: any) =>
-        (p.createdAt || p.billDate || p.id).startsWith(dayStr),
-      );
-      const daySales = dayBills.reduce((s: number, b: any) => s + b.total, 0);
-      const dayCost = dayBills.reduce((s: number, b: any) => {
+      const dayBills = filteredBills.filter((b: any) => {
+        if (!b?.date) return false;
+        const billDate = new Date(b.date);
+        return !Number.isNaN(billDate.getTime()) && isSameDay(billDate, day);
+      });
+      const dayPurchases = filteredPurchases.filter((p: any) => {
+        const value = p?.createdAt || p?.billDate || p?.id;
+        if (!value) return false;
+        const purchaseDate = new Date(value);
         return (
-          s +
-          b.items.reduce((is: number, i: any) => {
-            const p = products.find((pr: any) => pr.id === i.productId);
-            const cost = (p as any)?.purchasePrice || (p as any)?.price || 0;
-            return is + i.quantity * cost;
-          }, 0)
+          !Number.isNaN(purchaseDate.getTime()) && isSameDay(purchaseDate, day)
         );
-      }, 0);
+      });
+      const daySales = roundToTwoDecimals(
+        dayBills.reduce((s: number, b: any) => {
+          const totalAmount = b.total || 1;
+          const paymentRatio = (b.paidAmount || 0) / totalAmount;
+          const recognizedSales = (b.subtotal - (b.discount || 0)) * paymentRatio;
+          return s + recognizedSales;
+        }, 0),
+      );
+      const dayCost = roundToTwoDecimals(
+        dayBills.reduce((s: number, b: any) => {
+          const totalAmount = b.total || 1;
+          const paymentRatio = (b.paidAmount || 0) / totalAmount;
+          const billCogs = b.items.reduce((is: number, i: any) => {
+            const cost = getHistoricalAverageCost(i.productId, b.date);
+            return is + i.quantity * cost;
+          }, 0);
+          return s + billCogs * paymentRatio;
+        }, 0),
+      );
+      const dayExpenses = roundToTwoDecimals(
+        filteredExpenses
+          .filter((e: any) => {
+            if (!e?.date) return false;
+            const expenseDate = new Date(e.date);
+            return (
+              !Number.isNaN(expenseDate.getTime()) && isSameDay(expenseDate, day)
+            );
+          })
+          .reduce((s: number, e: any) => s + (e.amount || 0), 0),
+      );
+      const dayDeadstockLoss = roundToTwoDecimals(
+        filteredDeadstock
+          .filter((d: any) => {
+            if (!d?.createdAt) return false;
+            const deadstockDate = new Date(d.createdAt);
+            return (
+              !Number.isNaN(deadstockDate.getTime()) && isSameDay(deadstockDate, day)
+            );
+          })
+          .reduce(
+            (s: number, d: any) => s + (d.costPrice || 0) * (d.quantity || 0),
+            0,
+          ),
+      );
       return {
         date: dayStr,
         sales: daySales,
-        profit: daySales - dayCost,
-        purchases: dayPurchases.reduce((s: number, p: any) => s + p.total, 0),
+        profit: roundToTwoDecimals(
+          daySales - dayCost - dayExpenses - dayDeadstockLoss,
+        ),
+        purchases: roundToTwoDecimals(
+          dayPurchases.reduce((s: number, p: any) => s + (p.total || 0), 0),
+        ),
       };
     });
 
@@ -551,7 +735,7 @@ export default function BusinessHealth() {
       (c: any) =>
         c.lastBillDate && new Date(c.lastBillDate) >= subDays(new Date(), 30),
     ).length;
-    const ltv = activeClientsCount > 0 ? totalRevenue / activeClientsCount : 0;
+    const ltv = activeClientsCount > 0 ? totalSales / activeClientsCount : 0;
 
     const categoryProfit: Record<string, number> = {};
     filteredBills.forEach((b: any) => {
@@ -577,6 +761,7 @@ export default function BusinessHealth() {
         ltv,
         totalReturns,
         totalPurchaseReturns,
+        deadstockLoss,
       },
       scores: {
         cashFlow: Math.max(
@@ -669,6 +854,19 @@ export default function BusinessHealth() {
           getExpenses(),
           getPurchaseReturns(),
         ]);
+
+        const productTransactionsEntries = await Promise.all(
+          products.map(async (product: any) => {
+            const transactions = await getProductTransactions(product.id);
+            const sorted = (transactions || []).sort(
+              (a: any, b: any) =>
+                new Date(a.date).getTime() - new Date(b.date).getTime(),
+            );
+            return [product.id, sorted] as const;
+          }),
+        );
+
+        const productTransactionsMap = Object.fromEntries(productTransactionsEntries);
         setRawData({
           bills,
           products,
@@ -678,6 +876,7 @@ export default function BusinessHealth() {
           returns,
           expenses,
           purchaseReturns,
+          productTransactionsMap,
         });
       } catch (e) {
         console.error("Failed to load health data", e);
@@ -873,35 +1072,37 @@ export default function BusinessHealth() {
               value={formatCurrency(healthData.summary.totalSales)}
               icon={DollarSign}
               trend={`${healthData.trendData.length}d period`}
-              color="text-emerald-700"
-              cardColor="bg-emerald-50 border-emerald-200"
-              iconColor="bg-emerald-100 text-emerald-600"
-              badgeColor="bg-emerald-100 text-emerald-700 border-emerald-200"
+              color="text-emerald-600 dark:text-emerald-400"
+              cardColor="from-emerald-500/10 to-emerald-600/5 border-emerald-500/20"
+              iconColor="text-emerald-500"
+              trendIcon={ArrowUpRight}
             />
             <SummaryCard
               title="Net Profit"
               value={formatCurrency(healthData.summary.totalProfit)}
-              icon={TrendingUp}
+              icon={
+                healthData.summary.totalProfit >= 0 ? TrendingUp : TrendingDown
+              }
               trend={`${healthData.summary.avgMargin}% Margin`}
               color={
                 healthData.summary.totalProfit >= 0
-                  ? "text-blue-700"
-                  : "text-rose-700"
+                  ? "text-blue-600 dark:text-blue-400"
+                  : "text-red-600 dark:text-red-400"
               }
               cardColor={
                 healthData.summary.totalProfit >= 0
-                  ? "bg-blue-50 border-blue-200"
-                  : "bg-rose-50 border-rose-200"
+                  ? "from-blue-500/10 to-blue-600/5 border-blue-500/20"
+                  : "from-red-500/10 to-red-600/5 border-red-500/20"
               }
               iconColor={
                 healthData.summary.totalProfit >= 0
-                  ? "bg-blue-100 text-blue-600"
-                  : "bg-rose-100 text-rose-600"
+                  ? "text-blue-500"
+                  : "text-red-500"
               }
-              badgeColor={
+              trendIcon={
                 healthData.summary.totalProfit >= 0
-                  ? "bg-blue-100 text-blue-700 border-blue-200"
-                  : "bg-rose-100 text-rose-700 border-rose-200"
+                  ? ArrowUpRight
+                  : ArrowDownRight
               }
             />
             <SummaryCard
@@ -909,20 +1110,20 @@ export default function BusinessHealth() {
               value={formatCurrency(healthData.summary.totalExpenses)}
               icon={TrendingDown}
               trend={`${roundToTwoDecimals((healthData.summary.totalExpenses / (healthData.summary.totalSales || 1)) * 100)}% of Rev`}
-              color="text-rose-700"
-              cardColor="bg-rose-50 border-rose-200"
-              iconColor="bg-rose-100 text-rose-600"
-              badgeColor="bg-rose-100 text-rose-700 border-rose-200"
+              color="text-amber-600 dark:text-amber-400"
+              cardColor="from-amber-500/10 to-amber-600/5 border-amber-500/20"
+              iconColor="text-amber-500"
+              trendIcon={AlertCircle}
             />
             <SummaryCard
               title="Client LTV"
               value={formatCurrency(healthData.summary.ltv)}
               icon={Users}
               trend="Per Active Client"
-              color="text-amber-700"
-              cardColor="bg-amber-50 border-amber-200"
-              iconColor="bg-amber-100 text-amber-600"
-              badgeColor="bg-amber-100 text-amber-700 border-amber-200"
+              color="text-purple-600 dark:text-purple-400"
+              cardColor="from-purple-500/10 to-purple-600/5 border-purple-500/20"
+              iconColor="text-purple-500"
+              trendIcon={Users}
             />
           </div>
 
@@ -1061,7 +1262,7 @@ export default function BusinessHealth() {
                   Growth Dynamics
                 </CardTitle>
                 <CardDescription>
-                  Net Revenue vs Profit trajectories
+                  Recognized Revenue vs Net Profit trajectories
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-6 h-[400px]">
@@ -1160,8 +1361,8 @@ export default function BusinessHealth() {
             </Card>
 
             {/* Expense Breakdown */}
-            <Card className="shadow-sm border-slate-200">
-              <CardHeader className="px-6 py-4 border-b bg-slate-50/50">
+            <Card className="shadow-sm border-slate-200 overflow-hidden">
+              <CardHeader className="px-4 md:px-6 py-3 md:py-4 border-b bg-slate-50/50">
                 <CardTitle className="text-lg font-semibold">
                   Burn Analysis
                 </CardTitle>
@@ -1169,39 +1370,42 @@ export default function BusinessHealth() {
                   Categorized operational expenditures
                 </CardDescription>
               </CardHeader>
-              <CardContent className="p-6 space-y-6">
-                <div className="flex items-center justify-between p-6 rounded-2xl bg-rose-50 border border-rose-100 shadow-sm">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-white rounded-xl text-rose-600 shadow-sm">
-                      <TrendingDown className="h-6 w-6" />
+              <CardContent className="p-4 md:p-6 space-y-4 md:space-y-6">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 md:p-5 rounded-2xl bg-rose-50 border border-rose-100 shadow-sm">
+                  <div className="flex items-center gap-3 md:gap-4">
+                    <div className="p-2.5 md:p-3 bg-white rounded-xl text-rose-600 shadow-sm">
+                      <TrendingDown className="h-5 w-5 md:h-6 md:w-6" />
                     </div>
                     <div>
                       <p className="text-[10px] uppercase text-rose-400 tracking-widest">
                         Total OpEx
                       </p>
-                      <p className="text-2xl font-semibold text-rose-700">
+                      <p className="text-xl md:text-2xl font-semibold text-rose-700">
                         {formatCurrency(healthData.summary.totalExpenses)}
                       </p>
                     </div>
                   </div>
+                  <Badge variant="outline" className="w-fit bg-white text-rose-700 border-rose-200">
+                    Burn Rate
+                  </Badge>
                 </div>
 
-                <div className="max-h-[250px] overflow-y-auto space-y-2 pr-2 scrollbar-thin">
+                <div className="max-h-[260px] overflow-y-auto space-y-2 pr-1 md:pr-2 scrollbar-thin">
                   {healthData.expenses.length > 0 ? (
                     healthData.expenses.map((exp: any, i: number) => (
                       <div
                         key={i}
-                        className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:bg-slate-50 transition-colors"
+                        className="flex items-start justify-between gap-3 p-3 md:p-4 rounded-xl border border-slate-100 hover:bg-slate-50 transition-colors"
                       >
-                        <div>
-                          <p className="text-sm font-medium text-slate-700">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-slate-700 break-words">
                             {exp.description}
                           </p>
                           <p className="text-[10px] text-slate-400">
                             {format(new Date(exp.date), "dd MMM yyyy")}
                           </p>
                         </div>
-                        <p className="text-sm font-medium text-rose-600">
+                        <p className="text-sm font-medium text-rose-600 whitespace-nowrap">
                           -{formatCurrency(exp.amount)}
                         </p>
                       </div>
@@ -1265,8 +1469,8 @@ export default function BusinessHealth() {
             </Card>
 
             {/* Returns Analysis */}
-            <Card className="lg:col-span-2 shadow-sm border-slate-200">
-              <CardHeader className="px-6 py-4 border-b bg-slate-50/50">
+            <Card className="lg:col-span-2 shadow-sm border-slate-200 overflow-hidden">
+              <CardHeader className="px-4 md:px-6 py-3 md:py-4 border-b bg-slate-50/50">
                 <CardTitle className="text-lg font-semibold">
                   Transaction Reversals
                 </CardTitle>
@@ -1274,34 +1478,34 @@ export default function BusinessHealth() {
                   Net impact of returns and refunds
                 </CardDescription>
               </CardHeader>
-              <CardContent className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="p-5 rounded-2xl bg-amber-50 border border-amber-100 text-center">
+              <CardContent className="p-4 md:p-6 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
+                <div className="p-4 md:p-5 rounded-2xl bg-amber-50 border border-amber-100 text-center">
                   <p className="text-[10px] uppercase text-amber-500 tracking-widest mb-1">
                     Sales Returns
                   </p>
-                  <p className="text-xl font-semibold text-amber-700">
+                  <p className="text-lg md:text-xl font-semibold text-amber-700 break-words">
                     {formatCurrency(healthData.summary.totalReturns)}
                   </p>
                   <p className="text-[9px] text-amber-400 mt-2 uppercase">
                     Rev leakage
                   </p>
                 </div>
-                <div className="p-5 rounded-2xl bg-blue-50 border border-blue-100 text-center">
+                <div className="p-4 md:p-5 rounded-2xl bg-blue-50 border border-blue-100 text-center">
                   <p className="text-[10px] uppercase text-blue-500 tracking-widest mb-1">
                     Purchase Returns
                   </p>
-                  <p className="text-xl font-semibold text-blue-700">
+                  <p className="text-lg md:text-xl font-semibold text-blue-700 break-words">
                     {formatCurrency(healthData.summary.totalPurchaseReturns)}
                   </p>
                   <p className="text-[9px] text-blue-400 mt-2 uppercase">
                     Cap recovery
                   </p>
                 </div>
-                <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 text-center shadow-lg">
+                <div className="p-4 md:p-5 rounded-2xl bg-slate-900 border border-slate-800 text-center shadow-lg sm:col-span-2 xl:col-span-1">
                   <p className="text-[10px] uppercase text-slate-400 tracking-widest mb-1">
                     Net Impact
                   </p>
-                  <p className="text-xl font-semibold text-white">
+                  <p className="text-lg md:text-xl font-semibold text-white break-words">
                     {formatCurrency(
                       healthData.summary.totalReturns -
                         healthData.summary.totalPurchaseReturns,
@@ -1320,286 +1524,275 @@ export default function BusinessHealth() {
           value="stakeholders"
           className="space-y-6 focus-visible:outline-none focus-visible:ring-0"
         >
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            {/* User Performance */}
-            <Card className="shadow-lg border-slate-200 overflow-hidden bg-white/50 backdrop-blur-sm">
-              <CardHeader className="px-6 py-5 border-b bg-slate-50/80">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-amber-500/10 rounded-lg">
-                      <Zap className="h-5 w-5 text-amber-500" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
+            <Card className="border-amber-200/70 bg-gradient-to-br from-amber-50/90 to-background">
+              <CardContent className="p-4 md:p-5">
+                <p className="text-[10px] uppercase tracking-widest text-amber-600/80">
+                  Active Sellers
+                </p>
+                <p className="mt-1 text-2xl font-bold text-amber-700">
+                  {healthData.userAnalysis.length}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">Team members contributing sales</p>
+              </CardContent>
+            </Card>
+            <Card className="border-blue-200/70 bg-gradient-to-br from-blue-50/90 to-background">
+              <CardContent className="p-4 md:p-5">
+                <p className="text-[10px] uppercase tracking-widest text-blue-600/80">
+                  Top 3 Concentration
+                </p>
+                <p className="mt-1 text-2xl font-bold text-blue-700">
+                  {roundToTwoDecimals(
+                    (healthData.clientAnalysis
+                      .slice(0, 3)
+                      .reduce((s: number, c: any) => s + c.sales, 0) /
+                      (healthData.summary.totalSales || 1)) *
+                      100,
+                  )}
+                  %
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">Revenue share from top 3 clients</p>
+              </CardContent>
+            </Card>
+            <Card className="border-emerald-200/70 bg-gradient-to-br from-emerald-50/90 to-background">
+              <CardContent className="p-4 md:p-5">
+                <p className="text-[10px] uppercase tracking-widest text-emerald-600/80">
+                  Avg Deal Size
+                </p>
+                <p className="mt-1 text-2xl font-bold text-emerald-700">
+                  {formatCurrency(
+                    healthData.userAnalysis[0]?.sales /
+                      (healthData.userAnalysis[0]?.count || 1),
+                  )}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">Based on current top performer</p>
+              </CardContent>
+            </Card>
+            <Card className="border-indigo-200/70 bg-gradient-to-br from-indigo-50/90 to-background">
+              <CardContent className="p-4 md:p-5">
+                <p className="text-[10px] uppercase tracking-widest text-indigo-600/80">
+                  Active Vendors
+                </p>
+                <p className="mt-1 text-2xl font-bold text-indigo-700">
+                  {healthData.vendorAnalysis.length}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">Suppliers with current-period purchases</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 md:gap-6">
+            <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-amber-600 to-orange-600 text-white shadow-lg">
+              <div className="pointer-events-none absolute -top-16 -right-10 h-44 w-44 rounded-full bg-white/10" />
+              <div className="pointer-events-none absolute left-0 top-0 h-1 w-full bg-white/35" />
+              <CardHeader className="p-3 md:p-4 border-0">
+                <div className="rounded-2xl bg-white/14 ring-1 ring-white/25 px-3.5 md:px-4 py-3 md:py-3.5">
+                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-10 w-10 rounded-xl bg-white/20 ring-1 ring-white/35 flex items-center justify-center">
+                      <Zap className="h-5 w-5" />
                     </div>
-                    <div>
-                      <CardTitle className="text-lg font-semibold text-slate-800">
-                        Sales Force
-                      </CardTitle>
-                      <CardDescription>
-                        Individual contribution analysis
-                      </CardDescription>
+                    <div className="min-w-0">
+                      <CardTitle className="text-lg md:text-xl leading-tight font-semibold tracking-tight text-white">Sales Force</CardTitle>
+                      <CardDescription className="mt-0.5 text-sm text-white/85">Contribution by team members</CardDescription>
                     </div>
                   </div>
-                  <Badge
-                    variant="secondary"
-                    className="bg-amber-100 text-amber-700"
-                  >
+                  <Badge className="whitespace-nowrap rounded-md bg-black/15 text-white/95 border-white/30 px-2 py-0.5 text-xs font-medium tracking-wide">
                     {healthData.userAnalysis.length} Active
                   </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto scrollbar-thin">
-                  {healthData.userAnalysis.map((user: any, i: number) => {
-                    const share =
-                      (user.sales / (healthData.summary.totalSales || 1)) * 100;
-                    return (
-                      <div
-                        key={i}
-                        className="group p-6 hover:bg-slate-50 transition-all"
-                      >
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center gap-4">
-                            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-slate-600 font-medium text-lg border-2 border-white shadow-sm group-hover:scale-110 transition-transform">
-                              {user.name.charAt(0)}
-                            </div>
-                            <div>
-                              <p className="text-base font-medium text-slate-800">
-                                {user.name}
-                              </p>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <Badge
-                                  variant="outline"
-                                  className="text-[10px] py-0"
-                                >
-                                  {user.count} Deals
-                                </Badge>
-                                <span className="text-[10px] text-slate-400 uppercase tracking-wider">
-                                  {roundToTwoDecimals(share)}% Share
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-lg font-semibold text-emerald-600 leading-none">
-                              {formatCurrency(user.sales)}
-                            </p>
-                            <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-tighter">
-                              Net Volume
-                            </p>
-                          </div>
-                        </div>
-                        <Progress
-                          value={share}
-                          className="h-1.5 bg-slate-100"
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Top Clients */}
-            <Card className="shadow-lg border-slate-200 overflow-hidden bg-white/50 backdrop-blur-sm">
-              <CardHeader className="px-6 py-5 border-b bg-slate-50/80">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-500/10 rounded-lg">
-                      <Users className="h-5 w-5 text-blue-500" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg font-semibold text-slate-800">
-                        Key Accounts
-                      </CardTitle>
-                      <CardDescription>Top 10 revenue partners</CardDescription>
-                    </div>
                   </div>
-                  <Badge
-                    variant="secondary"
-                    className="bg-blue-100 text-blue-700"
-                  >
-                    VIP Priority
-                  </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="p-0">
-                <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto scrollbar-thin">
-                  {healthData.clientAnalysis.map((client: any, i: number) => {
-                    const avgTicket = client.sales / (client.count || 1);
-                    return (
-                      <div
-                        key={i}
-                        className="group p-6 hover:bg-slate-50 transition-all"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="h-12 w-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600 font-medium text-lg border-2 border-white shadow-sm group-hover:bg-blue-600 group-hover:text-white transition-all">
-                              {client.name.charAt(0)}
-                            </div>
-                            <div className="max-w-[140px] md:max-w-[200px]">
-                              <p className="text-base font-medium text-slate-800 truncate">
-                                {client.name}
-                              </p>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-[10px] text-slate-400 uppercase">
-                                  {client.count} Transactions
-                                </span>
-                                <div className="h-1 w-1 rounded-full bg-slate-300" />
-                                <span className="text-[10px] text-blue-500 uppercase">
-                                  Avg {formatCurrency(avgTicket)}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-lg font-semibold text-blue-600 leading-none">
-                              {formatCurrency(client.sales)}
-                            </p>
-                            <Badge className="mt-2 text-[9px] bg-slate-100 text-slate-600 border-none">
-                              Tier {i < 3 ? "A+" : "A"}
-                            </Badge>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Top Vendors */}
-            <Card className="shadow-lg border-slate-200 overflow-hidden bg-white/50 backdrop-blur-sm">
-              <CardHeader className="px-6 py-5 border-b bg-slate-50/80">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-indigo-500/10 rounded-lg">
-                      <Package className="h-5 w-5 text-indigo-500" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg font-semibold text-slate-800">
-                        Prime Suppliers
-                      </CardTitle>
-                      <CardDescription>
-                        Supply chain dependency analysis
-                      </CardDescription>
-                    </div>
-                  </div>
-                  <Badge
-                    variant="secondary"
-                    className="bg-indigo-100 text-indigo-700"
-                  >
-                    Strategic
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto scrollbar-thin">
-                  {healthData.vendorAnalysis.map((vendor: any, i: number) => (
-                    <div
-                      key={i}
-                      className="group p-6 hover:bg-slate-50 transition-all"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="h-12 w-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-medium text-lg border-2 border-white shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                            {vendor.name.charAt(0)}
-                          </div>
-                          <div className="max-w-[140px] md:max-w-[200px]">
-                            <p className="text-base font-medium text-slate-800 truncate">
-                              {vendor.name}
-                            </p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-[10px] text-slate-400 uppercase">
-                                {vendor.count} Purchase Orders
-                              </span>
-                            </div>
-                          </div>
+              <CardContent className="p-4 md:p-5 space-y-3">
+                {healthData.userAnalysis.length > 0 ? healthData.userAnalysis.slice(0, 3).map((user: any, i: number) => {
+                  const share = (user.sales / (healthData.summary.totalSales || 1)) * 100;
+                  return (
+                    <div key={i} className="rounded-xl bg-white/10 border border-white/20 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold truncate">#{i + 1} {user.name}</p>
+                          <p className="text-[11px] text-white/80">{user.count} deals</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-lg font-semibold text-indigo-600 leading-none">
-                            {formatCurrency(vendor.purchases)}
-                          </p>
-                          <div className="flex items-center gap-1 justify-end mt-2">
-                            <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-                            <span className="text-[9px] text-slate-400 uppercase">
-                              Verified
-                            </span>
-                          </div>
+                          <p className="text-sm font-bold">{formatCurrency(user.sales)}</p>
+                          <p className="text-[11px] text-white/80">{roundToTwoDecimals(share)}%</p>
+                        </div>
+                      </div>
+                      <div className="mt-2 h-1.5 rounded-full bg-white/20 overflow-hidden">
+                        <div className="h-full rounded-full bg-white" style={{ width: `${Math.max(0, Math.min(100, share))}%` }} />
+                      </div>
+                    </div>
+                  );
+                }) : (
+                  <p className="text-center py-10 text-sm text-white/80 italic">No stakeholder sales data in this period</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-blue-600 to-cyan-600 text-white shadow-lg">
+              <div className="pointer-events-none absolute -top-16 -right-10 h-44 w-44 rounded-full bg-white/10" />
+              <div className="pointer-events-none absolute left-0 top-0 h-1 w-full bg-white/35" />
+              <CardHeader className="p-3 md:p-4 border-0">
+                <div className="rounded-2xl bg-white/14 ring-1 ring-white/25 px-3.5 md:px-4 py-3 md:py-3.5">
+                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-10 w-10 rounded-xl bg-white/20 ring-1 ring-white/35 flex items-center justify-center">
+                      <Users className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <CardTitle className="text-lg md:text-xl leading-tight font-semibold tracking-tight text-white">Key Accounts</CardTitle>
+                      <CardDescription className="mt-0.5 text-sm text-white/85">Top clients by recognized revenue</CardDescription>
+                    </div>
+                  </div>
+                  <Badge className="whitespace-nowrap rounded-md bg-black/15 text-white/95 border-white/30 px-2 py-0.5 text-xs font-medium tracking-wide">Top 10</Badge>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 md:p-5 space-y-3">
+                {healthData.clientAnalysis.length > 0 ? healthData.clientAnalysis.slice(0, 3).map((client: any, i: number) => {
+                  const avgTicket = client.sales / (client.count || 1);
+                  return (
+                    <div key={i} className="rounded-xl bg-white/10 border border-white/20 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold truncate">#{i + 1} {client.name}</p>
+                          <p className="text-[11px] text-white/80">{client.count} txns • Avg {formatCurrency(avgTicket)}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-bold">{formatCurrency(client.sales)}</p>
+                          <Badge className="mt-1 bg-white/20 text-white border-white/30 text-[10px]">Tier {i < 3 ? "A+" : "A"}</Badge>
                         </div>
                       </div>
                     </div>
-                  ))}
+                  );
+                }) : (
+                  <p className="text-center py-10 text-sm text-white/80 italic">No client data in this period</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-lg">
+              <div className="pointer-events-none absolute -top-16 -right-10 h-44 w-44 rounded-full bg-white/10" />
+              <div className="pointer-events-none absolute left-0 top-0 h-1 w-full bg-white/35" />
+              <CardHeader className="p-3 md:p-4 border-0">
+                <div className="rounded-2xl bg-white/14 ring-1 ring-white/25 px-3.5 md:px-4 py-3 md:py-3.5">
+                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-10 w-10 rounded-xl bg-white/20 ring-1 ring-white/35 flex items-center justify-center">
+                      <Package className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <CardTitle className="text-lg md:text-xl leading-tight font-semibold tracking-tight text-white">Prime Suppliers</CardTitle>
+                      <CardDescription className="mt-0.5 text-sm text-white/85">Purchasing concentration by vendor</CardDescription>
+                    </div>
+                  </div>
+                  <Badge className="whitespace-nowrap rounded-md bg-black/15 text-white/95 border-white/30 px-2 py-0.5 text-xs font-medium tracking-wide">Strategic</Badge>
+                  </div>
                 </div>
+              </CardHeader>
+              <CardContent className="p-4 md:p-5 space-y-3">
+                {healthData.vendorAnalysis.length > 0 ? healthData.vendorAnalysis.slice(0, 3).map((vendor: any, i: number) => (
+                  <div key={i} className="rounded-xl bg-white/10 border border-white/20 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold truncate">#{i + 1} {vendor.name}</p>
+                        <p className="text-[11px] text-white/80">{vendor.count} purchase orders</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold">{formatCurrency(vendor.purchases)}</p>
+                        <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-white/80 uppercase">
+                          <CheckCircle2 className="h-3 w-3 text-emerald-300" />
+                          Verified
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )) : (
+                  <p className="text-center py-10 text-sm text-white/80 italic">No vendor data in this period</p>
+                )}
               </CardContent>
             </Card>
           </div>
 
           {/* Business Analysis Expansion */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="shadow-lg border-slate-200">
-              <CardHeader className="px-6 py-5 border-b">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-emerald-500/10 rounded-lg">
-                    <Activity className="h-5 w-5 text-emerald-500" />
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
+            <Card className="shadow-sm border-emerald-200/70 overflow-hidden bg-gradient-to-br from-emerald-50/60 via-background to-background">
+              <CardHeader className="px-4 md:px-6 py-4 border-b bg-emerald-50/60">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-emerald-500/10">
+                      <Activity className="h-5 w-5 text-emerald-500" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base md:text-lg">Market Segmentation</CardTitle>
+                      <CardDescription>Client distribution by engagement health</CardDescription>
+                    </div>
                   </div>
-                  <CardTitle className="text-lg font-semibold">
-                    Market Segmentation
-                  </CardTitle>
+                  <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-200">
+                    Segments
+                  </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="p-6">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {healthData.customerSegments.map(
-                    (segment: any, i: number) => (
+              <CardContent className="p-4 md:p-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
+                  {healthData.customerSegments.map((segment: any, i: number) => {
+                    const percentage = roundToTwoDecimals(
+                      (segment.value / (healthData.clientAnalysis.length || 1)) * 100,
+                    );
+                    const tone =
+                      segment.name === "Active"
+                        ? "from-emerald-50 to-emerald-100/50 border-emerald-200 text-emerald-700"
+                        : segment.name === "At Risk"
+                          ? "from-amber-50 to-amber-100/50 border-amber-200 text-amber-700"
+                          : "from-slate-50 to-slate-100/60 border-slate-200 text-slate-700";
+                    return (
                       <div
                         key={i}
-                        className="p-5 rounded-2xl border border-slate-100 bg-slate-50/50 text-center transition-all hover:shadow-md hover:bg-white"
+                        className={cn(
+                          "rounded-2xl border bg-gradient-to-br p-4 md:p-5 transition-all hover:shadow-md",
+                          tone,
+                        )}
                       >
-                        <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">
+                        <p className="text-[10px] uppercase tracking-widest opacity-80">
                           {segment.name}
                         </p>
-                        <p className="text-3xl font-semibold text-slate-800 mb-2">
-                          {segment.value}
-                        </p>
-                        <p className="text-[10px] text-slate-500 uppercase italic">
-                          Customers
-                        </p>
-                        <Progress
-                          value={
-                            (segment.value /
-                              (healthData.clientAnalysis.length || 1)) *
-                            100
-                          }
-                          className="h-1.5 mt-4"
-                        />
+                        <p className="mt-2 text-3xl font-bold leading-none">{segment.value}</p>
+                        <p className="mt-2 text-[11px] uppercase tracking-wide opacity-80">Customers</p>
+                        <div className="mt-4">
+                          <Progress value={percentage} className="h-1.5" />
+                          <p className="mt-2 text-[11px] font-medium opacity-90">{percentage}% share</p>
+                        </div>
                       </div>
-                    ),
-                  )}
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="shadow-lg border-slate-200">
-              <CardHeader className="px-6 py-5 border-b">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-amber-500/10 rounded-lg">
-                    <TrendingUp className="h-5 w-5 text-amber-500" />
+            <Card className="shadow-sm border-blue-200/70 overflow-hidden bg-gradient-to-br from-blue-50/60 via-background to-background">
+              <CardHeader className="px-4 md:px-6 py-4 border-b bg-blue-50/60">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-blue-500/10">
+                      <TrendingUp className="h-5 w-5 text-blue-500" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base md:text-lg">Strategic Insights</CardTitle>
+                      <CardDescription>Actionable guidance from current period behavior</CardDescription>
+                    </div>
                   </div>
-                  <CardTitle className="text-lg font-semibold">
-                    Strategic Insights
-                  </CardTitle>
+                  <Badge className="bg-blue-100 text-blue-700 border border-blue-200">Advisory</Badge>
                 </div>
               </CardHeader>
-              <CardContent className="p-6">
-                <div className="space-y-4">
-                  <div className="flex items-start gap-4 p-4 rounded-xl bg-blue-50 border border-blue-100">
-                    <Info className="h-5 w-5 text-blue-500 mt-0.5" />
+              <CardContent className="p-4 md:p-6 space-y-3 md:space-y-4">
+                <div className="rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-4 md:p-5">
+                  <div className="flex items-start gap-3">
+                    <Info className="h-4 w-4 md:h-5 md:w-5 text-blue-600 mt-0.5 flex-shrink-0" />
                     <div>
-                      <p className="text-sm font-medium text-blue-900">
-                        Revenue Concentration
-                      </p>
-                      <p className="text-xs text-blue-700 leading-relaxed mt-1">
-                        Your top 3 clients represent{" "}
-                        <span className="font-semibold text-blue-900">
+                      <p className="text-sm md:text-base font-semibold text-blue-900">Revenue Concentration</p>
+                      <p className="text-xs md:text-sm text-blue-800 mt-1 leading-relaxed">
+                        Top 3 clients contribute{" "}
+                        <span className="font-bold">
                           {roundToTwoDecimals(
                             (healthData.clientAnalysis
                               .slice(0, 3)
@@ -1608,32 +1801,28 @@ export default function BusinessHealth() {
                               100,
                           )}
                           %
-                        </span>{" "}
-                        of your total revenue. Consider diversifying your client
-                        base to mitigate risk.
+                        </span>
+                        . Prioritize risk balancing by adding mid-value accounts.
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-start gap-4 p-4 rounded-xl bg-emerald-50 border border-emerald-100">
-                    <TrendingUp className="h-5 w-5 text-emerald-500 mt-0.5" />
+                </div>
+                <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-4 md:p-5">
+                  <div className="flex items-start gap-3">
+                    <TrendingUp className="h-4 w-4 md:h-5 md:w-5 text-emerald-600 mt-0.5 flex-shrink-0" />
                     <div>
-                      <p className="text-sm font-medium text-emerald-900">
-                        Sales Velocity
-                      </p>
-                      <p className="text-xs text-emerald-700 leading-relaxed mt-1">
-                        Average deal size for{" "}
-                        <span className="font-medium">
-                          {healthData.userAnalysis[0]?.name}
-                        </span>{" "}
+                      <p className="text-sm md:text-base font-semibold text-emerald-900">Sales Velocity</p>
+                      <p className="text-xs md:text-sm text-emerald-800 mt-1 leading-relaxed">
+                        Avg deal size for{" "}
+                        <span className="font-semibold">{healthData.userAnalysis[0]?.name || "top rep"}</span>{" "}
                         is{" "}
-                        <span className="font-medium">
+                        <span className="font-semibold">
                           {formatCurrency(
                             healthData.userAnalysis[0]?.sales /
                               (healthData.userAnalysis[0]?.count || 1),
                           )}
                         </span>
-                        . Scale these high-value conversion patterns across the
-                        team.
+                        . Replicate this pattern through playbook sharing.
                       </p>
                     </div>
                   </div>
@@ -1658,52 +1847,26 @@ function SummaryCard({
   color,
   cardColor,
   iconColor,
-  badgeColor,
+  trendIcon: TrendIcon,
 }: any) {
   return (
-    <Card
-      className={cn(
-        "shadow-md overflow-hidden group border transition-all duration-300 hover:shadow-lg",
-        cardColor,
-      )}
-    >
-      <CardContent className="p-4 md:p-8 relative">
-        <div className="absolute -top-4 -right-4 p-4 opacity-[0.06] group-hover:opacity-[0.12] group-hover:scale-110 transition-all duration-500">
-          <Icon className="h-16 w-16 md:h-24 md:w-24" />
-        </div>
-        <div className="flex items-center gap-3 md:gap-4 mb-3 md:mb-5">
-          <div
-            className={cn(
-              "p-2 md:p-3 rounded-xl transition-all duration-300",
-              iconColor,
-            )}
-          >
-            <Icon className="h-4 w-4 md:h-5 md:w-5" />
-          </div>
-          <span className="text-[10px] md:text-xs uppercase text-muted-foreground tracking-[0.1em] md:tracking-[0.2em]">
-            {title}
-          </span>
-        </div>
-        <div
-          className={cn(
-            "text-xl md:text-3xl font-semibold mb-2 md:mb-3 tracking-tight",
-            color,
-          )}
-        >
+    <Card className={cn("bg-gradient-to-br border w-full", cardColor)}>
+      <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6">
+        <CardTitle className={cn("text-[10px] sm:text-xs md:text-sm font-medium truncate pr-2", color)}>
+          {title}
+        </CardTitle>
+        <Icon className={cn("h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 flex-shrink-0", iconColor)} />
+      </CardHeader>
+      <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
+        <div className={cn("text-lg sm:text-xl md:text-2xl font-bold break-words", color)}>
           {value}
         </div>
-        <div className="flex items-center gap-1.5 md:gap-2">
-          <Badge
-            variant="outline"
-            className={cn(
-              "text-[8px] md:text-[10px] px-1.5 md:px-2 py-0 md:py-0.5 uppercase tracking-tighter border",
-              badgeColor,
-            )}
-          >
+        <div className="flex items-center gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
+          {TrendIcon ? (
+            <TrendIcon className={cn("h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0", iconColor)} />
+          ) : null}
+          <span className="text-[10px] sm:text-xs md:text-sm text-muted-foreground break-words">
             {trend}
-          </Badge>
-          <span className="text-[8px] md:text-[10px] text-muted-foreground uppercase tracking-wider md:tracking-widest opacity-70">
-            period trend
           </span>
         </div>
       </CardContent>

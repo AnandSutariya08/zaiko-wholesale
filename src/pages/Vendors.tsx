@@ -795,113 +795,115 @@ export default function Vendors() {
   return (
     <div className="flex h-full min-h-0 w-full flex-col gap-3 overflow-hidden">
       <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-gradient-to-br from-background via-background to-slate-50/40 p-3 shadow-sm sm:p-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex min-w-0 items-center justify-start gap-3 sm:gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-border">
-              <Store className="h-5 w-5" />
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 items-center justify-start gap-3 sm:gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-border">
+                <Store className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 text-left">
+                <h1 className="truncate text-2xl font-semibold leading-tight sm:text-3xl">
+                  Vendors
+                </h1>
+                <p className="text-sm text-muted-foreground">Manage your supply chain</p>
+              </div>
             </div>
-            <div className="min-w-0 text-left">
-              <h1 className="truncate text-2xl font-semibold leading-tight sm:text-3xl">
-                Vendors
-              </h1>
-              <p className="text-sm text-muted-foreground">Manage your supply chain</p>
+            <div className="grid w-full grid-cols-1 gap-2 rounded-xl border border-border/70 bg-muted/30 p-2 lg:w-auto">
+              <Dialog
+                open={isOpen}
+                onOpenChange={(open) => {
+                  setIsOpen(open);
+                  if (!open) resetForm();
+                }}
+              >
+                <DialogTrigger asChild>
+                  <Button size="sm" className="h-10 rounded-xl px-3 text-sm">
+                    <Plus className="h-5 w-5 mr-2" />
+                    Add Vendor
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="dialog-form-content sm:max-w-[500px]">
+                  <DialogHeader className="dialog-form-header">
+                    <DialogTitle>
+                      {editingVendor ? "Edit Vendor" : "Add Vendor"}
+                    </DialogTitle>
+                  </DialogHeader>
+                <form
+                  onSubmit={handleSubmit}
+                  className="dialog-form-body space-y-4"
+                >
+                  <div className="space-y-2">
+                    <Label>Vendor Name *</Label>
+                    <Input
+                      required
+                      value={formData.name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, name: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>GSTIN</Label>
+                    <Input
+                      value={formData.gstin}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          gstin: e.target.value.toUpperCase(),
+                        })
+                      }
+                      maxLength={15}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Address</Label>
+                    <Textarea
+                      value={formData.address}
+                      onChange={(e) =>
+                        setFormData({ ...formData, address: e.target.value })
+                      }
+                      rows={3}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Phone</Label>
+                      <Input
+                        type="tel"
+                        value={formData.phone}
+                        onChange={(e) =>
+                          setFormData({ ...formData, phone: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Email</Label>
+                      <Input
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) =>
+                          setFormData({ ...formData, email: e.target.value })
+                        }
+                      />
+                    </div>
+                  </div>
+                  <div className="dialog-form-footer flex justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit" loading={saving}>
+                      {editingVendor ? "Update" : "Add"} Vendor
+                    </Button>
+                  </div>
+                  </form>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
-          <Dialog
-            open={isOpen}
-            onOpenChange={(open) => {
-              setIsOpen(open);
-              if (!open) resetForm();
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button size="sm" className="h-10 rounded-xl px-3 text-sm">
-                <Plus className="h-5 w-5 mr-2" />
-                Add Vendor
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="dialog-form-content sm:max-w-[500px]">
-              <DialogHeader className="dialog-form-header">
-                <DialogTitle>
-                  {editingVendor ? "Edit Vendor" : "Add Vendor"}
-                </DialogTitle>
-              </DialogHeader>
-              <form
-                onSubmit={handleSubmit}
-                className="dialog-form-body space-y-4"
-              >
-                <div className="space-y-2">
-                  <Label>Vendor Name *</Label>
-                  <Input
-                    required
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>GSTIN</Label>
-                  <Input
-                    value={formData.gstin}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        gstin: e.target.value.toUpperCase(),
-                      })
-                    }
-                    maxLength={15}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Address</Label>
-                  <Textarea
-                    value={formData.address}
-                    onChange={(e) =>
-                      setFormData({ ...formData, address: e.target.value })
-                    }
-                    rows={3}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Phone</Label>
-                    <Input
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) =>
-                        setFormData({ ...formData, phone: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Email</Label>
-                    <Input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) =>
-                        setFormData({ ...formData, email: e.target.value })
-                      }
-                    />
-                  </div>
-                </div>
-                <div className="dialog-form-footer flex justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" loading={saving}>
-                    {editingVendor ? "Update" : "Add"} Vendor
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
         </div>
-      </div>
 
       <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-border/70 bg-background/70 p-2 sm:p-4">
         <div className="h-full overflow-y-auto space-y-5 pr-1 sm:pr-2">

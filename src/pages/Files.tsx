@@ -273,7 +273,7 @@ export default function Files() {
               </div>
             </div>
 
-            <div className="flex w-full items-center gap-2 lg:w-auto">
+            <div className="grid w-full grid-cols-1 gap-2 rounded-xl border border-border/70 bg-muted/30 p-2 lg:w-auto">
               <input
                 ref={fileInputRef}
                 type="file"

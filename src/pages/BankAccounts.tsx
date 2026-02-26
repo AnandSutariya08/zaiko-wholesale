@@ -163,14 +163,16 @@ export default function BankAccounts() {
                 </p>
               </div>
             </div>
-            <Button
-              size="sm"
-              onClick={() => handleOpenDialog()}
-              className="h-10 rounded-xl px-3 text-sm gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Add Account
-            </Button>
+            <div className="grid w-full grid-cols-1 gap-2 rounded-xl border border-border/70 bg-muted/30 p-2 lg:w-auto">
+              <Button
+                size="sm"
+                onClick={() => handleOpenDialog()}
+                className="h-10 rounded-xl px-3 text-sm gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add Account
+              </Button>
+            </div>
           </div>
         </div>
 

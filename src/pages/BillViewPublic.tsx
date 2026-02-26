@@ -892,12 +892,23 @@ export default function BillViewPublic() {
                 {bill.client.name}
               </p>
             </div>
-            <div className="p-3 text-right">
-              <p className="text-[10px] font-bold mb-1 break-words">
-                for {company.name}
+            <div className="p-3">
+              <p className="text-[10px] font-bold mb-1 break-words text-right">
+                Company Seal and Signature
               </p>
-              <div className="h-12"></div>
-              <p className="text-[9px] border-t border-black pt-1 inline-block break-words">
+              <div className="h-12 border-b border-dashed border-gray-400 flex items-center justify-center">
+                {company.signature ? (
+                  <img
+                    src={company.signature}
+                    alt="Authorised Signature"
+                    className="h-10 w-28 object-contain"
+                  />
+                ) : null}
+              </div>
+              <p className="text-[9px] text-center mt-1 text-gray-600 break-words">
+                {company.name}
+              </p>
+              <p className="text-[9px] text-center mt-1 break-words">
                 Authorised Signatory
               </p>
             </div>

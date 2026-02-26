@@ -37,6 +37,8 @@ import { pdf } from "@react-pdf/renderer";
 import { BillPDF } from "@/components/BillView";
 import { EWayBillPDF } from "@/components/EWayBillPDF";
 import { EWayBillDialog } from "@/components/EWayBillDialog";
+import { storage } from "@/lib/firebase";
+import { getDownloadURL, ref } from "firebase/storage";
 import QRCode from "qrcode";
 import {
   AlertDialog,
@@ -118,15 +120,54 @@ export default function GSTBill() {
       setGeneratingId(bill.id);
       const company = await getCompanyProfile();
 
+      const resolveSignatureForPdf = async (signature?: string): Promise<string | null> => {
+        if (!signature) return null;
+        let signatureUrl = signature.trim();
+        if (!signatureUrl) return null;
+        if (signatureUrl.startsWith("data:")) return signatureUrl;
+        if (!/^https?:\/\//i.test(signatureUrl)) {
+          try {
+            signatureUrl = await getDownloadURL(ref(storage, signatureUrl));
+          } catch {
+            return null;
+          }
+        }
+        try {
+          const response = await fetch(signatureUrl, { mode: "cors" });
+          if (!response.ok) return signatureUrl;
+          const blob = await response.blob();
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(String(reader.result || ""));
+            reader.onerror = () => reject(new Error("Failed to read signature"));
+            reader.readAsDataURL(blob);
+          });
+          return dataUrl || signatureUrl;
+        } catch {
+          return signatureUrl;
+        }
+      };
+
       let qrDataURL = "";
-      const upiId = bill.bankAccount?.upiId || company.upiId;
+      const upiId = (bill.bankAccount?.upiId || company.upiId || "").trim();
       if (upiId) {
-        const upiLink = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(company.name)}&am=${bill.total}&cu=INR`;
-        qrDataURL = await QRCode.toDataURL(upiLink);
+        const amount = Number(bill.total || 0).toFixed(2);
+        const upiLink =
+          `upi://pay?pa=${encodeURIComponent(upiId)}` +
+          `&pn=${encodeURIComponent(company.name || "")}` +
+          `&am=${encodeURIComponent(amount)}` +
+          `&cu=INR` +
+          `&tn=${encodeURIComponent(`${bill.billType === "international" ? "Proforma" : ""} Invoice ${bill.billNumber}`)}`;
+        qrDataURL = await QRCode.toDataURL(upiLink, { width: 220, margin: 1 });
       }
 
+      const signatureForPdf = await resolveSignatureForPdf(company?.signature);
+      const companyForPdf = signatureForPdf
+        ? { ...company, signature: signatureForPdf }
+        : company;
+
       const blob = await pdf(
-        <BillPDF bill={bill} company={company} qrDataURL={qrDataURL} />,
+        <BillPDF bill={bill} company={companyForPdf} qrDataURL={qrDataURL} />,
       ).toBlob();
 
       const file = new File([blob], `${bill.billNumber}.pdf`, {
