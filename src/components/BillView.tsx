@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useLayoutEffect } from "react";
 import { Bill, SampleBill, BankAccount } from "@/types";
 import {
   formatCurrency,
@@ -21,6 +21,8 @@ import {
 } from "@react-pdf/renderer";
 import QRCode from "qrcode";
 import { Font } from "@react-pdf/renderer";
+import { getDownloadURL, ref } from "firebase/storage";
+import { storage } from "@/lib/firebase";
 
 Font.register({
   family: "Inter",
@@ -1766,19 +1768,16 @@ export function BillView({ bill }: BillViewProps) {
     bill.bankAccount?.upiId,
   ]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const calculateScale = () => {
       if (!containerRef.current) return;
       const horizontalPadding = 24;
       const verticalPadding = 24;
-      const availableWidth = Math.max(
-        0,
-        containerRef.current.clientWidth - horizontalPadding,
-      );
-      const availableHeight = Math.max(
-        0,
-        containerRef.current.clientHeight - verticalPadding,
-      );
+      const rect = containerRef.current.getBoundingClientRect();
+      const baseWidth = rect.width || window.innerWidth || 0;
+      const baseHeight = rect.height || window.innerHeight || 0;
+      const availableWidth = Math.max(0, baseWidth - horizontalPadding);
+      const availableHeight = Math.max(0, baseHeight - verticalPadding);
 
       const widthScale = availableWidth / A4_WIDTH_PX;
       const heightScale = availableHeight / A4_HEIGHT_PX;
@@ -1786,13 +1785,56 @@ export function BillView({ bill }: BillViewProps) {
       setScale(Math.max(0.25, nextScale));
     };
 
-    calculateScale();
-    const ro = new ResizeObserver(calculateScale);
-    if (containerRef.current) ro.observe(containerRef.current);
-    window.addEventListener("resize", calculateScale);
+    let rafId: number | null = null;
+    const schedule = () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        calculateScale();
+      });
+    };
+
+    schedule();
+    const ro =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(schedule)
+        : null;
+    if (containerRef.current && ro) ro.observe(containerRef.current);
+    window.addEventListener("resize", schedule);
+    window.addEventListener("orientationchange", schedule);
+    const vv = window.visualViewport;
+    if (vv) {
+      vv.addEventListener("resize", schedule);
+      vv.addEventListener("scroll", schedule);
+    }
+    const timeoutId = window.setTimeout(schedule, 250);
+    const retryUntilReadyId = window.setInterval(() => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      schedule();
+      if (rect.width > 0 && rect.height > 0) {
+        window.clearInterval(retryUntilReadyId);
+      }
+    }, 120);
+    const retryStopId = window.setTimeout(() => {
+      window.clearInterval(retryUntilReadyId);
+    }, 1600);
+    if (document.fonts?.ready) {
+      document.fonts.ready.then(schedule).catch(() => {});
+    }
+
     return () => {
-      ro.disconnect();
-      window.removeEventListener("resize", calculateScale);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      if (ro) ro.disconnect();
+      window.removeEventListener("resize", schedule);
+      window.removeEventListener("orientationchange", schedule);
+      if (vv) {
+        vv.removeEventListener("resize", schedule);
+        vv.removeEventListener("scroll", schedule);
+      }
+      window.clearTimeout(timeoutId);
+      window.clearInterval(retryUntilReadyId);
+      window.clearTimeout(retryStopId);
     };
   }, []);
 
@@ -1813,35 +1855,89 @@ export function BillView({ bill }: BillViewProps) {
       }
     `;
     document.head.appendChild(style);
-    return () => document.head.removeChild(style);
+    return () => {
+      document.head.removeChild(style);
+    };
   }, []);
 
   const handlePrint = () => window.print();
 
+  const resolveSignatureForPdf = async (
+    signature?: string,
+  ): Promise<string | null> => {
+    if (!signature) return null;
+    let signatureUrl = signature.trim();
+    if (!signatureUrl) return null;
+
+    // Already a data URL → return as-is
+    if (signatureUrl.startsWith("data:")) return signatureUrl;
+
+    // Firebase Storage path (legacy case) → resolve public URL
+    if (!/^https?:\/\//i.test(signatureUrl)) {
+      try {
+        signatureUrl = await getDownloadURL(ref(storage, signatureUrl));
+      } catch (err) {
+        console.warn("Failed to resolve Firebase signature path", err);
+        return null;
+      }
+    }
+
+    // Optional: convert to data URL for better PDF embedding reliability
+    // (you can comment this block out if you prefer direct https URLs)
+    try {
+      const response = await fetch(signatureUrl, { mode: "cors" });
+      if (!response.ok) return signatureUrl;
+      const blob = await response.blob();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(String(reader.result || ""));
+        reader.onerror = () => reject(new Error("Failed to read signature"));
+        reader.readAsDataURL(blob);
+      });
+      return dataUrl || signatureUrl;
+    } catch (err) {
+      console.warn("Failed to convert signature to data URL", err);
+      return signatureUrl;
+    }
+  };
+
   const handleDownloadPDF = async () => {
     toast.info("Generating PDF...");
     try {
+      // Fallback QR if not yet generated
       const qrToUse =
         qrDataURL ||
         (await QRCode.toDataURL(window.location.origin + `/bills/${bill.id}`));
+
+      // Resolve signature for PDF embedding
+      const signatureForPdf = await resolveSignatureForPdf(company?.signature);
+
       const isSampleBill = "isSample" in bill && bill.isSample;
+
+      // Pass resolved signature inside company object
+      const companyForPdf = signatureForPdf
+        ? { ...company, signature: signatureForPdf }
+        : company;
+
       const blob = await pdf(
         <BillPDF
           bill={bill}
-          company={company}
+          company={companyForPdf}
           qrDataURL={qrToUse}
           isSample={isSampleBill}
         />,
       ).toBlob();
+
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = `Bill_${bill.billNumber}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
+
       toast.success("PDF downloaded successfully");
     } catch (err) {
-      console.error(err);
+      console.error("PDF generation failed", err);
       toast.error("Failed to generate PDF");
     }
   };
@@ -2314,7 +2410,15 @@ export function BillView({ bill }: BillViewProps) {
                       <p className="text-[10px] font-bold mt-1">
                         FOR {String(company.name || "").toUpperCase()}
                       </p>
-                      <div className="h-12" />
+                      {company.signature ? (
+                        <img
+                          src={company.signature}
+                          alt="Authorised Signature"
+                          className="h-12 w-32 object-contain mx-auto my-1"
+                        />
+                      ) : (
+                        <div className="h-12" />
+                      )}
                       <p className="text-[10px]">Proprietor</p>
                     </div>
                   </div>
@@ -2988,7 +3092,15 @@ export function BillView({ bill }: BillViewProps) {
                           <p className="text-[10px] font-bold mb-1">
                             for {company.name}
                           </p>
-                          <div className="h-12"></div>
+                          <div className="h-12 border-b border-dashed border-gray-400 flex items-center justify-center">
+                            {company.signature ? (
+                              <img
+                                src={company.signature}
+                                alt="Authorised Signature"
+                                className="h-10 w-28 object-contain"
+                              />
+                            ) : null}
+                          </div>
                           <p className="text-[9px] border-t border-black pt-1 inline-block">
                             Authorised Signatory
                           </p>
