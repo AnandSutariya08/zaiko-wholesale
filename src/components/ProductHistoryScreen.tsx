@@ -824,6 +824,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { Product, Bill, PurchaseBill, BillReturn } from "@/types";
 import {
   getBills,
@@ -843,6 +847,8 @@ import {
   Search,
   Info,
   ArrowLeft,
+  FileSpreadsheet,
+  FileText,
 } from "lucide-react";
 
 interface ProductHistoryScreenProps {
@@ -931,7 +937,7 @@ export function ProductHistoryScreen({
             const billItem = bill.items.find(
               (item) =>
                 item.description.toLowerCase().trim() ===
-                  product.name.toLowerCase().trim() ||
+                product.name.toLowerCase().trim() ||
                 (item.hsnCode &&
                   product.hsnCode &&
                   item.hsnCode.trim() === product.hsnCode.trim()),
@@ -1160,8 +1166,8 @@ export function ProductHistoryScreen({
     const profitMargin =
       averageSellingPrice > 0 && overallAvgPurchasePrice > 0
         ? ((averageSellingPrice - overallAvgPurchasePrice) /
-            overallAvgPurchasePrice) *
-          100
+          overallAvgPurchasePrice) *
+        100
         : 0;
 
     // Additional details: Total weight in stock
@@ -1214,6 +1220,16 @@ export function ProductHistoryScreen({
     return isNegative ? `-${formatted}` : formatted;
   };
 
+  const formatCurrencyRs = (amount: number) => {
+    const isNegative = amount < 0;
+    const absAmount = Math.abs(amount);
+    const formatted = new Intl.NumberFormat("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(absAmount);
+    return isNegative ? `-Rs. ${formatted}` : `Rs. ${formatted}`;
+  };
+
   const filteredPurchases = purchaseHistory.filter((item) => {
     const searchStr = searchTerm.toLowerCase();
     const vendorMatch = (item.vendorName || "")
@@ -1262,12 +1278,244 @@ export function ProductHistoryScreen({
     return matchesSearch && matchesStartDate && matchesEndDate;
   });
 
+  const sanitizeFileName = (value: string) =>
+    value.replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, "_");
+
+  const downloadLedgerExcel = () => {
+    try {
+      const workbook = XLSX.utils.book_new();
+
+      const summaryData = [
+        ["Product Full Ledger"],
+        ["Product Name", product.name],
+        ["HSN Code", product.hsnCode || "-"],
+        ["GST Rate", `${product.gstRate || 0}%`],
+        ["Unit", product.unit || "-"],
+        ["Generated On", formatDate(new Date().toISOString())],
+        ["Date Filter From", startDate || "All"],
+        ["Date Filter To", endDate || "All"],
+        [],
+        ["Metric", "Value"],
+        ["Current Stock", `${Number(product.stock).toFixed(2)} ${product.unit || ""}`],
+        ["Total Purchased", Number(stats.totalPurchased).toFixed(2)],
+        ["Total Sold", Number(stats.totalSold).toFixed(2)],
+        ["Total Returned", Number(stats.totalReturned).toFixed(2)],
+        ["Assets Value", formatCurrencyRs(stats.totalAssets)],
+        ["Average Buy Price", formatCurrencyRs(stats.averagePurchasePrice)],
+        ["Average Sell Price", formatCurrencyRs(stats.averageSellingPrice)],
+        ["Profit Margin", `${stats.profitMargin.toFixed(2)}%`],
+      ];
+
+      const purchasesData = [
+        ["Date", "Vendor", "Bill No", "Weight", "Qty", "Unit", "Price/Unit", "Total", "Status"],
+        ...filteredPurchases.map((item) => [
+          formatDate(item.date),
+          item.vendorName || "-",
+          item.billNumber || "-",
+          item.weight || "-",
+          item.quantity,
+          item.unit || "-",
+          item.purchasePrice,
+          item.totalAmount,
+          item.isReturn
+            ? "Returned to Vendor"
+            : item.addedToInventory
+              ? "In Inventory"
+              : item.quantity < 0
+                ? "Rejected/Bad"
+                : "Pending",
+        ]),
+      ];
+
+      const salesData = [
+        ["Date", "Client", "Bill No", "Qty", "Unit", "Price/Unit", "Total"],
+        ...filteredSales.map((item) => [
+          formatDate(item.date),
+          item.clientName || "-",
+          item.billNumber || "-",
+          item.quantity,
+          item.unit || "-",
+          item.sellingPrice,
+          item.totalAmount,
+        ]),
+      ];
+
+      const returnsData = [
+        ["Date", "Client", "Bill No", "Qty", "Unit", "Condition", "Reason"],
+        ...filteredReturns.map((item) => [
+          formatDate(item.date),
+          item.clientName || "-",
+          item.billNumber || "-",
+          item.quantity,
+          item.unit || "-",
+          item.condition === "good" ? "Good - Back to Inventory" : "Bad - Deadstock",
+          item.returnReason || "-",
+        ]),
+      ];
+
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(summaryData), "Summary");
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(purchasesData), "Purchases");
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(salesData), "Sales");
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(returnsData), "Returns");
+
+      XLSX.writeFile(
+        workbook,
+        `${sanitizeFileName(product.name || "Product")}_Full_Ledger.xlsx`,
+      );
+      toast.success("Product ledger Excel downloaded");
+    } catch (error) {
+      console.error("Excel ledger download error:", error);
+      toast.error("Failed to download Excel ledger");
+    }
+  };
+
+  const downloadLedgerPDF = () => {
+    try {
+      const doc = new jsPDF("p", "mm", "a4");
+
+      doc.setFontSize(18);
+      doc.setTextColor(20);
+      doc.text("PRODUCT FULL LEDGER", 14, 16);
+
+      doc.setFontSize(10);
+      doc.setTextColor(90);
+      doc.text(`Product: ${product.name}`, 14, 23);
+      doc.text(`HSN: ${product.hsnCode || "-"}   GST: ${product.gstRate || 0}%`, 14, 28);
+      doc.text(`Generated: ${formatDate(new Date().toISOString())}`, 14, 33);
+      doc.text(`Filters: ${startDate || "All"} to ${endDate || "All"}`, 14, 38);
+
+      autoTable(doc, {
+        startY: 42,
+        head: [["Summary", "Value"]],
+        body: [
+          ["Current Stock", `${Number(product.stock).toFixed(2)} ${product.unit || ""}`],
+          ["Total Purchased", Number(stats.totalPurchased).toFixed(2)],
+          ["Total Sold", Number(stats.totalSold).toFixed(2)],
+          ["Total Returned", Number(stats.totalReturned).toFixed(2)],
+          ["Assets Value", formatCurrencyRs(stats.totalAssets)],
+          ["Average Buy Price", formatCurrencyRs(stats.averagePurchasePrice)],
+          ["Average Sell Price", formatCurrencyRs(stats.averageSellingPrice)],
+          ["Profit Margin", `${stats.profitMargin.toFixed(2)}%`],
+        ],
+        theme: "grid",
+        headStyles: { fillColor: [55, 65, 81] },
+        styles: { fontSize: 9 },
+      });
+
+      let nextY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 8 : 95;
+
+      autoTable(doc, {
+        startY: nextY,
+        head: [["Purchase Transactions", "", "", "", "", "", "", "", ""]],
+        body: [
+          ["Date", "Vendor", "Bill No", "Weight", "Qty", "Unit", "Price/Unit", "Total", "Status"],
+          ...filteredPurchases.map((item) => [
+            formatDate(item.date),
+            item.vendorName || "-",
+            item.billNumber || "-",
+            item.weight || "-",
+            String(item.quantity),
+            item.unit || "-",
+            formatCurrencyRs(item.purchasePrice),
+            formatCurrencyRs(item.totalAmount),
+            item.isReturn
+              ? "Returned to Vendor"
+              : item.addedToInventory
+                ? "In Inventory"
+                : item.quantity < 0
+                  ? "Rejected/Bad"
+                  : "Pending",
+          ]),
+        ],
+        theme: "grid",
+        headStyles: { fillColor: [15, 118, 110] },
+        styles: { fontSize: 8 },
+        didParseCell: (data) => {
+          if (data.section === "body" && data.row.index === 0) {
+            data.cell.styles.fillColor = [224, 242, 254];
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.halign = "center";
+          }
+        },
+      });
+
+      nextY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 8 : nextY + 60;
+
+      autoTable(doc, {
+        startY: nextY,
+        head: [["Sales Transactions", "", "", "", "", "", ""]],
+        body: [
+          ["Date", "Client", "Bill No", "Qty", "Unit", "Price/Unit", "Total"],
+          ...filteredSales.map((item) => [
+            formatDate(item.date),
+            item.clientName || "-",
+            item.billNumber || "-",
+            String(item.quantity),
+            item.unit || "-",
+            formatCurrencyRs(item.sellingPrice),
+            formatCurrencyRs(item.totalAmount),
+          ]),
+        ],
+        theme: "grid",
+        headStyles: { fillColor: [37, 99, 235] },
+        styles: { fontSize: 8 },
+        didParseCell: (data) => {
+          if (data.section === "body" && data.row.index === 0) {
+            data.cell.styles.fillColor = [224, 242, 254];
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.halign = "center";
+          }
+        },
+      });
+
+      nextY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 8 : nextY + 50;
+
+      autoTable(doc, {
+        startY: nextY,
+        head: [["Return Transactions", "", "", "", "", "", ""]],
+        body: [
+          ["Date", "Client", "Bill No", "Qty", "Unit", "Condition", "Reason"],
+          ...filteredReturns.map((item) => [
+            formatDate(item.date),
+            item.clientName || "-",
+            item.billNumber || "-",
+            String(item.quantity),
+            item.unit || "-",
+            item.condition === "good" ? "Good - Back to Inventory" : "Bad - Deadstock",
+            item.returnReason || "-",
+          ]),
+        ],
+        theme: "grid",
+        headStyles: { fillColor: [217, 119, 6] },
+        styles: { fontSize: 8 },
+        didParseCell: (data) => {
+          if (data.section === "body" && data.row.index === 0) {
+            data.cell.styles.fillColor = [255, 237, 213];
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.halign = "center";
+          }
+        },
+      });
+
+      const finalY = (doc as any).lastAutoTable?.finalY || 260;
+      doc.setFontSize(9);
+      doc.setTextColor(120);
+      doc.text("All currency values are shown in Rs.", 14, finalY + 8);
+
+      doc.save(`${sanitizeFileName(product.name || "Product")}_Full_Ledger.pdf`);
+      toast.success("Product ledger PDF downloaded");
+    } catch (error) {
+      console.error("PDF ledger download error:", error);
+      toast.error("Failed to download PDF ledger");
+    }
+  };
+
   return (
     <div className="flex h-full min-h-0 w-full flex-col gap-3 overflow-hidden">
       <div className="relative flex h-full min-h-0 flex-col rounded-[28px] border border-border/70 bg-background p-3 shadow-sm sm:p-5 lg:p-6">
-        <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background/95 p-3 backdrop-blur sm:p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
+        <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-gradient-to-br from-background via-background to-slate-50/40 p-3 shadow-sm sm:p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
               <Button
                 variant="outline"
                 size="icon"
@@ -1276,22 +1524,45 @@ export function ProductHistoryScreen({
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-border">
+                <Package className="h-5 w-5" />
+              </div>
               <div className="min-w-0">
-                <h2 className="truncate text-xl font-semibold sm:text-2xl">
+                <h2 className="truncate text-2xl font-semibold leading-tight sm:text-3xl">
                   {product.name}
                 </h2>
                 <p className="text-xs text-muted-foreground sm:text-sm">
-                  Product performance and transaction history
+                  Product Full Ledger
                 </p>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                {/* <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                  <span className="rounded-md bg-primary/10 px-2 py-0 text-[10px] font-semibold leading-5 text-primary">
                     HSN: {product.hsnCode}
                   </span>
-                  <span className="rounded-md bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                  <span className="rounded-md bg-muted px-2 py-0 text-[10px] font-semibold leading-5 text-muted-foreground">
                     GST {product.gstRate}%
                   </span>
-                </div>
+                </div> */}
               </div>
+            </div>
+            <div className="grid w-full grid-cols-2 gap-2 rounded-xl border border-border/70 bg-muted/30 p-2 lg:w-auto">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-10 rounded-xl px-4 text-sm"
+                onClick={downloadLedgerExcel}
+              >
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                Excel
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-10 rounded-xl px-4 text-sm"
+                onClick={downloadLedgerPDF}
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                PDF
+              </Button>
             </div>
           </div>
         </div>
@@ -1308,7 +1579,7 @@ export function ProductHistoryScreen({
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   <Card className="border-border/70 bg-gradient-to-r from-background to-primary/5 md:col-span-2">
                     <CardContent className="p-4">
-                      <div className="mb-3 flex items-center gap-2">
+                      <div className="mb-3 flex items-center gap-2 pt-3">
                         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
                           <Info className="h-3.5 w-3.5" />
                         </div>
@@ -1386,7 +1657,7 @@ export function ProductHistoryScreen({
                 {/* Key Metrics */}
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                   <Card className="border-emerald-200 bg-emerald-50/70">
-                    <CardContent className="p-3">
+                    <CardContent className="p-3 m-2">
                       <p className="text-[10px] text-muted-foreground uppercase font-bold">
                         Assets Value
                       </p>
@@ -1396,7 +1667,8 @@ export function ProductHistoryScreen({
                     </CardContent>
                   </Card>
                   <Card className="border-slate-200 bg-slate-50/70">
-                    <CardContent className="p-3">
+                    <CardContent className="p-3 m-2">
+
                       <p className="text-[10px] text-muted-foreground uppercase font-bold">
                         Avg Buy Price
                       </p>
@@ -1406,7 +1678,8 @@ export function ProductHistoryScreen({
                     </CardContent>
                   </Card>
                   <Card className="border-blue-200 bg-blue-50/70">
-                    <CardContent className="p-3">
+                    <CardContent className="p-3 m-2">
+
                       <p className="text-[10px] text-muted-foreground uppercase font-bold">
                         Avg Sell Price
                       </p>
@@ -1416,7 +1689,8 @@ export function ProductHistoryScreen({
                     </CardContent>
                   </Card>
                   <Card className="border-orange-200 bg-orange-50/70">
-                    <CardContent className="p-3">
+                    <CardContent className="p-3 m-2">
+
                       <p className="text-[10px] text-muted-foreground uppercase font-bold">
                         Profit Margin
                       </p>
@@ -1462,9 +1736,9 @@ export function ProductHistoryScreen({
                     <p className="text-sm font-semibold">
                       {stats.totalPurchased > 0
                         ? (
-                            (stats.totalSold / stats.totalPurchased) *
-                            100
-                          ).toFixed(1)
+                          (stats.totalSold / stats.totalPurchased) *
+                          100
+                        ).toFixed(1)
                         : 0}
                       %
                     </p>
@@ -1568,9 +1842,8 @@ export function ProductHistoryScreen({
                               {filteredPurchases.map((item, index) => (
                                 <tr
                                   key={`${item.id}-${index}`}
-                                  className={`border-b hover:bg-muted/30 ${
-                                    item.quantity < 0 ? "bg-red-50/30" : ""
-                                  }`}
+                                  className={`border-b hover:bg-muted/30 ${item.quantity < 0 ? "bg-red-50/30" : ""
+                                    }`}
                                 >
                                   <td className="p-3 sm:p-4 text-xs sm:text-sm">
                                     <div className="flex items-center gap-1 sm:gap-2">
@@ -1606,11 +1879,10 @@ export function ProductHistoryScreen({
                                     {item.weight || "-"}
                                   </td>
                                   <td
-                                    className={`p-3 sm:p-4 text-xs sm:text-sm text-right whitespace-nowrap ${
-                                      item.quantity < 0
+                                    className={`p-3 sm:p-4 text-xs sm:text-sm text-right whitespace-nowrap ${item.quantity < 0
                                         ? "text-red-600 font-bold"
                                         : ""
-                                    }`}
+                                      }`}
                                   >
                                     {item.quantity} {item.unit}
                                   </td>
@@ -1618,9 +1890,8 @@ export function ProductHistoryScreen({
                                     {formatCurrency(item.purchasePrice)}
                                   </td>
                                   <td
-                                    className={`p-3 sm:p-4 text-xs sm:text-sm text-right font-semibold whitespace-nowrap ${
-                                      item.totalAmount < 0 ? "text-red-600" : ""
-                                    }`}
+                                    className={`p-3 sm:p-4 text-xs sm:text-sm text-right font-semibold whitespace-nowrap ${item.totalAmount < 0 ? "text-red-600" : ""
+                                      }`}
                                   >
                                     {formatCurrency(item.totalAmount)}
                                   </td>
@@ -1633,13 +1904,12 @@ export function ProductHistoryScreen({
                                             ? "default"
                                             : "secondary"
                                       }
-                                      className={`text-[10px] sm:text-xs ${
-                                        item.isReturn
+                                      className={`text-[10px] sm:text-xs ${item.isReturn
                                           ? "text-red-600 border-red-200 bg-red-50"
                                           : item.addedToInventory
                                             ? "bg-emerald-600"
                                             : ""
-                                      }`}
+                                        }`}
                                     >
                                       {item.isReturn
                                         ? "Returned to Vendor"
