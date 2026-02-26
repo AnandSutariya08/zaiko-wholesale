@@ -48,6 +48,7 @@ export interface CompanyProfile {
   phone: string;
   email: string;
   logo?: string;
+  signature?: string;
   upiId?: string; // Legacy: UPI ID for "Scan & Pay" QR on bills (e.g., name@bank)
   defaultUnit?: string; // Default unit for new products
   unitOptions?: string[]; // Allowed product units

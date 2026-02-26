@@ -7,6 +7,7 @@ import {
   formatToTwoDecimals,
 } from "@/lib/billUtils";
 import { getCompanyProfile } from "@/lib/storage";
+import { storage } from "@/lib/firebase";
 import { Button } from "./ui/button";
 import { Download, Printer, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -19,6 +20,7 @@ import {
   Image,
   pdf,
 } from "@react-pdf/renderer";
+import { getDownloadURL, ref } from "firebase/storage";
 import QRCode from "qrcode";
 import { Font } from "@react-pdf/renderer";
 
@@ -118,6 +120,8 @@ const P = StyleSheet.create({
   // Footer / Sig
   sigBox: { height: 40, borderBottomWidth: 1, borderBottomStyle: "dashed", borderBottomColor: "#9ca3af" },
   sigBoxSolid: { height: 40 },
+  sigImage: { width: 120, height: 36, objectFit: "contain" },
+  centerItems: { alignItems: "center", justifyContent: "center" },
 });
 
 // ─── Helper ─────────────────────────────────────────────────────────────────
@@ -156,6 +160,9 @@ export const BillPDF = ({
       : "INVOICE";
 
   const themeColor = company.themeColor || "#1e40af";
+  const signatureSrc = company?.signature
+    ? ({ uri: String(company.signature) } as any)
+    : null;
 
   // Column widths for domestic items table (matching HTML widths in pt)
   const slW = 22;
@@ -359,11 +366,17 @@ export const BillPDF = ({
             </View>
 
             {/* Right: Signature */}
-            <View style={[P.w50, P.textRight]}>
-              <Text style={P.sm}>Signature & Date: {fmtDate(new Date())}</Text>
-              <Text style={[P.bold, P.mt1]}>FOR {String(company.name || "").toUpperCase()}</Text>
-              <View style={{ height: 40 }} />
-              <Text style={P.sm}>Proprietor</Text>
+            <View style={[P.w50, P.centerItems]}>
+              <Text style={[P.sm, P.textCenter]}>Signature & Date: {fmtDate(new Date())}</Text>
+              <Text style={[P.bold, P.mt1, P.textCenter]}>FOR {String(company.name || "").toUpperCase()}</Text>
+              {signatureSrc ? (
+                <View style={[P.mt1, P.centerItems]}>
+                  <Image src={signatureSrc} style={P.sigImage} />
+                </View>
+              ) : (
+                <View style={{ height: 40 }} />
+              )}
+              <Text style={[P.sm, P.textCenter]}>Proprietor</Text>
             </View>
           </View>
 
@@ -696,18 +709,13 @@ export const BillPDF = ({
             <Text style={[P.sm, P.textCenter, P.mt1, P.gray]}>{bill.client.name}</Text>
           </View>
           <View style={[P.flex1, P.p3]}>
-            {/* Created By */}
-            {bill.createdBy && (
-              <View style={P.mb2}>
-                <Text style={[P.sm, P.gray]}>Created by: <Text style={[P.bold, { color: "#374151" }]}>{bill.createdBy}</Text></Text>
+            <View>
+              <Text style={[P.bold, P.sm, P.mb1, P.textRight]}>Company Seal and Signature</Text>
+              <View style={[P.sigBox, P.centerItems]}>
+                {signatureSrc ? <Image src={signatureSrc} style={P.sigImage} /> : null}
               </View>
-            )}
-            <View style={P.textRight}>
-              <Text style={[P.bold, P.sm, P.mb1]}>for {company.name}</Text>
-              <View style={P.sigBoxSolid} />
-              <View style={[P.borderTop, P.pt1, { alignSelf: "flex-end" }]}>
-                <Text style={P.sm}>Authorised Signatory</Text>
-              </View>
+              <Text style={[P.sm, P.textCenter, P.mt1, P.gray]}>{company.name}</Text>
+              <Text style={[P.sm, P.textCenter, P.mt1]}>Authorised Signatory</Text>
             </View>
           </View>
         </View>
@@ -785,13 +793,49 @@ export function BillView({ bill }: BillViewProps) {
 
   const handlePrint = () => window.print();
 
+  const resolveSignatureForPdf = async (signature?: string): Promise<string | null> => {
+    if (!signature) return null;
+    let signatureUrl = signature.trim();
+    if (!signatureUrl) return null;
+    if (signatureUrl.startsWith("data:")) return signatureUrl;
+
+    // Support legacy values that stored only Firebase Storage path.
+    if (!/^https?:\/\//i.test(signatureUrl)) {
+      try {
+        signatureUrl = await getDownloadURL(ref(storage, signatureUrl));
+      } catch {
+        return null;
+      }
+    }
+
+    // Convert to data URL so react-pdf can embed consistently in downloaded files.
+    try {
+      const response = await fetch(signatureUrl, { mode: "cors" });
+      if (!response.ok) return signatureUrl;
+      const blob = await response.blob();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(String(reader.result || ""));
+        reader.onerror = () => reject(new Error("Failed to read signature"));
+        reader.readAsDataURL(blob);
+      });
+      return dataUrl || signatureUrl;
+    } catch {
+      return signatureUrl;
+    }
+  };
+
   const handleDownloadPDF = async () => {
     toast.info("Generating PDF...");
     try {
       const qrToUse = qrDataURL || (await QRCode.toDataURL(window.location.origin + `/bills/${bill.id}`));
+      const signatureForPdf = await resolveSignatureForPdf(company?.signature);
       const isSampleBill = "isSample" in bill && bill.isSample;
+      const companyForPdf = signatureForPdf
+        ? { ...company, signature: signatureForPdf }
+        : company;
       const blob = await pdf(
-        <BillPDF bill={bill} company={company} qrDataURL={qrToUse} isSample={isSampleBill} />
+        <BillPDF bill={bill} company={companyForPdf} qrDataURL={qrToUse} isSample={isSampleBill} />
       ).toBlob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -1000,10 +1044,18 @@ export function BillView({ bill }: BillViewProps) {
                     </div>
                   )}
                 </div>
-                <div className="text-right pl-2">
+                <div className="text-center pl-2">
                   <p className="text-[10px]">Signature & Date: {formatDate(new Date().toISOString())}</p>
                   <p className="text-[10px] font-bold mt-1">FOR {String(company.name || "").toUpperCase()}</p>
-                  <div className="h-12" />
+                  {company.signature ? (
+                    <img
+                      src={company.signature}
+                      alt="Authorised Signature"
+                      className="h-12 w-32 object-contain mx-auto my-1"
+                    />
+                  ) : (
+                    <div className="h-12" />
+                  )}
                   <p className="text-[10px]">Proprietor</p>
                 </div>
               </div>
@@ -1297,16 +1349,25 @@ export function BillView({ bill }: BillViewProps) {
                     <p className="text-[9px] text-center mt-1 text-gray-600">{bill.client.name}</p>
                   </div>
                   <div className="p-3">
+                    <div>
+                      <p className="text-[10px] font-bold mb-1 text-right">Company Seal and Signature</p>
+                      <div className="h-12 border-b border-dashed border-gray-400 flex items-center justify-center">
+                        {company.signature ? (
+                          <img
+                            src={company.signature}
+                            alt="Authorised Signature"
+                            className="h-10 w-28 object-contain"
+                          />
+                        ) : null}
+                      </div>
+                      <p className="text-[9px] text-center mt-1 text-gray-600">{company.name}</p>
+                      <p className="text-[9px] text-center mt-1">Authorised Signatory</p>
+                    </div>
                     {bill.createdBy && (
-                      <p className="text-[9px] text-gray-500 mb-2">
+                      <p className="text-[9px] text-gray-500 mt-2 text-right">
                         Created by: <span className="font-semibold text-gray-700">{bill.createdBy}</span>
                       </p>
                     )}
-                    <div className="text-right">
-                      <p className="text-[10px] font-bold mb-1">for {company.name}</p>
-                      <div className="h-12"></div>
-                      <p className="text-[9px] border-t border-black pt-1 inline-block">Authorised Signatory</p>
-                    </div>
                   </div>
                 </div>
               </div>
