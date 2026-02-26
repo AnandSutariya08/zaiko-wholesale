@@ -1681,27 +1681,14 @@ export const addPurchaseItemsToInventory = async (
 
     for (const item of itemsWithSellingPrice) {
       const normalizedImei = normalizeImei(item.imeiNumber);
-      const selectedProduct = item.productId
-        ? products.find((p) => p.id === item.productId)
-        : undefined;
-      const isSerializedItem =
-        isSerializedTracking(selectedProduct) || Boolean(normalizedImei);
+      const isSerializedItem = Boolean(normalizedImei);
 
       if (isSerializedItem) {
-        if (!normalizedImei) {
-          throw new Error(
-            `IMEI/Serial is required for serialized item "${item.description}".`,
-          );
-        }
         if (Number(item.quantity) !== 1) {
           throw new Error(
             `IMEI/Serial item "${item.description}" must have quantity 1.`,
           );
         }
-      } else if (normalizedImei) {
-        throw new Error(
-          `Standard item "${item.description}" should not contain IMEI/Serial.`,
-        );
       }
 
       if (!normalizedImei) continue;

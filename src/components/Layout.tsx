@@ -437,6 +437,29 @@ export function Layout({ children }: LayoutProps) {
     loadCompany();
   }, []);
 
+  useEffect(() => {
+    const setAppViewportHeight = () => {
+      const viewportHeight =
+        window.visualViewport?.height || window.innerHeight || 0;
+      document.documentElement.style.setProperty(
+        "--app-vh",
+        `${Math.round(viewportHeight)}px`,
+      );
+    };
+
+    setAppViewportHeight();
+    window.addEventListener("resize", setAppViewportHeight);
+    window.visualViewport?.addEventListener("resize", setAppViewportHeight);
+
+    return () => {
+      window.removeEventListener("resize", setAppViewportHeight);
+      window.visualViewport?.removeEventListener(
+        "resize",
+        setAppViewportHeight,
+      );
+    };
+  }, []);
+
   // Check session expiry periodically and auto-logout
   useEffect(() => {
     const checkSession = () => {
@@ -537,7 +560,8 @@ export function Layout({ children }: LayoutProps) {
   return (
     <SidebarProvider
       defaultOpen={getInitialSidebarOpen()}
-      className="h-screen flex overflow-hidden"
+      className="flex min-h-screen overflow-hidden"
+      style={{ height: "var(--app-vh, 100dvh)" }}
     >
       <Sidebar
         side="left"
@@ -561,13 +585,14 @@ export function Layout({ children }: LayoutProps) {
         {/* Main Content */}
         <main
           className={cn(
-            "relative flex-1 overflow-x-hidden",
+            "relative flex flex-1 min-h-0 flex-col overflow-x-hidden",
             isShellManagedRoute ? "overflow-y-hidden" : "overflow-y-auto",
           )}
           style={{
             overscrollBehavior: "contain",
             WebkitOverflowScrolling: "touch",
             scrollbarGutter: "stable both-edges",
+            paddingBottom: "env(safe-area-inset-bottom)",
           }}
         >
           <div className="sticky top-0 z-40 border-b border-border/70 bg-background/95 px-2 py-2 backdrop-blur md:hidden">
@@ -583,14 +608,13 @@ export function Layout({ children }: LayoutProps) {
           </div>
           <div
             className={cn(
-              "mx-auto w-full p-[10px] lg:px-0",
-
-              "h-full max-w-none",
+              "mx-auto flex-1 min-h-0 w-full p-[10px] lg:px-0",
+              "max-w-none",
             )}
           >
             <div
               className={cn(
-                "h-full min-h-0 rounded-[28px]  sm:p-3 md:p-4",
+                "h-full min-h-0 rounded-[28px] sm:p-3 md:p-4",
                 isShellManagedRoute &&
                   "border-0 bg-transparent p-0 shadow-none",
               )}

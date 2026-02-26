@@ -299,9 +299,7 @@ function PurchaseBills() {
     imeiNumber?: string;
     imeiListText?: string;
   }): boolean => {
-    const selectedProduct = products.find((p) => p.id === item.productId);
-    const trackingType = (selectedProduct as any)?.trackingType || "standard";
-    return trackingType === "serialized" || getInventoryRowImeis(item).length > 0;
+    return getInventoryRowImeis(item).length > 0;
   };
 
   const getAvailableStockForBill = (bill: PurchaseBill) => {

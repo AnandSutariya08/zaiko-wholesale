@@ -226,16 +226,10 @@ export default function Dashboard() {
   useEffect(() => {
     const loadTodayNotes = async () => {
       try {
-        // Use the same date format as Notes page (yyyy-MM-dd) using date-fns
         const today = new Date();
         const todayStr = format(today, "yyyy-MM-dd");
-
-        console.log("Loading notes for date:", todayStr);
         const notes = await getNotesByDate(todayStr);
-        console.log("All notes for today:", notes);
-        // Filter out done notes for dashboard
         const activeNotes = notes.filter((n) => !n.isDone);
-        console.log("Active notes (not done):", activeNotes);
         setTodayNotes(activeNotes);
       } catch (error) {
         console.error("Error loading today notes:", error);
@@ -245,7 +239,6 @@ export default function Dashboard() {
 
     loadTodayNotes();
 
-    // Reload notes when component becomes visible (user navigates back)
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         loadTodayNotes();
@@ -253,15 +246,13 @@ export default function Dashboard() {
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    // Also reload when window gains focus (user switches back to tab)
     window.addEventListener("focus", loadTodayNotes);
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("focus", loadTodayNotes);
     };
-  }, []); // Only run on mount
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -291,7 +282,6 @@ export default function Dashboard() {
       ]);
       setCompanyProfile(company);
 
-      // Build available years for filters
       const yearSet = new Set<number>();
       allBills.forEach((b) => {
         if (b.date) yearSet.add(new Date(b.date).getFullYear());
@@ -309,19 +299,14 @@ export default function Dashboard() {
           return false;
         if (selectedMonth !== "all" && d.getMonth() + 1 !== selectedMonth)
           return false;
-
-        // Date range filtering
         if (dateRange.start && new Date(dateStr) < new Date(dateRange.start))
           return false;
         if (dateRange.end && new Date(dateStr) > new Date(dateRange.end))
           return false;
-
-        // GST filtering
         if (bill && gstFilter !== "all") {
           if (gstFilter === "gst" && bill.totalTax === 0) return false;
           if (gstFilter === "non-gst" && bill.totalTax > 0) return false;
         }
-
         return true;
       };
 
@@ -339,7 +324,7 @@ export default function Dashboard() {
           selectedYear === "all" &&
           selectedMonth === "all"
         ) {
-          return true; // Include all returns if no filters
+          return true;
         }
         return filterByYearMonth(ret.returnDate || ret.createdAt);
       });
@@ -349,20 +334,32 @@ export default function Dashboard() {
 
       const getBillFinancials = (bill: Bill) => {
         const billReturns =
-          bill.returns?.reduce((sum, r) => sum + (r.totalReturnValue || 0), 0) || 0;
+          bill.returns?.reduce(
+            (sum, r) => sum + (r.totalReturnValue || 0),
+            0,
+          ) || 0;
         const safeTotal = Math.max(0, bill.total || 0);
         const safeReturns = Math.max(0, Math.min(billReturns, safeTotal));
         const returnRatio = safeTotal > 0 ? safeReturns / safeTotal : 0;
-        const netTotal = roundToTwoDecimals(Math.max(0, safeTotal - safeReturns));
+        const netTotal = roundToTwoDecimals(
+          Math.max(0, safeTotal - safeReturns),
+        );
         const discount = Math.max(0, bill.discount || 0);
-        const subtotalAfterDiscount = Math.max(0, (bill.subtotal || 0) - discount);
+        const subtotalAfterDiscount = Math.max(
+          0,
+          (bill.subtotal || 0) - discount,
+        );
         const netSubtotalAfterDiscount = roundToTwoDecimals(
           subtotalAfterDiscount * (1 - returnRatio),
         );
-        const netTax = roundToTwoDecimals((bill.totalTax || 0) * (1 - returnRatio));
+        const netTax = roundToTwoDecimals(
+          (bill.totalTax || 0) * (1 - returnRatio),
+        );
         const paidRaw = Math.max(0, bill.paidAmount || 0);
         const recognizedPaid = roundToTwoDecimals(Math.min(paidRaw, netTotal));
-        const pending = roundToTwoDecimals(Math.max(0, netTotal - recognizedPaid));
+        const pending = roundToTwoDecimals(
+          Math.max(0, netTotal - recognizedPaid),
+        );
         const paymentRatio = netTotal > 0 ? recognizedPaid / netTotal : 0;
         const dueDate = bill.dueDate ? new Date(bill.dueDate) : null;
         if (dueDate) dueDate.setHours(0, 0, 0, 0);
@@ -378,7 +375,6 @@ export default function Dashboard() {
         };
       };
 
-      // Total sales revenue (Actual money received including partial payments)
       const totalRevenue = roundToTwoDecimals(
         filteredBillsInRange.reduce(
           (sum, bill) => sum + getBillFinancials(bill).recognizedPaid,
@@ -386,19 +382,21 @@ export default function Dashboard() {
         ),
       );
 
-      // Pending receivable amount (including GST - this is actual money still owed)
       const pendingAmount = roundToTwoDecimals(
         filteredBillsInRange.reduce(
           (sum, bill) => sum + getBillFinancials(bill).pending,
           0,
         ),
       );
-      const overdueBills = filteredBillsInRange.filter((b) => getBillFinancials(b).isOverdue).length;
+      const overdueBills = filteredBillsInRange.filter(
+        (b) => getBillFinancials(b).isOverdue,
+      ).length;
 
-      // Total purchases (money spent on buying inventory)
       const totalPurchases = roundToTwoDecimals(
         purchaseBillsInRange.reduce((sum, bill) => {
-          const returns = bill.returns?.reduce((rSum, r) => rSum + r.totalReturnValue, 0) || 0;
+          const returns =
+            bill.returns?.reduce((rSum, r) => rSum + r.totalReturnValue, 0) ||
+            0;
           return sum + (bill.total - returns);
         }, 0),
       );
@@ -406,12 +404,13 @@ export default function Dashboard() {
         purchaseBillsInRange
           .filter((b) => b.paymentStatus !== "paid")
           .reduce((sum, bill) => {
-            const returns = bill.returns?.reduce((rSum, r) => rSum + r.totalReturnValue, 0) || 0;
+            const returns =
+              bill.returns?.reduce((rSum, r) => rSum + r.totalReturnValue, 0) ||
+              0;
             return sum + (bill.total - returns - (bill.paidAmount || 0));
           }, 0),
       );
 
-      // Charts data prep
       const monthNames = [
         "Jan",
         "Feb",
@@ -450,7 +449,6 @@ export default function Dashboard() {
           return { key, label };
         }
 
-        // default: month
         const key = `${year}-${String(month).padStart(2, "0")}`;
         const label = `${monthNames[month - 1]} '${year.toString().slice(2)}`;
         return { key, label };
@@ -461,13 +459,11 @@ export default function Dashboard() {
         productById[p.id] = p;
       });
 
-      // Get all product transactions for historical cost calculation
       const productTransactionsMap: Record<string, any[]> = {};
       await Promise.all(
         products.map(async (product) => {
           const transactions = await getProductTransactions(product.id);
           if (transactions && transactions.length > 0) {
-            // Sort transactions by date
             productTransactionsMap[product.id] = transactions.sort(
               (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
             );
@@ -475,9 +471,6 @@ export default function Dashboard() {
         }),
       );
 
-      // Function to calculate historical average cost at a specific date
-      // This uses weighted average method - calculates what the average cost was at that point in time
-      // This is the industry-standard approach for accurate historical profit calculation
       const getHistoricalAverageCost = (
         productId: string,
         saleDate: string,
@@ -493,19 +486,14 @@ export default function Dashboard() {
         const saleDateTime = new Date(saleDate).getTime();
         let totalPurchaseValue = 0;
         let totalPurchaseQuantity = 0;
-        let currentInventory = 0; // Running inventory balance
-        let currentInventoryValue = 0; // Running inventory value
+        let currentInventory = 0;
+        let currentInventoryValue = 0;
 
-        // Process all transactions chronologically up to (but not including) the sale date
-        // We process up to the sale date to get the cost basis at that moment
         for (const transaction of transactions) {
           const transactionDate = new Date(transaction.date).getTime();
 
-          // Only consider transactions before the sale date
-          // (We want the cost basis at the moment of sale, not after)
           if (transactionDate < saleDateTime) {
             if (transaction.type === "purchase" && transaction.purchasePrice) {
-              // Add purchase to inventory
               const purchaseValue =
                 transaction.quantity * transaction.purchasePrice;
               currentInventory += transaction.quantity;
@@ -513,7 +501,6 @@ export default function Dashboard() {
               totalPurchaseValue += purchaseValue;
               totalPurchaseQuantity += transaction.quantity;
             } else if (transaction.type === "sale") {
-              // Remove sale from inventory using weighted average cost
               if (currentInventory > 0) {
                 const averageCostAtSale =
                   currentInventoryValue / currentInventory;
@@ -521,16 +508,12 @@ export default function Dashboard() {
                 currentInventory -= transaction.quantity;
                 currentInventoryValue -= saleValue;
               } else {
-                // No inventory, but sale occurred - use last known cost
                 currentInventory = Math.max(
                   0,
                   currentInventory - transaction.quantity,
                 );
               }
             } else if (transaction.type === "return") {
-              // Returns: Only good returns go back to inventory
-              // Bad returns are losses and don't affect inventory cost basis
-              // Check return condition by billReturnId first (new), billId fallback (legacy)
               const returnItem = allReturns.find(
                 (r) =>
                   r.id === transaction.billReturnId ||
@@ -540,14 +523,12 @@ export default function Dashboard() {
                 (i) => i.productId === productId,
               );
 
-              // Only process good returns (they go back to inventory)
               if (returnItemData && returnItemData.condition === "good") {
                 if (currentInventory > 0) {
                   const avgCost = currentInventoryValue / currentInventory;
                   currentInventory += transaction.quantity;
                   currentInventoryValue += transaction.quantity * avgCost;
                 } else {
-                  // No current inventory, use last purchase price if available
                   const lastPurchase = transactions
                     .filter(
                       (t) =>
@@ -563,12 +544,10 @@ export default function Dashboard() {
                   }
                 }
               }
-              // Bad returns don't affect inventory - they're losses (already accounted in deadstock)
             } else if (
               transaction.type === "purchase_return" &&
               transaction.purchasePrice
             ) {
-              // Vendor returns reduce inventory/value using explicit purchase cost
               const returnValue =
                 Math.abs(transaction.quantity) * transaction.purchasePrice;
               currentInventory = Math.max(
@@ -583,23 +562,17 @@ export default function Dashboard() {
           }
         }
 
-        // Calculate weighted average cost at the time of sale
         if (currentInventory > 0) {
-          // Use the running average cost of available inventory
           return roundToTwoDecimals(currentInventoryValue / currentInventory);
         } else if (totalPurchaseQuantity > 0) {
-          // No inventory available, but we have purchase history - use overall average
           return roundToTwoDecimals(totalPurchaseValue / totalPurchaseQuantity);
         } else {
-          // Fallback to product default price
           return roundToTwoDecimals(
             product.purchasePrice || product.price || 0,
           );
         }
       };
 
-      // Calculate current average purchase prices for inventory valuation
-      // This matches the logic from Products page - using cost basis method
       const currentAveragePrices: Record<string, number> = {};
       const stockValues: Record<string, number> = {};
 
@@ -610,13 +583,10 @@ export default function Dashboard() {
         );
 
         if (purchaseTransactions.length > 0) {
-          // Sort transactions by date descending to handle "last X bills"
-          // In dashboard, we use "all time" logic as default for inventory value
           let filteredTransactions = [...purchaseTransactions].sort(
             (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
           );
 
-          // Calculate total purchase value and quantity
           const totalPurchaseValue = filteredTransactions.reduce(
             (sum, t) => sum + t.quantity * (t.purchasePrice || 0),
             0,
@@ -626,7 +596,6 @@ export default function Dashboard() {
             0,
           );
 
-          // Overall weighted average purchase price
           const filteredAvgPurchasePrice =
             totalPurchaseQuantity > 0
               ? totalPurchaseValue / totalPurchaseQuantity
@@ -635,14 +604,12 @@ export default function Dashboard() {
           currentAveragePrices[product.id] = filteredAvgPurchasePrice;
           stockValues[product.id] = product.stock * filteredAvgPurchasePrice;
         } else {
-          // No purchase history, use product's purchase price
           currentAveragePrices[product.id] = product.purchasePrice || 0;
           stockValues[product.id] =
             product.stock * (product.purchasePrice || 0);
         }
       }
 
-      // Calculate current inventory value using the same logic as Products page
       const inventoryValue = roundToTwoDecimals(
         Object.values(stockValues).reduce((sum, val) => sum + val, 0),
       );
@@ -652,16 +619,13 @@ export default function Dashboard() {
         { label: string; sales: number; purchases: number; profit: number }
       > = {};
 
-      // Sales & profit (using subtotal for profit calculation)
-      // Using historically accurate cost calculation - average cost at time of sale
-      let totalCOGS = 0; // Track total COGS for markup calculation
+      let totalCOGS = 0;
       filteredBillsInRange.forEach((bill) => {
         const { key, label } = getBucketKeyLabel(bill.date);
         if (!buckets[key])
           buckets[key] = { label, sales: 0, purchases: 0, profit: 0 };
         const financials = getBillFinancials(bill);
 
-        // Recognized sales is based on what's actually paid
         const sales = roundToTwoDecimals(
           financials.netSubtotalAfterDiscount * financials.paymentRatio,
         );
@@ -684,7 +648,6 @@ export default function Dashboard() {
         buckets[key].profit += roundToTwoDecimals(sales - recognizedCogs);
       });
 
-      // Purchases (all purchase bills total)
       purchaseBillsInRange.forEach((pb) => {
         const { key, label } = getBucketKeyLabel(
           pb.createdAt || pb.billDate || pb.id,
@@ -692,7 +655,10 @@ export default function Dashboard() {
         if (!buckets[key])
           buckets[key] = { label, sales: 0, purchases: 0, profit: 0 };
         const returns =
-          pb.returns?.reduce((rSum, r) => rSum + (r.totalReturnValue || 0), 0) || 0;
+          pb.returns?.reduce(
+            (rSum, r) => rSum + (r.totalReturnValue || 0),
+            0,
+          ) || 0;
         buckets[key].purchases += roundToTwoDecimals(
           Math.max(0, pb.total - returns),
         );
@@ -709,8 +675,6 @@ export default function Dashboard() {
         profit: roundToTwoDecimals(buckets[k].profit),
       }));
 
-      // Calculate subtotals (excluding GST) for payment breakdown
-      // Account for discount in subtotals (discount reduces actual revenue)
       const paidSubtotalValue = roundToTwoDecimals(
         filteredBillsInRange.reduce((sum, bill) => {
           const financials = getBillFinancials(bill);
@@ -740,7 +704,6 @@ export default function Dashboard() {
         }, 0),
       );
 
-      // Total amounts (including GST) for display
       const totalPending = roundToTwoDecimals(
         filteredBillsInRange
           .filter((b) => {
@@ -761,7 +724,6 @@ export default function Dashboard() {
         { name: "Overdue", value: totalOverdue },
       ].filter((item) => item.value > 0);
 
-      // Calculate deadstock loss (total value of deadstock items)
       const deadstockLoss = roundToTwoDecimals(
         deadstock.reduce(
           (sum, item) => sum + item.costPrice * item.quantity,
@@ -769,7 +731,6 @@ export default function Dashboard() {
         ),
       );
 
-      // Expenses within current filter
       const expensesInRange = allExpenses.filter((e) =>
         filterByYearMonth(e.date),
       );
@@ -777,7 +738,6 @@ export default function Dashboard() {
         expensesInRange.reduce((sum, expense) => sum + expense.amount, 0),
       );
 
-      // Total profit for current filter (sum of bucket profits - deadstock loss - expenses)
       const grossProfit = roundToTwoDecimals(
         bucketKeys.reduce((sum, k) => sum + buckets[k].profit, 0),
       );
@@ -785,7 +745,6 @@ export default function Dashboard() {
         grossProfit - deadstockLoss - totalExpenses,
       );
 
-      // GST Analysis
       const gstCollected = roundToTwoDecimals(
         filteredBillsInRange.reduce((sum, bill) => {
           const financials = getBillFinancials(bill);
@@ -794,10 +753,9 @@ export default function Dashboard() {
       );
       const gstPaid = roundToTwoDecimals(
         purchaseBillsInRange.reduce((sum, bill) => {
-          // Calculate GST paid on items that weren't returned
-          // For simplicity, we assume returns reduce the taxable value proportionally if not explicitly tracked per item
           const totalReturns =
-            bill.returns?.reduce((rSum, r) => rSum + r.totalReturnValue, 0) || 0;
+            bill.returns?.reduce((rSum, r) => rSum + r.totalReturnValue, 0) ||
+            0;
           const returnRatio =
             bill.total > 0
               ? Math.min(1, Math.max(0, totalReturns / bill.total))
@@ -808,7 +766,6 @@ export default function Dashboard() {
       );
       const netGst = roundToTwoDecimals(gstCollected - gstPaid);
 
-      // Total Discount Given
       const totalDiscount = roundToTwoDecimals(
         filteredBillsInRange.reduce(
           (sum, bill) => sum + (bill.discount || 0),
@@ -848,13 +805,11 @@ export default function Dashboard() {
         paymentBreakdown,
       });
 
-      // Sort bills by date (newest first) and get recent bills
       const sortedBills = filteredBillsInRange.sort(
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
       );
       setBills(sortedBills.slice(0, 5));
 
-      // Sort purchase bills by date (newest first)
       const sortedPurchaseBills = purchaseBillsInRange.sort(
         (a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -878,12 +833,9 @@ export default function Dashboard() {
         }
       > = {};
 
-      // Process all bills (paid and pending) for product analytics
-      // Using historically accurate cost calculation - average cost at time of sale
       filteredBillsInRange.forEach((bill) => {
         const discountAmount = bill.discount || 0;
         const billSubtotal = bill.subtotal;
-        // Calculate discount proportion for each item
         const discountRatio =
           billSubtotal > 0 ? discountAmount / billSubtotal : 0;
 
@@ -906,13 +858,10 @@ export default function Dashboard() {
             };
           }
 
-          // Use HISTORICAL average cost at the time of sale for accurate COGS
-          // This ensures profit calculations reflect the actual cost basis when the sale occurred
           const costPrice = getHistoricalAverageCost(product.id, bill.date);
           const itemCost = roundToTwoDecimals(item.quantity * costPrice);
-          // Apply discount proportionally to item revenue
           const itemDiscount = roundToTwoDecimals(item.amount * discountRatio);
-          const itemRevenue = roundToTwoDecimals(item.amount - itemDiscount); // Revenue after discount
+          const itemRevenue = roundToTwoDecimals(item.amount - itemDiscount);
           const itemProfit = roundToTwoDecimals(itemRevenue - itemCost);
 
           productStats[item.productId].revenue += itemRevenue;
@@ -923,7 +872,6 @@ export default function Dashboard() {
         });
       });
 
-      // Process returns for product analytics (filtered by current range)
       returnsInRange.forEach((returnItem) => {
         returnItem.items.forEach((returnItemData) => {
           const product = products.find(
@@ -950,7 +898,6 @@ export default function Dashboard() {
             };
           }
 
-          // Use historical average cost at time of return for accurate return value calculation
           const returnDate = returnItem.returnDate || returnItem.createdAt;
           const costPrice = getHistoricalAverageCost(product.id, returnDate);
           productStats[productId].returnQuantity += returnItemData.quantity;
@@ -960,7 +907,6 @@ export default function Dashboard() {
         });
       });
 
-      // Calculate margins (using markup formula: profit/cost, same as ProductHistory)
       Object.values(productStats).forEach((stat) => {
         stat.margin =
           stat.cost > 0
@@ -968,7 +914,6 @@ export default function Dashboard() {
             : 0;
       });
 
-      // Sort and get top products
       const topProductsByRevenue = Object.values(productStats)
         .sort((a, b) => b.revenue - a.revenue)
         .slice(0, 10)
@@ -1041,7 +986,6 @@ export default function Dashboard() {
         }
       > = {};
 
-      // Process bills for client analytics
       filteredBillsInRange.forEach((bill) => {
         const financials = getBillFinancials(bill);
         if (!clientStats[bill.clientId]) {
@@ -1063,7 +1007,6 @@ export default function Dashboard() {
         clientStats[bill.clientId].pendingAmount += financials.pending;
       });
 
-      // Process returns for client analytics (filter by date range if set)
       returnsInRange.forEach((returnItem) => {
         const client = clients.find((c) => c.name === returnItem.clientName);
         if (!client) return;
@@ -1087,7 +1030,6 @@ export default function Dashboard() {
         );
       });
 
-      // Calculate averages and prepare client analytics
       const topClientsByRevenue = Object.values(clientStats)
         .sort((a, b) => b.revenue - a.revenue)
         .slice(0, 10)
@@ -1164,7 +1106,10 @@ export default function Dashboard() {
     const safeTotal = Math.max(0, bill.total || 0);
     const safeReturns = Math.max(0, Math.min(billReturns, safeTotal));
     const netTotal = Math.max(0, safeTotal - safeReturns);
-    const recognizedPaid = Math.min(Math.max(0, bill.paidAmount || 0), netTotal);
+    const recognizedPaid = Math.min(
+      Math.max(0, bill.paidAmount || 0),
+      netTotal,
+    );
     const pending = Math.max(0, netTotal - recognizedPaid);
     const dueDate = bill.dueDate ? new Date(bill.dueDate) : null;
     if (dueDate) dueDate.setHours(0, 0, 0, 0);
@@ -1183,8 +1128,8 @@ export default function Dashboard() {
       chartData,
       productAnalytics,
       clientAnalytics,
-      billsInRange, // Use the filtered bills
-      purchaseBills.slice(0, 50), // Include purchase bills
+      billsInRange,
+      purchaseBills.slice(0, 50),
       companyProfile,
       dateRange,
     );
@@ -1194,13 +1139,19 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="min-h-screen">
-        <LoadingSpinner size="xl" text="Loading dashboard data..." fullScreen contentAreaOnly />
+        <LoadingSpinner
+          size="xl"
+          text="Loading dashboard data..."
+          fullScreen
+          contentAreaOnly
+        />
       </div>
     );
   }
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col gap-2 overflow-hidden">
+      {/* Header */}
       <div className="shrink-0 rounded-2xl border border-border/70 bg-background p-3 shadow-sm sm:p-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 items-center justify-start gap-3 sm:gap-4">
@@ -1273,218 +1224,225 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* ── SINGLE SCROLL CONTAINER ── everything below scrolls together */}
       <Card className="min-h-0 flex-1 overflow-hidden border border-border/70 bg-background/60 shadow-none">
-        <CardContent className="flex h-full min-h-0 flex-col gap-1.5 p-1 sm:p-1.5">
-          {/* Professional Filters Section - Collapsible */}
-          <div className="w-full max-w-full overflow-hidden rounded-xl border border-border/70 bg-background/80">
-            <button
-              onClick={() => setFiltersOpen(!filtersOpen)}
-              className="w-full p-2 sm:p-2.5 flex items-center justify-between hover:bg-muted/50 transition-colors touch-manipulation"
-            >
-              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <Filter className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+        <CardContent className="h-full min-h-0 overflow-y-auto p-1 pb-4 sm:p-1.5 sm:pb-6">
+          <div className="flex flex-col gap-1.5">
+            {/* Filters & Date Range — scrolls with the rest of the page */}
+            <div className="w-full max-w-full overflow-hidden rounded-xl border border-border/70 bg-background/80">
+              <button
+                onClick={() => setFiltersOpen(!filtersOpen)}
+                className="w-full p-2 sm:p-2.5 flex items-center justify-between hover:bg-muted/50 transition-colors touch-manipulation"
+              >
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                  <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Filter className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                  </div>
+                  <div className="text-left min-w-0 flex-1">
+                    <h3 className="font-semibold text-xs sm:text-sm md:text-base truncate">
+                      Filters & Date Range
+                    </h3>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
+                      {selectedYear !== "all" ||
+                      selectedMonth !== "all" ||
+                      dateRange.start ||
+                      dateRange.end
+                        ? "Active filters applied"
+                        : "Click to configure filters"}
+                    </p>
+                  </div>
                 </div>
-                <div className="text-left min-w-0 flex-1">
-                  <h3 className="font-semibold text-xs sm:text-sm md:text-base truncate">
-                    Filters & Date Range
-                  </h3>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
-                    {selectedYear !== "all" ||
-                    selectedMonth !== "all" ||
-                    dateRange.start ||
-                    dateRange.end
-                      ? "Active filters applied"
-                      : "Click to configure filters"}
-                  </p>
+                {filtersOpen ? (
+                  <ChevronUp className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
+                )}
+              </button>
+
+              {filtersOpen && (
+                <div className="p-2 sm:p-2.5 pt-0 border-t bg-muted/30 w-full max-w-full overflow-x-hidden">
+                  <div className="flex flex-col gap-3 sm:gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 w-full">
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium flex items-center gap-2">
+                          <Calendar className="h-4 w-4" />
+                          Year
+                        </Label>
+                        <Select
+                          value={
+                            selectedYear === "all"
+                              ? "all"
+                              : String(selectedYear)
+                          }
+                          onValueChange={(val: string) =>
+                            setSelectedYear(
+                              val === "all" ? "all" : parseInt(val, 10),
+                            )
+                          }
+                        >
+                          <SelectTrigger className="w-full h-10">
+                            <SelectValue placeholder="Select Year" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Years</SelectItem>
+                            {availableYears.map((y) => (
+                              <SelectItem key={y} value={String(y)}>
+                                {y}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Month</Label>
+                        <Select
+                          value={
+                            selectedMonth === "all"
+                              ? "all"
+                              : String(selectedMonth)
+                          }
+                          onValueChange={(val: string) =>
+                            setSelectedMonth(
+                              val === "all" ? "all" : parseInt(val, 10),
+                            )
+                          }
+                        >
+                          <SelectTrigger className="w-full h-10">
+                            <SelectValue placeholder="Select Month" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Months</SelectItem>
+                            {[
+                              "Jan",
+                              "Feb",
+                              "Mar",
+                              "Apr",
+                              "May",
+                              "Jun",
+                              "Jul",
+                              "Aug",
+                              "Sep",
+                              "Oct",
+                              "Nov",
+                              "Dec",
+                            ].map((name, idx) => (
+                              <SelectItem key={idx + 1} value={String(idx + 1)}>
+                                {name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium flex items-center gap-2">
+                          <BarChart3 className="h-4 w-4" />
+                          View By
+                        </Label>
+                        <Select
+                          value={granularity}
+                          onValueChange={(val: "month" | "week" | "day") =>
+                            setGranularity(val)
+                          }
+                        >
+                          <SelectTrigger className="w-full h-10">
+                            <SelectValue placeholder="Select View" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="month">By Month</SelectItem>
+                            <SelectItem value="week">By Week</SelectItem>
+                            <SelectItem value="day">By Day</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium flex items-center gap-2">
+                          <Receipt className="h-4 w-4" />
+                          GST Type
+                        </Label>
+                        <Select
+                          value={gstFilter}
+                          onValueChange={(val: "all" | "gst" | "non-gst") =>
+                            setGstFilter(val)
+                          }
+                        >
+                          <SelectTrigger className="w-full h-10">
+                            <SelectValue placeholder="Select GST Type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Bills</SelectItem>
+                            <SelectItem value="gst">GST Bills</SelectItem>
+                            <SelectItem value="non-gst">
+                              Non-GST Bills
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 items-end w-full">
+                      <div className="space-y-2 w-full">
+                        <Label
+                          htmlFor="start-date"
+                          className="text-xs sm:text-sm font-medium"
+                        >
+                          From Date
+                        </Label>
+                        <Input
+                          id="start-date"
+                          type="date"
+                          value={dateRange.start}
+                          onChange={(e) =>
+                            setDateRange({
+                              ...dateRange,
+                              start: e.target.value,
+                            })
+                          }
+                          className="w-full h-9 sm:h-10 text-sm"
+                        />
+                      </div>
+
+                      <div className="space-y-2 w-full">
+                        <Label
+                          htmlFor="end-date"
+                          className="text-xs sm:text-sm font-medium"
+                        >
+                          To Date
+                        </Label>
+                        <Input
+                          id="end-date"
+                          type="date"
+                          value={dateRange.end}
+                          onChange={(e) =>
+                            setDateRange({ ...dateRange, end: e.target.value })
+                          }
+                          className="w-full h-9 sm:h-10 text-sm"
+                        />
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedYear("all");
+                          setSelectedMonth("all");
+                          setGranularity("month");
+                          setGstFilter("all");
+                          setDateRange({ start: "", end: "" });
+                        }}
+                        className="w-full h-9 sm:h-10 text-xs sm:text-sm touch-manipulation"
+                      >
+                        Clear All Filters
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              {filtersOpen ? (
-                <ChevronUp className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
-              ) : (
-                <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
               )}
-            </button>
+            </div>
 
-            {filtersOpen && (
-              <div className="p-2 sm:p-2.5 pt-0 border-t bg-muted/30 w-full max-w-full overflow-x-hidden">
-                <div className="flex flex-col gap-3 sm:gap-4">
-                  {/* Primary Filters */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 w-full">
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium flex items-center gap-2">
-                        <Calendar className="h-4 w-4" />
-                        Year
-                      </Label>
-                      <Select
-                        value={
-                          selectedYear === "all" ? "all" : String(selectedYear)
-                        }
-                        onValueChange={(val: string) =>
-                          setSelectedYear(
-                            val === "all" ? "all" : parseInt(val, 10),
-                          )
-                        }
-                      >
-                        <SelectTrigger className="w-full h-10">
-                          <SelectValue placeholder="Select Year" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Years</SelectItem>
-                          {availableYears.map((y) => (
-                            <SelectItem key={y} value={String(y)}>
-                              {y}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">Month</Label>
-                      <Select
-                        value={
-                          selectedMonth === "all"
-                            ? "all"
-                            : String(selectedMonth)
-                        }
-                        onValueChange={(val: string) =>
-                          setSelectedMonth(
-                            val === "all" ? "all" : parseInt(val, 10),
-                          )
-                        }
-                      >
-                        <SelectTrigger className="w-full h-10">
-                          <SelectValue placeholder="Select Month" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Months</SelectItem>
-                          {[
-                            "Jan",
-                            "Feb",
-                            "Mar",
-                            "Apr",
-                            "May",
-                            "Jun",
-                            "Jul",
-                            "Aug",
-                            "Sep",
-                            "Oct",
-                            "Nov",
-                            "Dec",
-                          ].map((name, idx) => (
-                            <SelectItem key={idx + 1} value={String(idx + 1)}>
-                              {name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium flex items-center gap-2">
-                        <BarChart3 className="h-4 w-4" />
-                        View By
-                      </Label>
-                      <Select
-                        value={granularity}
-                        onValueChange={(val: "month" | "week" | "day") =>
-                          setGranularity(val)
-                        }
-                      >
-                        <SelectTrigger className="w-full h-10">
-                          <SelectValue placeholder="Select View" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="month">By Month</SelectItem>
-                          <SelectItem value="week">By Week</SelectItem>
-                          <SelectItem value="day">By Day</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium flex items-center gap-2">
-                        <Receipt className="h-4 w-4" />
-                        GST Type
-                      </Label>
-                      <Select
-                        value={gstFilter}
-                        onValueChange={(val: "all" | "gst" | "non-gst") =>
-                          setGstFilter(val)
-                        }
-                      >
-                        <SelectTrigger className="w-full h-10">
-                          <SelectValue placeholder="Select GST Type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Bills</SelectItem>
-                          <SelectItem value="gst">GST Bills</SelectItem>
-                          <SelectItem value="non-gst">Non-GST Bills</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* Date Range Filters */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 items-end w-full">
-                    <div className="space-y-2 w-full">
-                      <Label
-                        htmlFor="start-date"
-                        className="text-xs sm:text-sm font-medium"
-                      >
-                        From Date
-                      </Label>
-                      <Input
-                        id="start-date"
-                        type="date"
-                        value={dateRange.start}
-                        onChange={(e) =>
-                          setDateRange({ ...dateRange, start: e.target.value })
-                        }
-                        className="w-full h-9 sm:h-10 text-sm"
-                      />
-                    </div>
-
-                    <div className="space-y-2 w-full">
-                      <Label
-                        htmlFor="end-date"
-                        className="text-xs sm:text-sm font-medium"
-                      >
-                        To Date
-                      </Label>
-                      <Input
-                        id="end-date"
-                        type="date"
-                        value={dateRange.end}
-                        onChange={(e) =>
-                          setDateRange({ ...dateRange, end: e.target.value })
-                        }
-                        className="w-full h-9 sm:h-10 text-sm"
-                      />
-                    </div>
-
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setSelectedYear("all");
-                        setSelectedMonth("all");
-                        setGranularity("month");
-                        setGstFilter("all");
-                        setDateRange({ start: "", end: "" });
-                      }}
-                      className="w-full h-9 sm:h-10 text-xs sm:text-sm touch-manipulation"
-                    >
-                      Clear All Filters
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="min-h-0 flex-1 overflow-y-auto p-1 sm:p-1.5 lg:p-2">
-            <div className="space-y-4 pr-1 sm:pr-2">
+            {/* ── All dashboard content — same scroll as filters above ── */}
+            <div className="space-y-4 p-1 sm:p-1.5 lg:p-2 pr-1 sm:pr-2">
               {todayNotes.length > 0 && (
                 <Card className="border-2 shadow-md bg-gradient-to-br from-blue-50/50 to-purple-50/50 dark:from-blue-950/20 dark:to-purple-950/20 w-full max-w-full overflow-hidden">
                   <CardHeader className="px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 pb-3 sm:pb-4">
@@ -1504,7 +1462,6 @@ export default function Dashboard() {
                             onClick={async () => {
                               try {
                                 await updateNoteStatus(note.id, true);
-                                // Reload notes to get fresh data using same date format
                                 const today = new Date();
                                 const todayStr = format(today, "yyyy-MM-dd");
                                 const notes = await getNotesByDate(todayStr);
@@ -1646,7 +1603,7 @@ export default function Dashboard() {
                     <Clock className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-blue-500 flex-shrink-0" />
                   </CardHeader>
                   <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
-                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400 break-words ">
+                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400 break-words">
                       {formatCurrency(stats.pendingAmount)}
                     </div>
                     <div className="flex items-center gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
@@ -1666,7 +1623,7 @@ export default function Dashboard() {
                     <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-emerald-500 flex-shrink-0" />
                   </CardHeader>
                   <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
-                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-emerald-600 dark:text-emerald-400 break-words ">
+                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-emerald-600 dark:text-emerald-400 break-words">
                       {formatCurrency(stats.totalRevenue - stats.gstCollected)}
                     </div>
                     <div className="flex items-center gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
@@ -1686,7 +1643,7 @@ export default function Dashboard() {
                     <Percent className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-red-500 flex-shrink-0" />
                   </CardHeader>
                   <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
-                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-red-600 dark:text-red-400 break-words ">
+                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-red-600 dark:text-red-400 break-words">
                       {formatCurrency(stats.totalDiscount)}
                     </div>
                     <div className="flex items-center gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
@@ -1706,7 +1663,7 @@ export default function Dashboard() {
                     <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-orange-500 flex-shrink-0" />
                   </CardHeader>
                   <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
-                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-orange-600 dark:text-orange-400 break-words ">
+                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-orange-600 dark:text-orange-400 break-words">
                       {formatCurrency(stats.totalPurchases)}
                     </div>
                     <div className="flex items-center gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
@@ -1735,7 +1692,7 @@ export default function Dashboard() {
                   </CardHeader>
                   <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
                     <div
-                      className={`text-lg sm:text-xl md:text-2xl font-bold ${stats.profit >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"} break-words `}
+                      className={`text-lg sm:text-xl md:text-2xl font-bold ${stats.profit >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"} break-words`}
                     >
                       {stats.profit >= 0 ? "" : "-"}
                       {formatCurrency(Math.abs(stats.profit))}
@@ -1758,7 +1715,6 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
 
-                {/* Expenses Card */}
                 <Card className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border-amber-500/20 w-full">
                   <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6">
                     <CardTitle className="text-[10px] sm:text-xs md:text-sm font-medium text-amber-600 dark:text-amber-400 truncate pr-2">
@@ -1771,7 +1727,7 @@ export default function Dashboard() {
                     </div>
                   </CardHeader>
                   <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
-                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-amber-600 dark:text-amber-400 break-words ">
+                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-amber-600 dark:text-amber-400 break-words">
                       {formatCurrency(stats.totalExpenses)}
                     </div>
                     <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
@@ -1790,7 +1746,7 @@ export default function Dashboard() {
                         <p className="text-xs sm:text-sm font-medium text-purple-600 dark:text-purple-400 break-words">
                           Current Inventory Value
                         </p>
-                        <p className="text-lg sm:text-xl md:text-2xl font-bold text-purple-600 dark:text-purple-400 break-words  mt-1">
+                        <p className="text-lg sm:text-xl md:text-2xl font-bold text-purple-600 dark:text-purple-400 break-words mt-1">
                           {formatCurrency(stats.inventoryValue)}
                         </p>
                         <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 break-words">
@@ -1830,7 +1786,7 @@ export default function Dashboard() {
                         <p className="text-xs sm:text-sm font-medium text-red-600 dark:text-red-400 break-words">
                           Deadstock Loss
                         </p>
-                        <p className="text-lg sm:text-xl md:text-2xl font-bold text-red-600 dark:text-red-400 break-words  mt-1">
+                        <p className="text-lg sm:text-xl md:text-2xl font-bold text-red-600 dark:text-red-400 break-words mt-1">
                           {formatCurrency(stats.deadstockLoss)}
                         </p>
                         <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 break-words">
@@ -1853,7 +1809,6 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent className="pt-3 sm:pt-4 md:pt-6 px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6 w-full max-w-full overflow-x-hidden">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 w-full">
-                    {/* Gross Revenue */}
                     <div className="space-y-1.5 sm:space-y-2 p-2.5 sm:p-3 md:p-4 bg-emerald-500/5 rounded-lg border border-emerald-200/50 w-full">
                       <div className="flex items-center gap-1.5 sm:gap-2">
                         <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-emerald-600 flex-shrink-0" />
@@ -1861,7 +1816,7 @@ export default function Dashboard() {
                           Gross Revenue
                         </span>
                       </div>
-                      <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-emerald-600 break-words ">
+                      <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-emerald-600 break-words">
                         {formatCurrency(stats.totalRevenue)}
                       </p>
                       <p className="text-[10px] sm:text-xs text-muted-foreground break-words">
@@ -1869,7 +1824,6 @@ export default function Dashboard() {
                       </p>
                     </div>
 
-                    {/* Cost of Goods Sold */}
                     <div className="space-y-1.5 sm:space-y-2 p-2.5 sm:p-3 md:p-4 bg-orange-500/5 rounded-lg border border-orange-200/50 w-full">
                       <div className="flex items-center gap-1.5 sm:gap-2">
                         <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4 text-orange-600 flex-shrink-0" />
@@ -1877,7 +1831,7 @@ export default function Dashboard() {
                           COGS
                         </span>
                       </div>
-                      <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-orange-600 break-words ">
+                      <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-orange-600 break-words">
                         {formatCurrency(stats.totalPurchases)}
                       </p>
                       <p className="text-[10px] sm:text-xs text-muted-foreground break-words">
@@ -1885,7 +1839,6 @@ export default function Dashboard() {
                       </p>
                     </div>
 
-                    {/* Expenses & Losses */}
                     <div className="space-y-1.5 sm:space-y-2 p-2.5 sm:p-3 md:p-4 bg-red-500/5 rounded-lg border border-red-200/50 w-full">
                       <div className="flex items-center gap-1.5 sm:gap-2">
                         <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-red-600 flex-shrink-0" />
@@ -1893,7 +1846,7 @@ export default function Dashboard() {
                           Expenses & Losses
                         </span>
                       </div>
-                      <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-red-600 break-words ">
+                      <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-red-600 break-words">
                         {formatCurrency(
                           stats.totalExpenses + stats.deadstockLoss,
                         )}
@@ -1910,7 +1863,6 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    {/* Net Profit */}
                     <div
                       className={`space-y-1.5 sm:space-y-2 p-2.5 sm:p-3 md:p-4 rounded-lg border w-full ${
                         stats.profit >= 0
@@ -1927,7 +1879,7 @@ export default function Dashboard() {
                         </span>
                       </div>
                       <p
-                        className={`text-base sm:text-lg md:text-xl lg:text-2xl font-bold break-words  ${stats.profit >= 0 ? "text-blue-600" : "text-red-600"}`}
+                        className={`text-base sm:text-lg md:text-xl lg:text-2xl font-bold break-words ${stats.profit >= 0 ? "text-blue-600" : "text-red-600"}`}
                       >
                         {stats.profit >= 0 ? "" : "-"}
                         {formatCurrency(Math.abs(stats.profit))}
@@ -1940,7 +1892,6 @@ export default function Dashboard() {
                     </div>
                   </div>
 
-                  {/* Profit Breakdown */}
                   <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-muted/50 rounded-lg w-full max-w-full overflow-x-hidden">
                     <h4 className="font-semibold mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base">
                       <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
@@ -2044,7 +1995,6 @@ export default function Dashboard() {
 
               {/* GST Analysis Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 w-full max-w-full">
-                {/* GST Collected Card */}
                 <Card className="bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-500/20 w-full">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6">
                     <CardTitle className="text-xs sm:text-sm font-medium text-green-600 dark:text-green-400 truncate pr-2">
@@ -2053,7 +2003,7 @@ export default function Dashboard() {
                     <Receipt className="h-4 w-4 sm:h-5 sm:w-5 text-green-500 flex-shrink-0" />
                   </CardHeader>
                   <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
-                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-green-600 dark:text-green-400 break-words ">
+                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-green-600 dark:text-green-400 break-words">
                       {formatCurrency(stats.gstCollected)}
                     </div>
                     <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 break-words">
@@ -2062,7 +2012,6 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
 
-                {/* GST Paid Card */}
                 <Card className="bg-gradient-to-br from-red-500/10 to-red-600/5 border-red-500/20 w-full">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6">
                     <CardTitle className="text-xs sm:text-sm font-medium text-red-600 dark:text-red-400 truncate pr-2">
@@ -2071,7 +2020,7 @@ export default function Dashboard() {
                     <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-red-500 flex-shrink-0" />
                   </CardHeader>
                   <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
-                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-red-600 dark:text-red-400 break-words ">
+                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-red-600 dark:text-red-400 break-words">
                       {formatCurrency(stats.gstPaid)}
                     </div>
                     <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 break-words">
@@ -2080,7 +2029,6 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
 
-                {/* Net GST Card */}
                 <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20 w-full sm:col-span-2 md:col-span-1">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6">
                     <CardTitle className="text-xs sm:text-sm font-medium text-blue-600 dark:text-blue-400 truncate pr-2">
@@ -2094,7 +2042,7 @@ export default function Dashboard() {
                   </CardHeader>
                   <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
                     <div
-                      className={`text-lg sm:text-xl md:text-2xl font-bold break-words  ${stats.netGst >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"}`}
+                      className={`text-lg sm:text-xl md:text-2xl font-bold break-words ${stats.netGst >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"}`}
                     >
                       {stats.netGst >= 0 ? "" : "-"}
                       {formatCurrency(Math.abs(stats.netGst))}
@@ -2343,7 +2291,7 @@ export default function Dashboard() {
                     </div>
                   </CardHeader>
                   <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
-                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-amber-600 break-words ">
+                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-amber-600 break-words">
                       {formatCurrency(stats.pendingAmount)}
                     </div>
                     <div className="text-[10px] sm:text-xs text-muted-foreground mt-1 break-words">
@@ -2405,7 +2353,6 @@ export default function Dashboard() {
                     </p>
                   </CardHeader>
                   <CardContent className="pt-3 sm:pt-4 md:pt-6 space-y-4 sm:space-y-6 px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6 w-full max-w-full overflow-x-hidden">
-                    {/* Top Products by Revenue */}
                     <div>
                       <div className="flex items-center gap-1.5 sm:gap-2 mb-3 sm:mb-4">
                         <Award className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600 flex-shrink-0" />
@@ -2470,7 +2417,6 @@ export default function Dashboard() {
                       )}
                     </div>
 
-                    {/* Top Products by Profit */}
                     <div>
                       <div className="flex items-center gap-1.5 sm:gap-2 mb-3 sm:mb-4">
                         <TrendingUpIcon className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 flex-shrink-0" />
@@ -2534,7 +2480,6 @@ export default function Dashboard() {
                       )}
                     </div>
 
-                    {/* Most Returned Products */}
                     {productAnalytics.mostReturnedProducts.length > 0 && (
                       <div>
                         <div className="flex items-center gap-1.5 sm:gap-2 mb-3 sm:mb-4">
@@ -2584,7 +2529,6 @@ export default function Dashboard() {
                       </div>
                     )}
 
-                    {/* Product Performance Charts */}
                     {productAnalytics.topProductsByRevenue.length > 0 && (
                       <div className="mt-4 sm:mt-6 space-y-4 sm:space-y-6 w-full max-w-full">
                         <div>
@@ -2708,7 +2652,6 @@ export default function Dashboard() {
                     </p>
                   </CardHeader>
                   <CardContent className="pt-3 sm:pt-4 md:pt-6 space-y-4 sm:space-y-6 px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6 w-full max-w-full overflow-x-hidden">
-                    {/* Top Clients by Revenue */}
                     <div>
                       <div className="flex items-center gap-1.5 sm:gap-2 mb-3 sm:mb-4">
                         <Star className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-600 flex-shrink-0" />
@@ -2787,7 +2730,6 @@ export default function Dashboard() {
                       )}
                     </div>
 
-                    {/* Top Clients by Order Frequency */}
                     <div>
                       <div className="flex items-center gap-1.5 sm:gap-2 mb-3 sm:mb-4">
                         <Activity className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600 flex-shrink-0" />
@@ -2851,7 +2793,6 @@ export default function Dashboard() {
                       )}
                     </div>
 
-                    {/* Client Return Analysis */}
                     {clientAnalytics.clientReturnStats.length > 0 && (
                       <div>
                         <div className="flex items-center gap-1.5 sm:gap-2 mb-3 sm:mb-4">
@@ -2899,7 +2840,6 @@ export default function Dashboard() {
                       </div>
                     )}
 
-                    {/* Client Revenue Chart */}
                     {clientAnalytics.topClientsByRevenue.length > 0 && (
                       <div className="mt-4 sm:mt-6">
                         <h3 className="text-sm sm:text-base md:text-lg font-semibold mb-3 sm:mb-4 flex items-center gap-1.5 sm:gap-2 break-words">
@@ -2959,7 +2899,6 @@ export default function Dashboard() {
 
               {/* Recent Activity Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 md:gap-6 w-full max-w-full">
-                {/* Recent Sales */}
                 <Card className="w-full max-w-full overflow-hidden">
                   <CardHeader className="px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 pb-3 sm:pb-4">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-3">
@@ -3033,7 +2972,6 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
 
-                {/* Recent Purchases */}
                 <Card className="w-full max-w-full overflow-hidden">
                   <CardHeader className="px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 pb-3 sm:pb-4">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-3">
@@ -3192,7 +3130,6 @@ export default function Dashboard() {
                   <CardTitle>Business Summary (Current Filter)</CardTitle>
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs md:text-sm">
-                  {/* Sales vs Purchases */}
                   <div className="space-y-1">
                     <p className="font-semibold">
                       Sales vs Purchases (
@@ -3229,7 +3166,6 @@ export default function Dashboard() {
                     </div>
                   </div>
 
-                  {/* Payment Status (Subtotal) */}
                   <div className="space-y-1">
                     <p className="font-semibold">Payment Status (Subtotal)</p>
                     <div className="flex justify-between">
@@ -3252,7 +3188,6 @@ export default function Dashboard() {
                     </div>
                   </div>
 
-                  {/* Profit Overview */}
                   <div className="space-y-1">
                     <p className="font-semibold">Profit Overview (excl. GST)</p>
                     <div className="flex justify-between">
@@ -3291,13 +3226,10 @@ export default function Dashboard() {
                   (b) => getRenderBillFinancials(b).pending > 0,
                 );
                 const sortedDueBills = dueBills.sort((a, b) => {
-                  // Sort overdue first, then by due date
                   const aOverdue = getRenderBillFinancials(a).isOverdue;
                   const bOverdue = getRenderBillFinancials(b).isOverdue;
-                  if (aOverdue && !bOverdue)
-                    return -1;
-                  if (!aOverdue && bOverdue)
-                    return 1;
+                  if (aOverdue && !bOverdue) return -1;
+                  if (!aOverdue && bOverdue) return 1;
                   return (
                     new Date(a.dueDate).getTime() -
                     new Date(b.dueDate).getTime()
@@ -3373,11 +3305,7 @@ export default function Dashboard() {
                                 <div className="flex items-center gap-3 ml-4">
                                   <div className="text-right">
                                     <p
-                                      className={`font-bold text-lg ${
-                                        isOverdue
-                                          ? "text-red-600 dark:text-red-400"
-                                          : "text-amber-600 dark:text-amber-400"
-                                      }`}
+                                      className={`font-bold text-lg ${isOverdue ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"}`}
                                     >
                                       {formatCurrency(pendingAmount)}
                                     </p>
@@ -3448,10 +3376,11 @@ export default function Dashboard() {
                 </Card>
               )}
             </div>
+            {/* end space-y-4 content div */}
           </div>
+          {/* end flex flex-col gap-1.5 */}
         </CardContent>
       </Card>
     </div>
   );
 }
-
