@@ -1882,10 +1882,52 @@ export function BillForm({
                 placeholder="Type IMEI, model number, item code..."
                 className="mt-1.5"
               />
-              {/* ... keep the dropdown list below input ... */}
               {imeiLookup.trim().length > 0 && (
                 <div className="mt-2 max-h-60 overflow-y-auto rounded-lg border bg-background shadow-sm">
-                  {/* your existing imeiMatches rendering */}
+                  {lookupTerm.length < 3 ? (
+                    <p className="px-3 py-2 text-xs text-muted-foreground">
+                      Type at least 3 characters to search devices.
+                    </p>
+                  ) : imeiMatches.length === 0 ? (
+                    <p className="px-3 py-2 text-xs text-muted-foreground">
+                      No available device found for this lookup.
+                    </p>
+                  ) : (
+                    <div className="py-1">
+                      {imeiMatches.map((unit) => {
+                        const product = products.find((p) => p.id === unit.productId);
+                        const title =
+                          product?.model || unit.model || product?.name || unit.productName;
+                        const subtitle = [
+                          unit.imeiNumber,
+                          unit.storage || product?.storage,
+                          unit.color || product?.color,
+                          unit.itemNo || product?.itemNo,
+                        ]
+                          .filter(Boolean)
+                          .join(" / ");
+
+                        return (
+                          <button
+                            key={unit.id}
+                            type="button"
+                            className="flex w-full items-start justify-between gap-2 px-3 py-2 text-left hover:bg-muted/50"
+                            onClick={() => addProductByLookup(unit)}
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">{title}</p>
+                              <p className="truncate text-xs text-muted-foreground">
+                                {subtitle}
+                              </p>
+                            </div>
+                            <span className="shrink-0 text-[11px] text-primary">
+                              Add
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -2750,5 +2792,3 @@ export function BillForm({
     </div>
   );
 }
-
-

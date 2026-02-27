@@ -68,6 +68,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { ProductHistoryScreen } from "@/components/ProductHistoryScreen";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
@@ -81,6 +82,19 @@ import { PDFDownloadLink } from "@react-pdf/renderer";
 import { format } from "date-fns";
 import { ProductsPDF } from "@/components/ProductsPDF";
 import { ProductForm } from "@/components/ProductForm";
+
+const normalizeMasterPart = (value?: string) =>
+  (value || "")
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+
+const buildMasterKey = (name?: string, model?: string) =>
+  `${normalizeMasterPart(name)}|${normalizeMasterPart(model)}`;
+
+const normalizeDeviceLookup = (value?: string) =>
+  (value || "").toString().trim().toLowerCase().replace(/\s+/g, "");
 
 export default function Products() {
   type StockSortOrder =
@@ -113,6 +127,9 @@ export default function Products() {
     quantity: "",
     purchasePrice: "",
   });
+  const [unitDetailsProductId, setUnitDetailsProductId] = useState<
+    string | null
+  >(null);
   const [averagePrices, setAveragePrices] = useState<Record<string, number>>(
     {},
   );
@@ -138,6 +155,19 @@ export default function Products() {
     purchasePrice: "",
   });
   const [stockSortOrder, setStockSortOrder] = useState<StockSortOrder>("none");
+  const [salesReturnUnitIds, setSalesReturnUnitIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [salesReturnImeis, setSalesReturnImeis] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [unitDetailsTab, setUnitDetailsTab] = useState<
+    "purchase" | "sell" | "sales_return"
+  >("purchase");
+  const [unitDetailsSearch, setUnitDetailsSearch] = useState("");
+  const [unitDetailsSort, setUnitDetailsSort] = useState<
+    "latest" | "oldest" | "imei_asc" | "imei_desc"
+  >("latest");
 
   // Helper: get effective purchase price for a product (avg if available, else product price)
   const getEffectivePrice = (product: Product) =>
@@ -245,12 +275,27 @@ export default function Products() {
   const loadProducts = async () => {
     try {
       setLoading(true);
-      const [productsData, unitsData] = await Promise.all([
+      const [productsData, unitsData, inventoryTxns] = await Promise.all([
         getProducts(),
         getInventoryUnits(),
+        getInventoryTransactions(),
       ]);
+      const returnedUnitIds = new Set<string>();
+      const returnedImeis = new Set<string>();
+      for (const txn of inventoryTxns) {
+        if (txn.type !== "return") continue;
+        if (txn.inventoryUnitId) {
+          returnedUnitIds.add(txn.inventoryUnitId);
+        }
+        const normalizedTxnImei = normalizeDeviceLookup(txn.imeiNumber);
+        if (normalizedTxnImei) {
+          returnedImeis.add(normalizedTxnImei);
+        }
+      }
       setProducts(productsData);
       setInventoryUnits(unitsData);
+      setSalesReturnUnitIds(returnedUnitIds);
+      setSalesReturnImeis(returnedImeis);
       setPage(1);
     } catch (error) {
       console.error("Error loading products:", error);
@@ -521,10 +566,28 @@ export default function Products() {
         sold: number;
         deadstock: number;
         imeiSearchBlob: string;
+        units: InventoryUnit[];
       }
     > = {};
+    const productsById = new Set(products.map((p) => p.id));
+    const productIdByMasterKey = new Map<string, string>();
+
+    for (const product of products) {
+      const key = buildMasterKey(product.name, product.model);
+      if (!key || productIdByMasterKey.has(key)) continue;
+      productIdByMasterKey.set(key, product.id);
+    }
+
+    const resolveUnitProductId = (unit: InventoryUnit): string | null => {
+      if (unit.productId && productsById.has(unit.productId)) {
+        return unit.productId;
+      }
+      const fallbackKey = buildMasterKey(unit.productName, unit.model);
+      return productIdByMasterKey.get(fallbackKey) || null;
+    };
+
     for (const unit of inventoryUnits) {
-      const key = unit.productId;
+      const key = resolveUnitProductId(unit);
       if (!key) continue;
       if (!map[key]) {
         map[key] = {
@@ -533,6 +596,7 @@ export default function Products() {
           sold: 0,
           deadstock: 0,
           imeiSearchBlob: "",
+          units: [],
         };
       }
       map[key].totalUnits += 1;
@@ -542,9 +606,10 @@ export default function Products() {
       if (unit.imeiNumber) {
         map[key].imeiSearchBlob += ` ${unit.imeiNumber}`;
       }
+      map[key].units.push(unit);
     }
     return map;
-  }, [inventoryUnits]);
+  }, [inventoryUnits, products]);
 
   const filteredProducts = products
     .filter((product) => {
@@ -583,6 +648,114 @@ export default function Products() {
     (currentPage - 1) * pageSize,
     currentPage * pageSize,
   );
+
+  const unitDetailsProduct = useMemo(
+    () => products.find((p) => p.id === unitDetailsProductId) || null,
+    [products, unitDetailsProductId],
+  );
+
+  const unitDetailsRows = useMemo(() => {
+    if (!unitDetailsProduct) return [] as InventoryUnit[];
+    const summary = inventorySummaryByProduct[unitDetailsProduct.id];
+    const units = summary?.units || [];
+    return [...units].sort(
+      (a, b) =>
+        new Date(b.updatedAt || b.createdAt || 0).getTime() -
+        new Date(a.updatedAt || a.createdAt || 0).getTime(),
+    );
+  }, [inventorySummaryByProduct, unitDetailsProduct]);
+
+  const unitDetailsCounts = useMemo(() => {
+    const salesReturnCount = unitDetailsRows.filter((unit) => {
+      if (salesReturnUnitIds.has(unit.id)) return true;
+      const lookup = normalizeDeviceLookup(
+        unit.imeiNormalized || unit.imeiNumber || unit.serialNumber,
+      );
+      return lookup ? salesReturnImeis.has(lookup) : false;
+    }).length;
+    const soldCount = unitDetailsRows.filter((unit) => unit.status === "sold").length;
+    return {
+      purchase: unitDetailsRows.length,
+      sell: soldCount,
+      sales_return: salesReturnCount,
+    };
+  }, [unitDetailsRows, salesReturnUnitIds, salesReturnImeis]);
+
+  const filteredUnitDetailsRows = useMemo(() => {
+    const searched = unitDetailsRows.filter((unit) => {
+      if (!unitDetailsSearch.trim()) return true;
+      const needle = unitDetailsSearch.trim().toLowerCase();
+      const haystack = [
+        unit.imeiNumber,
+        unit.serialNumber,
+        unit.itemNo,
+        unit.model,
+        unit.storage,
+        unit.color,
+        unit.status,
+        unit.productName,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(needle);
+    });
+
+    const tabbed = searched.filter((unit) => {
+      if (unitDetailsTab === "purchase") return true;
+      if (unitDetailsTab === "sell") return unit.status === "sold";
+      if (salesReturnUnitIds.has(unit.id)) return true;
+      const lookup = normalizeDeviceLookup(
+        unit.imeiNormalized || unit.imeiNumber || unit.serialNumber,
+      );
+      return lookup ? salesReturnImeis.has(lookup) : false;
+    });
+
+    return [...tabbed].sort((a, b) => {
+      if (unitDetailsSort === "oldest") {
+        return (
+          new Date(a.updatedAt || a.createdAt || 0).getTime() -
+          new Date(b.updatedAt || b.createdAt || 0).getTime()
+        );
+      }
+      if (unitDetailsSort === "imei_asc") {
+        return (a.imeiNumber || a.serialNumber || "").localeCompare(
+          b.imeiNumber || b.serialNumber || "",
+        );
+      }
+      if (unitDetailsSort === "imei_desc") {
+        return (b.imeiNumber || b.serialNumber || "").localeCompare(
+          a.imeiNumber || a.serialNumber || "",
+        );
+      }
+      return (
+        new Date(b.updatedAt || b.createdAt || 0).getTime() -
+        new Date(a.updatedAt || a.createdAt || 0).getTime()
+      );
+    });
+  }, [
+    unitDetailsRows,
+    unitDetailsSearch,
+    unitDetailsTab,
+    unitDetailsSort,
+    salesReturnUnitIds,
+    salesReturnImeis,
+  ]);
+
+  const unitDetailsStats = useMemo(() => {
+    const stats = {
+      total: filteredUnitDetailsRows.length,
+      inStock: 0,
+      sold: 0,
+      deadstock: 0,
+    };
+    for (const unit of filteredUnitDetailsRows) {
+      if (unit.status === "in_stock") stats.inStock += 1;
+      else if (unit.status === "sold") stats.sold += 1;
+      else if (unit.status === "deadstock") stats.deadstock += 1;
+    }
+    return stats;
+  }, [filteredUnitDetailsRows]);
 
   useEffect(() => {
     setPage(1);
@@ -1414,6 +1587,7 @@ export default function Products() {
                     sold: 0,
                     deadstock: 0,
                     imeiSearchBlob: "",
+                    units: [],
                   };
                   const imeiInStock = unitSummary.inStock;
                   const imeiSold = unitSummary.sold;
@@ -1579,31 +1753,59 @@ export default function Products() {
                             Inventory Units
                           </p>
                           {trackingType === "serialized" ? (
-                            <div className="grid grid-cols-4 gap-2 text-xs">
-                              <div className="rounded-md border border-emerald-200 bg-emerald-50 p-2">
-                                <p className="text-muted-foreground">In Stock</p>
-                                <p className="text-base font-bold text-emerald-700">
-                                  {imeiInStock}
-                                </p>
+                            <div className="space-y-2">
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                                <div className="rounded-md border border-emerald-200 bg-emerald-50 p-2">
+                                  <p className="text-muted-foreground">In Stock</p>
+                                  <p className="text-base font-bold text-emerald-700">
+                                    {imeiInStock}
+                                  </p>
+                                </div>
+                                <div className="rounded-md border border-blue-200 bg-blue-50 p-2">
+                                  <p className="text-muted-foreground">Sold</p>
+                                  <p className="text-base font-bold text-blue-700">
+                                    {imeiSold}
+                                  </p>
+                                </div>
+                                <div className="rounded-md border border-rose-200 bg-rose-50 p-2">
+                                  <p className="text-muted-foreground">Deadstock</p>
+                                  <p className="text-base font-bold text-rose-700">
+                                    {imeiDeadstock}
+                                  </p>
+                                </div>
+                                <div className="rounded-md border border-slate-200 bg-slate-50 p-2">
+                                  <p className="text-muted-foreground">Total</p>
+                                  <p className="text-base font-bold text-slate-700">
+                                    {unitSummary.totalUnits}
+                                  </p>
+                                </div>
                               </div>
-                              <div className="rounded-md border border-blue-200 bg-blue-50 p-2">
-                                <p className="text-muted-foreground">Sold</p>
-                                <p className="text-base font-bold text-blue-700">
-                                  {imeiSold}
+                              {unitSummary.totalUnits > 0 ? (
+                                <div className="space-y-2 rounded-md border border-border/60 bg-background/70 p-2">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <p className="text-[11px] font-medium text-muted-foreground">
+                                      Device Details
+                                    </p>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 px-2 text-[11px]"
+                                      onClick={() =>
+                                        setUnitDetailsProductId(product.id)
+                                      }
+                                    >
+                                      View Devices
+                                    </Button>
+                                  </div>
+                                  <p className="text-[11px] text-muted-foreground">
+                                    Total tracked units: {unitSummary.totalUnits}
+                                  </p>
+                                </div>
+                              ) : (
+                                <p className="text-[11px] text-muted-foreground">
+                                  No inventory units linked to this master product yet.
                                 </p>
-                              </div>
-                              <div className="rounded-md border border-rose-200 bg-rose-50 p-2">
-                                <p className="text-muted-foreground">Deadstock</p>
-                                <p className="text-base font-bold text-rose-700">
-                                  {imeiDeadstock}
-                                </p>
-                              </div>
-                              <div className="rounded-md border border-slate-200 bg-slate-50 p-2">
-                                <p className="text-muted-foreground">Total</p>
-                                <p className="text-base font-bold text-slate-700">
-                                  {unitSummary.totalUnits}
-                                </p>
-                              </div>
+                              )}
                             </div>
                           ) : (
                             <div className="rounded-md border border-slate-200 bg-slate-50 p-2 text-xs">
@@ -1674,6 +1876,247 @@ export default function Products() {
                 })}
               </div>
             )}
+            <Dialog
+              open={Boolean(unitDetailsProductId)}
+              onOpenChange={(open) => {
+                if (!open) {
+                  setUnitDetailsProductId(null);
+                  setUnitDetailsSearch("");
+                  setUnitDetailsSort("latest");
+                  setUnitDetailsTab("purchase");
+                }
+              }}
+            >
+              <DialogContent className="flex max-h-[92vh] w-[calc(100vw-1rem)] max-w-5xl flex-col gap-0 overflow-hidden p-0 sm:w-[96vw]">
+                <DialogHeader className="border-b border-border bg-gradient-to-r from-primary/5 via-cyan-500/5 to-transparent px-4 py-3 sm:px-5">
+                  <DialogTitle className="text-base font-semibold sm:text-lg">
+                    Device Details
+                  </DialogTitle>
+                  {unitDetailsProduct && (
+                    <p className="text-sm text-muted-foreground">
+                      {unitDetailsProduct.name}
+                      {unitDetailsProduct.model ? ` | ${unitDetailsProduct.model}` : ""}
+                    </p>
+                  )}
+                </DialogHeader>
+                <div className="space-y-3 overflow-y-auto p-3 sm:p-5">
+                  <div className="space-y-2">
+                    <Tabs
+                      value={unitDetailsTab}
+                      onValueChange={(value) =>
+                        setUnitDetailsTab(
+                          value as "purchase" | "sell" | "sales_return",
+                        )
+                      }
+                      className="w-full"
+                    >
+                      <TabsList className="grid h-auto w-full grid-cols-3 p-1">
+                        <TabsTrigger value="purchase" className="text-xs sm:text-sm">
+                          Purchase ({unitDetailsCounts.purchase})
+                        </TabsTrigger>
+                        <TabsTrigger value="sell" className="text-xs sm:text-sm">
+                          Sell ({unitDetailsCounts.sell})
+                        </TabsTrigger>
+                        <TabsTrigger value="sales_return" className="text-xs sm:text-sm">
+                          Sales Return ({unitDetailsCounts.sales_return})
+                        </TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_220px]">
+                      <div className="relative">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          value={unitDetailsSearch}
+                          onChange={(e) => setUnitDetailsSearch(e.target.value)}
+                          placeholder="Search IMEI, serial, item no, model, color..."
+                          className="pl-9"
+                        />
+                      </div>
+                      <Select
+                        value={unitDetailsSort}
+                        onValueChange={(value) =>
+                          setUnitDetailsSort(
+                            value as "latest" | "oldest" | "imei_asc" | "imei_desc",
+                          )
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sort devices" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="latest">Latest first</SelectItem>
+                          <SelectItem value="oldest">Oldest first</SelectItem>
+                          <SelectItem value="imei_asc">IMEI A-Z</SelectItem>
+                          <SelectItem value="imei_desc">IMEI Z-A</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  {filteredUnitDetailsRows.length > 0 ? (
+                    <>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                          <p className="text-[11px] text-muted-foreground">Total</p>
+                          <p className="text-base font-semibold">{unitDetailsStats.total}</p>
+                        </div>
+                        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                          <p className="text-[11px] text-muted-foreground">In Stock</p>
+                          <p className="text-base font-semibold text-emerald-700">
+                            {unitDetailsStats.inStock}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
+                          <p className="text-[11px] text-muted-foreground">Sold</p>
+                          <p className="text-base font-semibold text-blue-700">
+                            {unitDetailsStats.sold}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">
+                          <p className="text-[11px] text-muted-foreground">Deadstock</p>
+                          <p className="text-base font-semibold text-rose-700">
+                            {unitDetailsStats.deadstock}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 md:hidden">
+                        {filteredUnitDetailsRows.map((unit) => (
+                          <div
+                            key={unit.id}
+                            className="space-y-2 rounded-lg border border-border/70 bg-background px-3 py-2"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="font-mono text-[11px] leading-tight break-all">
+                                {unit.imeiNumber || unit.serialNumber || "-"}
+                              </p>
+                              <span
+                                className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                                  unit.status === "in_stock"
+                                    ? "bg-emerald-100 text-emerald-700"
+                                    : unit.status === "sold"
+                                      ? "bg-blue-100 text-blue-700"
+                                      : unit.status === "deadstock"
+                                        ? "bg-rose-100 text-rose-700"
+                                        : "bg-slate-100 text-slate-700"
+                                }`}
+                              >
+                                {unit.status.replace("_", " ")}
+                              </span>
+                            </div>
+                            <p className="text-xs font-medium leading-tight">
+                              {[
+                                unit.model || unitDetailsProduct?.model,
+                                unit.storage || unitDetailsProduct?.storage,
+                                unit.color || unitDetailsProduct?.color,
+                              ]
+                                .filter(Boolean)
+                                .join(" / ") ||
+                                unitDetailsProduct?.name ||
+                                "-"}
+                            </p>
+                            <div className="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+                              <p>Item: {unit.itemNo || unitDetailsProduct?.itemNo || "-"}</p>
+                              <p>
+                                P.Price:{" "}
+                                {formatCurrency(
+                                  unit.purchasePrice ??
+                                    unitDetailsProduct?.purchasePrice ??
+                                    0,
+                                )}
+                              </p>
+                              <p className="col-span-2">
+                                S.Price:{" "}
+                                {formatCurrency(
+                                  unit.sellingPrice ??
+                                    unitDetailsProduct?.sellingPrice ??
+                                    0,
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="hidden max-h-[58vh] overflow-auto rounded-lg border border-border/70 md:block">
+                        <table className="w-full min-w-[760px] text-xs">
+                          <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur">
+                            <tr className="border-b text-left text-muted-foreground">
+                              <th className="px-3 py-2 font-semibold">IMEI/Serial</th>
+                              <th className="px-3 py-2 font-semibold">Device</th>
+                              <th className="px-3 py-2 font-semibold">Item No.</th>
+                              <th className="px-3 py-2 font-semibold">P.Price</th>
+                              <th className="px-3 py-2 font-semibold">S.Price</th>
+                              <th className="px-3 py-2 font-semibold">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredUnitDetailsRows.map((unit, index) => (
+                              <tr
+                                key={unit.id}
+                                className={`align-top ${index % 2 === 0 ? "bg-background" : "bg-muted/20"}`}
+                              >
+                                <td className="px-3 py-2 font-mono">
+                                  {unit.imeiNumber || unit.serialNumber || "-"}
+                                </td>
+                                <td className="px-3 py-2">
+                                  {[
+                                    unit.model || unitDetailsProduct?.model,
+                                    unit.storage || unitDetailsProduct?.storage,
+                                    unit.color || unitDetailsProduct?.color,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" / ") ||
+                                    unitDetailsProduct?.name ||
+                                    "-"}
+                                </td>
+                                <td className="px-3 py-2">
+                                  {unit.itemNo || unitDetailsProduct?.itemNo || "-"}
+                                </td>
+                                <td className="px-3 py-2">
+                                  {formatCurrency(
+                                    unit.purchasePrice ??
+                                      unitDetailsProduct?.purchasePrice ??
+                                      0,
+                                  )}
+                                </td>
+                                <td className="px-3 py-2">
+                                  {formatCurrency(
+                                    unit.sellingPrice ??
+                                      unitDetailsProduct?.sellingPrice ??
+                                      0,
+                                  )}
+                                </td>
+                                <td className="px-3 py-2">
+                                  <span
+                                    className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${
+                                      unit.status === "in_stock"
+                                        ? "bg-emerald-100 text-emerald-700"
+                                        : unit.status === "sold"
+                                          ? "bg-blue-100 text-blue-700"
+                                          : unit.status === "deadstock"
+                                            ? "bg-rose-100 text-rose-700"
+                                            : "bg-slate-100 text-slate-700"
+                                    }`}
+                                  >
+                                    {unit.status.replace("_", " ")}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center">
+                      <p className="text-sm text-muted-foreground">
+                        No inventory units available for this product.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
             {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex items-center justify-center gap-2 pt-2">
@@ -1703,3 +2146,4 @@ export default function Products() {
     </div>
   );
 }
+

@@ -135,11 +135,17 @@ const P = StyleSheet.create({
   tableRow: { flexDirection: "row" },
   tableRowAlt: { flexDirection: "row", backgroundColor: "#f3f4f6" },
   tableCell: { padding: 4, fontSize: 7.5 },
+  centerItems: { alignItems: "center", justifyContent: "center" },
   sigBox: {
     height: 40,
     borderBottomWidth: 1,
     borderBottomStyle: "dashed",
     borderBottomColor: "#9ca3af",
+  },
+  sigImage: {
+    width: 120,
+    height: 32,
+    objectFit: "contain",
   },
   sigBoxSolid: { height: 40 },
 });
@@ -1890,11 +1896,11 @@ export function BillView({ bill }: BillViewProps) {
     let signatureUrl = signature.trim();
     if (!signatureUrl) return null;
 
-    // Already a data URL → return as-is
-    if (signatureUrl.startsWith("data:")) return signatureUrl;
-
-    // Firebase Storage path (legacy case) → resolve public URL
-    if (!/^https?:\/\//i.test(signatureUrl)) {
+    // Firebase Storage path (legacy case) -> resolve public URL
+    if (
+      !signatureUrl.startsWith("data:") &&
+      !/^https?:\/\//i.test(signatureUrl)
+    ) {
       try {
         signatureUrl = await getDownloadURL(ref(storage, signatureUrl));
       } catch (err) {
@@ -1903,21 +1909,46 @@ export function BillView({ bill }: BillViewProps) {
       }
     }
 
-    // Optional: convert to data URL for better PDF embedding reliability
-    // (you can comment this block out if you prefer direct https URLs)
+    // Rasterize to PNG before passing to PDF renderer to prevent tiling/repeat artifacts.
     try {
       const response = await fetch(signatureUrl, { mode: "cors" });
       if (!response.ok) return signatureUrl;
       const blob = await response.blob();
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(String(reader.result || ""));
-        reader.onerror = () => reject(new Error("Failed to read signature"));
-        reader.readAsDataURL(blob);
-      });
-      return dataUrl || signatureUrl;
+      const objectUrl = URL.createObjectURL(blob);
+
+      try {
+        const pngDataUrl = await new Promise<string>((resolve, reject) => {
+          const img = new window.Image();
+          img.onload = () => {
+            try {
+              const width = Math.max(1, img.naturalWidth || 0);
+              const height = Math.max(1, img.naturalHeight || 0);
+              const canvas = document.createElement("canvas");
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext("2d");
+              if (!ctx) {
+                reject(new Error("Failed to create canvas context"));
+                return;
+              }
+              ctx.clearRect(0, 0, width, height);
+              ctx.drawImage(img, 0, 0, width, height);
+              resolve(canvas.toDataURL("image/png"));
+            } catch (drawErr) {
+              reject(drawErr);
+            }
+          };
+          img.onerror = () =>
+            reject(new Error("Failed to load signature image"));
+          img.src = objectUrl;
+        });
+
+        return pngDataUrl || signatureUrl;
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
     } catch (err) {
-      console.warn("Failed to convert signature to data URL", err);
+      console.warn("Failed to convert signature image to PNG data URL", err);
       return signatureUrl;
     }
   };
