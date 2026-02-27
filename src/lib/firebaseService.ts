@@ -25,7 +25,6 @@ import {
   Client,
   Product,
   Bill,
-  BillItem,
   InventoryTransaction,
   PurchaseBill,
   BillReturn,
@@ -43,7 +42,6 @@ import {
   BankAccount,
   Vendor,
   Expo,
-  InventoryUnit,
 } from "@/types";
 
 // Collection names
@@ -53,7 +51,6 @@ const COLLECTIONS = {
   PRODUCTS: "products",
   BILLS: "bills",
   INVENTORY: "inventory",
-  INVENTORY_UNITS: "inventoryUnits",
   BILL_COUNTER: "counters",
   PURCHASE_BILLS: "purchaseBills",
   BILL_RETURNS: "billReturns",
@@ -98,15 +95,13 @@ const removeUndefined = (obj: any): any => {
   return obj;
 };
 
-const roundToTwo = (value: number): number => Math.round(value * 100) / 100;
-
 // Creators
 export const getCreators = async (): Promise<any[]> => {
   try {
     const userId = getUserId();
     const q = query(
       collection(db, COLLECTIONS.CREATORS),
-      where("userId", "==", userId)
+      where("userId", "==", userId),
     );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map((doc) => ({
@@ -123,7 +118,9 @@ export const saveCreator = async (creator: any): Promise<void> => {
   try {
     const userId = getUserId();
     const docRef = doc(db, COLLECTIONS.CREATORS, creator.id);
-    await setDoc(docRef, removeUndefined({ ...creator, userId }), { merge: true });
+    await setDoc(docRef, removeUndefined({ ...creator, userId }), {
+      merge: true,
+    });
   } catch (error) {
     console.error("Error saving creator:", error);
     throw error;
@@ -146,7 +143,7 @@ export const getBankAccounts = async (): Promise<BankAccount[]> => {
     const userId = getUserId();
     const q = query(
       collection(db, COLLECTIONS.BANK_ACCOUNTS),
-      where("userId", "==", userId)
+      where("userId", "==", userId),
     );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map((doc) => ({
@@ -163,7 +160,9 @@ export const saveBankAccount = async (account: BankAccount): Promise<void> => {
   try {
     const userId = getUserId();
     const docRef = doc(db, COLLECTIONS.BANK_ACCOUNTS, account.id);
-    await setDoc(docRef, removeUndefined({ ...account, userId }), { merge: true });
+    await setDoc(docRef, removeUndefined({ ...account, userId }), {
+      merge: true,
+    });
   } catch (error) {
     console.error("Error saving bank account:", error);
     throw error;
@@ -186,7 +185,7 @@ export const getVendors = async (): Promise<Vendor[]> => {
     const userId = getUserId();
     const q = query(
       collection(db, COLLECTIONS.VENDORS),
-      where("userId", "==", userId)
+      where("userId", "==", userId),
     );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map((doc) => ({
@@ -203,7 +202,9 @@ export const saveVendor = async (vendor: Vendor): Promise<void> => {
   try {
     const userId = getUserId();
     const docRef = doc(db, COLLECTIONS.VENDORS, vendor.id);
-    await setDoc(docRef, removeUndefined({ ...vendor, userId }), { merge: true });
+    await setDoc(docRef, removeUndefined({ ...vendor, userId }), {
+      merge: true,
+    });
   } catch (error) {
     console.error("Error saving vendor:", error);
     throw error;
@@ -226,7 +227,7 @@ export const getExpos = async (): Promise<Expo[]> => {
     const userId = getUserId();
     const q = query(
       collection(db, COLLECTIONS.EXPOS),
-      where("userId", "==", userId)
+      where("userId", "==", userId),
     );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map((doc) => ({
@@ -263,7 +264,7 @@ export const deleteExpo = async (id: string): Promise<void> => {
 export const transferStockToExpo = async (
   expoId: string,
   productId: string,
-  quantity: number
+  quantity: number,
 ): Promise<void> => {
   try {
     const batch = writeBatch(db);
@@ -368,7 +369,7 @@ export const getCompanyProfile = async (): Promise<CompanyProfile | null> => {
 };
 
 export const saveCompanyProfile = async (
-  profile: CompanyProfile
+  profile: CompanyProfile,
 ): Promise<void> => {
   try {
     const userId = getUserId();
@@ -387,7 +388,7 @@ export const getClients = async (): Promise<Client[]> => {
     const userId = getUserId();
     const q = query(
       collection(db, COLLECTIONS.CLIENTS),
-      where("userId", "==", userId)
+      where("userId", "==", userId),
     );
     const querySnapshot = await getDocs(q);
 
@@ -440,26 +441,22 @@ export const getProducts = async (): Promise<Product[]> => {
     const userId = getUserId();
     const q = query(
       collection(db, COLLECTIONS.PRODUCTS),
-      where("userId", "==", userId)
+      where("userId", "==", userId),
     );
     const querySnapshot = await getDocs(q);
 
     const products = querySnapshot.docs.map((doc) => {
       const data = doc.data();
-      const trackingType =
-        data.trackingType ||
-        ((data.imeiNumber || "").toString().trim() ? "serialized" : "standard");
-      const sellingPrice =
-        trackingType === "serialized"
-          ? data.sellingPrice || 0
-          : data.sellingPrice || data.price || 0;
       return {
         ...data,
         purchasePrice: data.purchasePrice || 0,
-        sellingPrice,
-        trackingType,
-        weight: typeof data.weight === "string" ? parseFloat(data.weight) || 0 : (data.weight || 0),
-        weightUnit: (data.weightUnit as string) || (data.unit === "kg" ? "kg" : "g"),
+        sellingPrice: data.sellingPrice || data.price || 0,
+        weight:
+          typeof data.weight === "string"
+            ? parseFloat(data.weight) || 0
+            : data.weight || 0,
+        weightUnit:
+          (data.weightUnit as string) || (data.unit === "kg" ? "kg" : "g"),
         vendorId: data.vendorId || "",
       } as Product;
     });
@@ -501,7 +498,7 @@ export const deleteProduct = async (id: string): Promise<void> => {
 export const updateProductStock = async (
   productId: string,
   quantity: number,
-  type: "sale" | "return"
+  type: "sale" | "return",
 ): Promise<void> => {
   try {
     const docRef = doc(db, COLLECTIONS.PRODUCTS, productId);
@@ -534,7 +531,7 @@ export const getBills = async (): Promise<Bill[]> => {
     const userId = getUserId();
     const q = query(
       collection(db, COLLECTIONS.BILLS),
-      where("userId", "==", userId)
+      where("userId", "==", userId),
     );
     const querySnapshot = await getDocs(q);
 
@@ -567,7 +564,6 @@ export const saveBill = async (bill: Bill): Promise<void> => {
   try {
     const userId = getUserId();
     const batch = writeBatch(db);
-    const now = new Date().toISOString();
 
     // Check if this is an update by trying to fetch the existing bill
     const billRef = doc(db, COLLECTIONS.BILLS, bill.id);
@@ -590,7 +586,7 @@ export const saveBill = async (bill: Bill): Promise<void> => {
         const currentAdjustment = stockAdjustments.get(oldItem.productId) || 0;
         stockAdjustments.set(
           oldItem.productId,
-          currentAdjustment + oldItem.quantity
+          currentAdjustment + oldItem.quantity,
         );
       }
 
@@ -599,14 +595,13 @@ export const saveBill = async (bill: Bill): Promise<void> => {
         const currentAdjustment = stockAdjustments.get(newItem.productId) || 0;
         stockAdjustments.set(
           newItem.productId,
-          currentAdjustment - newItem.quantity
+          currentAdjustment - newItem.quantity,
         );
       }
     } else {
       // For new bills, deduct full quantities
       for (const item of bill.items) {
-        const currentAdjustment = stockAdjustments.get(item.productId) || 0;
-        stockAdjustments.set(item.productId, currentAdjustment - item.quantity);
+        stockAdjustments.set(item.productId, -item.quantity);
       }
     }
 
@@ -620,20 +615,15 @@ export const saveBill = async (bill: Bill): Promise<void> => {
         if (productSnap.exists()) {
           const product = productSnap.data() as Product;
           const requiredStock = Math.abs(adjustment);
-          const isSerializedProduct =
-            (product.trackingType || "standard") === "serialized";
-          const availableStock = isSerializedProduct
-            ? (await getAvailableInventoryUnits(productId)).length
-            : product.stock || 0;
 
-          if (availableStock < requiredStock) {
+          if (product.stock < requiredStock) {
             const productName =
               bill.items.find((i) => i.productId === productId)?.productName ||
               "Unknown";
             throw new Error(
-              `Insufficient stock for ${productName}. Available: ${availableStock.toFixed(
-                2
-              )}, Required: ${requiredStock.toFixed(2)}`
+              `Insufficient stock for ${productName}. Available: ${product.stock.toFixed(
+                2,
+              )}, Required: ${requiredStock.toFixed(2)}`,
             );
           }
         } else {
@@ -641,156 +631,6 @@ export const saveBill = async (bill: Bill): Promise<void> => {
         }
       }
     }
-
-    const allProducts = await getProducts();
-    const productMap = new Map(allProducts.map((p) => [p.id, p]));
-    const isSerializedBillItem = (item: BillItem) =>
-      (productMap.get(item.productId)?.trackingType || "standard") ===
-      "serialized";
-
-    const serializedItems = bill.items.filter((item) =>
-      isSerializedBillItem(item),
-    );
-    for (const item of serializedItems) {
-      const hasImei = Boolean(normalizeImeiText(item.imeiNumber));
-      const hasUnitId = Boolean(item.inventoryUnitId);
-      if (!hasImei && !hasUnitId) {
-        throw new Error(
-          `Serialized item "${item.productName}" requires IMEI/Serial selection.`,
-        );
-      }
-      if (item.quantity !== 1) {
-        throw new Error(
-          `Serialized item "${item.productName}" must have quantity 1.`,
-        );
-      }
-    }
-
-    const imeiItems = bill.items.filter(
-      (item) =>
-        isSerializedBillItem(item) ||
-        Boolean(normalizeImeiText(item.imeiNumber)) ||
-        Boolean(item.inventoryUnitId),
-    );
-    const seenImeis = new Set<string>();
-    for (const item of imeiItems) {
-      const imei = normalizeImeiText(item.imeiNumber);
-      if (imei && seenImeis.has(imei)) {
-        throw new Error(`Duplicate IMEI in bill: ${item.imeiNumber}`);
-      }
-      if (imei) {
-        seenImeis.add(imei);
-      }
-      if (isSerializedBillItem(item) && item.quantity !== 1) {
-        throw new Error(
-          `IMEI item "${item.productName}" must have quantity 1.`,
-        );
-      }
-    }
-
-    const inventoryUnits = await getInventoryUnits();
-    const soldByThisBill = inventoryUnits.filter((u) => u.soldBillId === bill.id);
-    const requiredImeis = new Set(
-      imeiItems
-        .map((i) => normalizeImeiText(i.imeiNumber))
-        .filter(Boolean),
-    );
-    const requiredUnitIds = new Set(
-      imeiItems.map((i) => i.inventoryUnitId).filter(Boolean),
-    );
-
-    if (isUpdate) {
-      for (const unit of soldByThisBill) {
-        const unitImei = normalizeImeiText(unit.imeiNormalized || unit.imeiNumber);
-        if (!requiredImeis.has(unitImei) && !requiredUnitIds.has(unit.id)) {
-          const unitRef = doc(db, COLLECTIONS.INVENTORY_UNITS, unit.id);
-          batch.update(unitRef, {
-            status: "in_stock",
-            soldBillId: null,
-            soldAt: null,
-            updatedAt: now,
-          });
-        }
-      }
-    }
-
-    for (const item of imeiItems) {
-      const imei = normalizeImeiText(item.imeiNumber);
-      const candidate =
-        inventoryUnits.find(
-          (u) =>
-            Boolean(item.inventoryUnitId) &&
-            u.id === item.inventoryUnitId &&
-            u.productId === item.productId &&
-            (u.status === "in_stock" || u.soldBillId === bill.id),
-        ) ||
-        inventoryUnits.find(
-          (u) =>
-            Boolean(imei) &&
-            normalizeImeiText(u.imeiNormalized || u.imeiNumber) === imei &&
-            u.productId === item.productId &&
-            (u.status === "in_stock" || u.soldBillId === bill.id),
-        );
-      if (!candidate) {
-        throw new Error(
-          `IMEI ${item.imeiNumber} is not available in inventory for ${item.productName}.`,
-        );
-      }
-      item.inventoryUnitId = candidate.id;
-      item.imeiNumber = candidate.imeiNumber;
-      if (typeof candidate.purchasePrice === "number") {
-        item.purchasePrice = candidate.purchasePrice;
-      }
-      item.amount = roundToTwo(item.quantity * item.ratePerUnit);
-      if (bill.gstType === "igst") {
-        item.igst = roundToTwo((item.amount * item.gstRate) / 100);
-        item.cgst = 0;
-        item.sgst = 0;
-      } else {
-        item.cgst = roundToTwo((item.amount * item.gstRate) / 200);
-        item.sgst = roundToTwo((item.amount * item.gstRate) / 200);
-        item.igst = 0;
-      }
-      const unitRef = doc(db, COLLECTIONS.INVENTORY_UNITS, candidate.id);
-      batch.update(unitRef, {
-        status: "sold",
-        soldBillId: bill.id,
-        soldAt: now,
-        updatedAt: now,
-      });
-    }
-
-    for (const item of bill.items) {
-      item.amount = roundToTwo(item.quantity * item.ratePerUnit);
-      if (bill.gstType === "igst") {
-        item.igst = roundToTwo((item.amount * item.gstRate) / 100);
-        item.cgst = 0;
-        item.sgst = 0;
-      } else {
-        item.cgst = roundToTwo((item.amount * item.gstRate) / 200);
-        item.sgst = roundToTwo((item.amount * item.gstRate) / 200);
-        item.igst = 0;
-      }
-    }
-
-    const subtotal = roundToTwo(
-      bill.items.reduce((sum, item) => sum + (item.amount || 0), 0),
-    );
-    const totalTax = roundToTwo(
-      bill.items.reduce(
-        (sum, item) => sum + (item.cgst || 0) + (item.sgst || 0) + (item.igst || 0),
-        0,
-      ),
-    );
-    const otherCharges = roundToTwo(bill.otherCharges || 0);
-    const discount = Math.min(roundToTwo(bill.discount || 0), subtotal);
-    const rawTotal = roundToTwo(subtotal - discount + totalTax + otherCharges);
-    const roundedTotal = Math.round(rawTotal);
-    bill.subtotal = subtotal;
-    bill.totalTax = totalTax;
-    bill.discount = discount;
-    bill.roundOff = roundToTwo(roundedTotal - rawTotal);
-    bill.total = roundedTotal;
 
     // Save bill
     const cleanedBillData = removeUndefined({ ...bill, userId });
@@ -804,18 +644,24 @@ export const saveBill = async (bill: Bill): Promise<void> => {
         const expoData = expoSnap.data() as Expo;
         const soldStocks = { ...(expoData.soldStocks || {}) };
         const remainingStocks = { ...(expoData.remainingStocks || {}) };
-        
+
         for (const item of bill.items) {
-          soldStocks[item.productId] = (Number(soldStocks[item.productId]) || 0) + Number(item.quantity);
-          remainingStocks[item.productId] = (Number(remainingStocks[item.productId]) || 0) - Number(item.quantity);
+          soldStocks[item.productId] =
+            (Number(soldStocks[item.productId]) || 0) + Number(item.quantity);
+          remainingStocks[item.productId] =
+            (Number(remainingStocks[item.productId]) || 0) -
+            Number(item.quantity);
         }
 
         batch.update(expoRef, {
           soldStocks,
           remainingStocks,
           totalSales: (Number(expoData.totalSales) || 0) + Number(bill.total),
-          receivableAmount: (Number(expoData.receivableAmount) || 0) + (Number(bill.total) - Number(bill.paidAmount)),
-          receivedAmount: (Number(expoData.receivedAmount) || 0) + Number(bill.paidAmount),
+          receivableAmount:
+            (Number(expoData.receivableAmount) || 0) +
+            (Number(bill.total) - Number(bill.paidAmount)),
+          receivedAmount:
+            (Number(expoData.receivedAmount) || 0) + Number(bill.paidAmount),
         });
       }
     }
@@ -839,7 +685,7 @@ export const saveBill = async (bill: Bill): Promise<void> => {
       // Delete old inventory transactions for this bill
       const oldTransactionsQuery = query(
         collection(db, COLLECTIONS.INVENTORY),
-        where("billId", "==", bill.id)
+        where("billId", "==", bill.id),
       );
       const oldTransactionsSnap = await getDocs(oldTransactionsQuery);
 
@@ -854,33 +700,40 @@ export const saveBill = async (bill: Bill): Promise<void> => {
       // Since Passbook derives from payments array, we should maintain it.
       if (bill.total !== existingBill.total) {
         // Handle fully paid bills: Adjust the payment to match the new total
-        if (existingBill.paymentStatus === 'paid' && (bill.paidAmount === existingBill.total || bill.paidAmount === bill.total)) {
+        if (
+          existingBill.paymentStatus === "paid" &&
+          (bill.paidAmount === existingBill.total ||
+            bill.paidAmount === bill.total)
+        ) {
           bill.paidAmount = bill.total;
-          bill.paymentStatus = 'paid';
-          
+          bill.paymentStatus = "paid";
+
           if (bill.payments && bill.payments.length > 0) {
-             // If there's only one payment, adjust it directly
-             if (bill.payments.length === 1) {
-               bill.payments[0].amount = bill.total;
-               bill.payments[0].date = new Date().toISOString(); // Update date to reflect change
-             } else {
-               // If multiple payments, adjust the last one by the difference
-               const diff = bill.total - existingBill.total;
-               bill.payments[bill.payments.length - 1].amount += diff;
-               bill.payments[bill.payments.length - 1].date = new Date().toISOString();
-             }
+            // If there's only one payment, adjust it directly
+            if (bill.payments.length === 1) {
+              bill.payments[0].amount = bill.total;
+              bill.payments[0].date = new Date().toISOString(); // Update date to reflect change
+            } else {
+              // If multiple payments, adjust the last one by the difference
+              const diff = bill.total - existingBill.total;
+              bill.payments[bill.payments.length - 1].amount += diff;
+              bill.payments[bill.payments.length - 1].date =
+                new Date().toISOString();
+            }
           }
         }
       }
     } else if (!isUpdate && bill.paidAmount > 0) {
       // For new bills with initial payment, ensure it's in the payments array
       if (!bill.payments || bill.payments.length === 0) {
-        bill.payments = [{
-          id: Math.random().toString(36).substr(2, 9),
-          amount: bill.paidAmount,
-          method: (bill.modeOfPayment as any) || 'Cash',
-          date: bill.date || new Date().toISOString(),
-        }];
+        bill.payments = [
+          {
+            id: Math.random().toString(36).substr(2, 9),
+            amount: bill.paidAmount,
+            method: (bill.modeOfPayment as any) || "Cash",
+            date: bill.date || new Date().toISOString(),
+          },
+        ];
       }
     }
 
@@ -893,20 +746,8 @@ export const saveBill = async (bill: Bill): Promise<void> => {
         billId: bill.id,
         type: "sale" as const,
         quantity: item.quantity,
-        purchasePrice: item.purchasePrice || 0,
-        sellingPrice: item.ratePerUnit,
-        itemNo: item.itemNo || "",
-        model: item.model || "",
-        imeiNumber: item.imeiNumber || "",
-        storage: item.storage || "",
-        color: item.color || "",
-        vendorId: item.vendorId || "",
-        vendorName: item.vendorName || "",
-        clientId: bill.clientId,
-        clientName: bill.client?.name || "",
         date: new Date().toISOString(),
         userId,
-        inventoryUnitId: item.inventoryUnitId || "",
       };
       batch.set(transactionRef, transaction);
     }
@@ -946,19 +787,6 @@ export const deleteBill = async (id: string): Promise<void> => {
           const newStock = product.stock + item.quantity;
           batch.update(productRef, { stock: newStock });
         }
-      }
-
-      // Restore sold IMEI units for this bill
-      const units = await getInventoryUnits();
-      const soldUnits = units.filter((u) => u.soldBillId === id);
-      for (const unit of soldUnits) {
-        const unitRef = doc(db, COLLECTIONS.INVENTORY_UNITS, unit.id);
-        batch.update(unitRef, {
-          status: "in_stock",
-          soldBillId: null,
-          soldAt: null,
-          updatedAt: new Date().toISOString(),
-        });
       }
 
       await batch.commit();
@@ -1005,10 +833,16 @@ export const incrementBillCounter = async (type?: string): Promise<number> => {
   }
 };
 
-export const uploadProductImage = async (productId: string, file: File): Promise<string> => {
+export const uploadProductImage = async (
+  productId: string,
+  file: File,
+): Promise<string> => {
   try {
     const userId = getUserId();
-    const storageRef = ref(storage, `products/${userId}/${productId}_${file.name}`);
+    const storageRef = ref(
+      storage,
+      `products/${userId}/${productId}_${file.name}`,
+    );
     await uploadBytes(storageRef, file);
     const downloadURL = await getDownloadURL(storageRef);
     return downloadURL;
@@ -1023,7 +857,7 @@ export const updateBillPayment = async (
   paidAmount: number,
   paymentType: PaymentMethod,
   note?: string,
-  date?: string
+  date?: string,
 ): Promise<void> => {
   try {
     const billRef = doc(db, COLLECTIONS.BILLS, billId);
@@ -1043,7 +877,9 @@ export const updateBillPayment = async (
         note: note,
       };
 
-      const payments = Array.isArray(bill.payments) ? [...bill.payments, newPayment] : [newPayment];
+      const payments = Array.isArray(bill.payments)
+        ? [...bill.payments, newPayment]
+        : [newPayment];
 
       const updateData: any = {
         paidAmount: newPaidAmount,
@@ -1062,7 +898,10 @@ export const updateBillPayment = async (
           const expoData = expoSnap.data() as Expo;
           await updateDoc(expoRef, {
             receivedAmount: (Number(expoData.receivedAmount) || 0) + paidAmount,
-            receivableAmount: Math.max(0, (Number(expoData.receivableAmount) || 0) - paidAmount),
+            receivableAmount: Math.max(
+              0,
+              (Number(expoData.receivableAmount) || 0) - paidAmount,
+            ),
           });
         }
       }
@@ -1081,12 +920,12 @@ export const getInventoryTransactions = async (): Promise<
     const userId = getUserId();
     const q = query(
       collection(db, COLLECTIONS.INVENTORY),
-      where("userId", "==", userId)
+      where("userId", "==", userId),
     );
     const querySnapshot = await getDocs(q);
 
     const transactions = querySnapshot.docs.map(
-      (doc) => doc.data() as InventoryTransaction
+      (doc) => doc.data() as InventoryTransaction,
     );
 
     // Sort by date descending in JavaScript (avoids index requirement)
@@ -1102,7 +941,7 @@ export const getInventoryTransactions = async (): Promise<
 };
 
 export const saveInventoryTransaction = async (
-  transaction: InventoryTransaction
+  transaction: InventoryTransaction,
 ): Promise<void> => {
   try {
     const userId = getUserId();
@@ -1119,7 +958,7 @@ export const saveInventoryTransaction = async (
 export const addStockToProduct = async (
   productId: string,
   quantity: number,
-  purchasePrice: number
+  purchasePrice: number,
 ): Promise<void> => {
   try {
     const userId = getUserId();
@@ -1163,11 +1002,13 @@ export const addStockToProduct = async (
 
 // Get inventory transactions for a specific product
 export const getProductTransactions = async (
-  productId: string
+  productId: string,
 ): Promise<InventoryTransaction[]> => {
   try {
     const transactions = await getInventoryTransactions();
-    return transactions.filter((t) => t.productId === productId);
+    return transactions.filter(
+      (t) => t.productId === productId && t.type === "purchase",
+    );
   } catch (error) {
     console.error("Error getting product transactions:", error);
     return [];
@@ -1180,7 +1021,7 @@ export const getPurchaseBills = async (): Promise<PurchaseBill[]> => {
     const userId = getUserId();
     const q = query(
       collection(db, COLLECTIONS.PURCHASE_BILLS),
-      where("userId", "==", userId)
+      where("userId", "==", userId),
     );
     const querySnapshot = await getDocs(q);
 
@@ -1190,8 +1031,11 @@ export const getPurchaseBills = async (): Promise<PurchaseBill[]> => {
         ...data,
         items: (data.items || []).map((item: any) => ({
           ...item,
-          weight: typeof item.weight === 'string' ? parseFloat(item.weight) || 0 : (item.weight || 0)
-        }))
+          weight:
+            typeof item.weight === "string"
+              ? parseFloat(item.weight) || 0
+              : item.weight || 0,
+        })),
       } as PurchaseBill;
     });
 
@@ -1246,7 +1090,7 @@ export const updatePurchaseBillPayment = async (
   paymentType: PaymentMethod,
   note?: string,
   date?: string,
-  paymentId?: string // Optional ID to edit existing payment
+  paymentId?: string, // Optional ID to edit existing payment
 ): Promise<void> => {
   try {
     const billRef = doc(db, COLLECTIONS.PURCHASE_BILLS, billId);
@@ -1255,10 +1099,10 @@ export const updatePurchaseBillPayment = async (
     if (billSnap.exists()) {
       const bill = billSnap.data() as PurchaseBill;
       let payments = Array.isArray(bill.payments) ? [...bill.payments] : [];
-      
+
       if (paymentId) {
         // EDIT existing payment
-        const index = payments.findIndex(p => p.id === paymentId);
+        const index = payments.findIndex((p) => p.id === paymentId);
         if (index !== -1) {
           payments[index] = {
             ...payments[index],
@@ -1296,7 +1140,10 @@ export const updatePurchaseBillPayment = async (
   }
 };
 
-export const deletePurchaseBillPayment = async (billId: string, paymentId: string): Promise<void> => {
+export const deletePurchaseBillPayment = async (
+  billId: string,
+  paymentId: string,
+): Promise<void> => {
   try {
     const billRef = doc(db, COLLECTIONS.PURCHASE_BILLS, billId);
     const billSnap = await getDoc(billRef);
@@ -1305,7 +1152,7 @@ export const deletePurchaseBillPayment = async (billId: string, paymentId: strin
       const bill = billSnap.data() as PurchaseBill;
       if (!Array.isArray(bill.payments)) return;
 
-      const payments = bill.payments.filter(p => p.id !== paymentId);
+      const payments = bill.payments.filter((p) => p.id !== paymentId);
       const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
       const paymentStatus = totalPaid >= bill.total ? "paid" : "pending";
 
@@ -1324,7 +1171,7 @@ export const deletePurchaseBillPayment = async (billId: string, paymentId: strin
 // Purchase Returns
 export const savePurchaseReturn = async (
   returnOrder: PurchaseReturn,
-  adjustStock: boolean = true
+  adjustStock: boolean = true,
 ): Promise<void> => {
   try {
     const userId = getUserId();
@@ -1335,122 +1182,78 @@ export const savePurchaseReturn = async (
     batch.set(returnRef, removeUndefined({ ...returnOrder, userId }));
 
     // 2. Update the Purchase Bill
-    const billRef = doc(db, COLLECTIONS.PURCHASE_BILLS, returnOrder.purchaseBillId);
+    const billRef = doc(
+      db,
+      COLLECTIONS.PURCHASE_BILLS,
+      returnOrder.purchaseBillId,
+    );
     const billSnap = await getDoc(billRef);
 
     if (billSnap.exists()) {
       const bill = billSnap.data() as PurchaseBill;
       const currentReturns = bill.returns || [];
       const updatedReturns = [...currentReturns, returnOrder];
-      
+
       // Calculate new totals
       const currentTotal = bill.total || 0;
       const currentPaidAmount = bill.paidAmount || 0;
       const newTotal = currentTotal - returnOrder.totalReturnValue;
-      
+
       // Update payment status based on new total
-      const newPaymentStatus = currentPaidAmount >= newTotal ? "paid" : (currentPaidAmount > 0 ? "partial" : "pending");
+      const newPaymentStatus =
+        currentPaidAmount >= newTotal
+          ? "paid"
+          : currentPaidAmount > 0
+            ? "partial"
+            : "pending";
 
       batch.update(billRef, {
         returns: removeUndefined(updatedReturns),
         paymentStatus: newPaymentStatus,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
       });
     }
 
     // 3. Adjust Stock if requested
     if (adjustStock) {
-      const products = await getProducts();
-      const inventoryUnits = await getInventoryUnits();
-
       for (const item of returnOrder.items) {
-        const normalizedImei = normalizeImeiText(item.imeiNumber);
-        const isSerialized = Boolean(item.inventoryUnitId || normalizedImei);
-        if (isSerialized && item.quantity !== 1) {
-          throw new Error(
-            `Serialized purchase return item "${item.description}" must have quantity 1.`,
+        // Find product by description and update stock
+        const productsQuery = query(
+          collection(db, COLLECTIONS.PRODUCTS),
+          where("userId", "==", userId),
+        );
+        const productsSnap = await getDocs(productsQuery);
+        const productDoc = productsSnap.docs.find(
+          (d) =>
+            (d.data().name as string).toLowerCase().trim() ===
+            item.description.toLowerCase().trim(),
+        );
+
+        if (productDoc) {
+          const productRef = productDoc.ref;
+          const currentStock = productDoc.data().stock || 0;
+
+          // For PURCHASE return, we are returning items TO the vendor, so stock should DECREASE
+          const newStock = currentStock - item.quantity;
+          batch.update(productRef, { stock: Math.round(newStock * 100) / 100 });
+
+          // Record inventory transaction for the return
+          const transactionRef = doc(collection(db, COLLECTIONS.INVENTORY));
+          const transaction = {
+            id: transactionRef.id,
+            productId: productDoc.id,
+            purchaseReturnId: returnOrder.id,
+            type: "purchase_return",
+            quantity: -item.quantity, // Negative because we are removing from stock
+            date: returnOrder.returnDate || new Date().toISOString(),
+            userId,
+          };
+          batch.set(transactionRef, removeUndefined(transaction));
+        } else {
+          console.warn(
+            `Product not found for return item: ${item.description}`,
           );
         }
-
-        let matchedUnit: InventoryUnit | undefined;
-        if (isSerialized) {
-          matchedUnit =
-            inventoryUnits.find((u) => u.id === item.inventoryUnitId) ||
-            inventoryUnits.find(
-              (u) =>
-                normalizeImeiText(u.imeiNormalized || u.imeiNumber) === normalizedImei,
-            );
-          if (!matchedUnit) {
-            throw new Error(
-              `Could not find inventory unit for purchase return item "${item.description}" (${item.imeiNumber || "unknown IMEI"}).`,
-            );
-          }
-          if (matchedUnit.status !== "in_stock") {
-            throw new Error(
-              `IMEI ${matchedUnit.imeiNumber} is not in stock (current status: ${matchedUnit.status}).`,
-            );
-          }
-          if (item.productId && matchedUnit.productId !== item.productId) {
-            throw new Error(
-              `IMEI ${matchedUnit.imeiNumber} does not belong to selected product.`,
-            );
-          }
-        }
-
-        const matchedProduct =
-          products.find((p) => p.id === item.productId) ||
-          (matchedUnit
-            ? products.find((p) => p.id === matchedUnit?.productId)
-            : undefined) ||
-          products.find(
-            (p) =>
-              p.name.toLowerCase().trim() ===
-              (item.description || item.productName || "").toLowerCase().trim(),
-          );
-
-        if (!matchedProduct) {
-          throw new Error(`Product not found for return item: ${item.description}`);
-        }
-
-        const currentStock = matchedProduct.stock || 0;
-        const newStock = currentStock - item.quantity;
-        if (newStock < 0) {
-          throw new Error(
-            `Insufficient stock for return item "${item.description}". Available: ${currentStock}, requested: ${item.quantity}.`,
-          );
-        }
-
-        batch.update(doc(db, COLLECTIONS.PRODUCTS, matchedProduct.id), {
-          stock: Math.round(newStock * 100) / 100,
-        });
-
-        if (matchedUnit) {
-          batch.update(doc(db, COLLECTIONS.INVENTORY_UNITS, matchedUnit.id), {
-            status: "returned",
-            notes: `Returned to vendor via purchase return ${returnOrder.id}`,
-            updatedAt: new Date().toISOString(),
-          });
-        }
-
-        // Record inventory transaction for the return
-        const transactionRef = doc(collection(db, COLLECTIONS.INVENTORY));
-        const transaction = {
-          id: transactionRef.id,
-          productId: matchedProduct.id,
-          purchaseReturnId: returnOrder.id,
-          type: "purchase_return" as const,
-          quantity: -item.quantity,
-          date: returnOrder.returnDate || new Date().toISOString(),
-          inventoryUnitId: matchedUnit?.id || item.inventoryUnitId,
-          imeiNumber: matchedUnit?.imeiNumber || item.imeiNumber || "",
-          purchasePrice:
-            matchedUnit?.purchasePrice ||
-            matchedProduct.purchasePrice ||
-            item.rate ||
-            0,
-          userId,
-        };
-        batch.set(transactionRef, removeUndefined(transaction));
       }
     }
 
@@ -1461,7 +1264,11 @@ export const savePurchaseReturn = async (
   }
 };
 
-export const deletePurchaseReturn = async (returnId: string, purchaseBillId: string, adjustStock: boolean = true): Promise<void> => {
+export const deletePurchaseReturn = async (
+  returnId: string,
+  purchaseBillId: string,
+  adjustStock: boolean = true,
+): Promise<void> => {
   try {
     const userId = getUserId();
     const batch = writeBatch(db);
@@ -1479,69 +1286,53 @@ export const deletePurchaseReturn = async (returnId: string, purchaseBillId: str
 
     if (billSnap.exists()) {
       const bill = billSnap.data() as PurchaseBill;
-      const updatedReturns = (bill.returns || []).filter(r => r.id !== returnId);
-      
+      const updatedReturns = (bill.returns || []).filter(
+        (r) => r.id !== returnId,
+      );
+
       const currentPaidAmount = bill.paidAmount || 0;
       const currentTotal = bill.total || 0;
-      const newPaymentStatus = currentPaidAmount >= currentTotal ? "paid" : (currentPaidAmount > 0 ? "partial" : "pending");
+      const newPaymentStatus =
+        currentPaidAmount >= currentTotal
+          ? "paid"
+          : currentPaidAmount > 0
+            ? "partial"
+            : "pending";
 
       batch.update(billRef, {
         returns: removeUndefined(updatedReturns),
         paymentStatus: newPaymentStatus,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
       });
     }
 
     // 3. Revert Stock
     if (adjustStock) {
-      const products = await getProducts();
-      const inventoryUnits = await getInventoryUnits();
-      const txQuery = query(
-        collection(db, COLLECTIONS.INVENTORY),
-        where("purchaseReturnId", "==", returnId),
-      );
-      const txSnap = await getDocs(txQuery);
-      txSnap.forEach((d) => batch.delete(d.ref));
-
       for (const item of returnOrder.items) {
-        const normalizedImei = normalizeImeiText(item.imeiNumber);
-        const matchedUnit =
-          inventoryUnits.find((u) => u.id === item.inventoryUnitId) ||
-          inventoryUnits.find(
-            (u) =>
-              normalizeImeiText(u.imeiNormalized || u.imeiNumber) === normalizedImei,
-          );
-        const matchedProduct =
-          products.find((p) => p.id === item.productId) ||
-          (matchedUnit
-            ? products.find((p) => p.id === matchedUnit.productId)
-            : undefined) ||
-          products.find(
-            (p) =>
-              p.name.toLowerCase().trim() ===
-              (item.description || item.productName || "").toLowerCase().trim(),
-          );
+        const productsQuery = query(
+          collection(db, COLLECTIONS.PRODUCTS),
+          where("userId", "==", userId),
+        );
+        const productsSnap = await getDocs(productsQuery);
+        const productDoc = productsSnap.docs.find(
+          (d) =>
+            (d.data().name as string).toLowerCase().trim() ===
+            item.description.toLowerCase().trim(),
+        );
 
-        if (!matchedProduct) {
-          throw new Error(`Product not found while reverting return item: ${item.description}`);
-        }
-
-        const currentStock = matchedProduct.stock || 0;
-        const newStock = currentStock + item.quantity;
-        batch.update(doc(db, COLLECTIONS.PRODUCTS, matchedProduct.id), {
-          stock: Math.round(newStock * 100) / 100,
-        });
-
-        if (matchedUnit) {
-          batch.update(doc(db, COLLECTIONS.INVENTORY_UNITS, matchedUnit.id), {
-            status: "in_stock",
-            notes:
-              matchedUnit.notes ===
-              `Returned to vendor via purchase return ${returnId}`
-                ? ""
-                : matchedUnit.notes || "",
-            updatedAt: new Date().toISOString(),
+        if (productDoc) {
+          const currentStock = productDoc.data().stock || 0;
+          const newStock = currentStock + item.quantity; // Restore stock
+          batch.update(productDoc.ref, {
+            stock: Math.round(newStock * 100) / 100,
           });
+
+          const q = query(
+            collection(db, COLLECTIONS.INVENTORY),
+            where("purchaseReturnId", "==", returnId),
+          );
+          const snap = await getDocs(q);
+          snap.forEach((d) => batch.delete(d.ref));
         }
       }
     }
@@ -1553,120 +1344,10 @@ export const deletePurchaseReturn = async (returnId: string, purchaseBillId: str
   }
 };
 
-export const getInventoryUnits = async (): Promise<InventoryUnit[]> => {
-  try {
-    const userId = getUserId();
-    const q = query(
-      collection(db, COLLECTIONS.INVENTORY_UNITS),
-      where("userId", "==", userId),
-    );
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map((d) => d.data() as InventoryUnit);
-  } catch (error) {
-    console.error("Error getting inventory units:", error);
-    return [];
-  }
-};
-
-export const getAvailableInventoryUnits = async (
-  productId?: string,
-): Promise<InventoryUnit[]> => {
-  try {
-    const all = await getInventoryUnits();
-    const filtered = all.filter((u) => {
-      if (u.status !== "in_stock") return false;
-      if (productId && u.productId !== productId) return false;
-      return true;
-    });
-    return filtered.sort((a, b) => {
-      const dA = new Date(a.createdAt || 0).getTime();
-      const dB = new Date(b.createdAt || 0).getTime();
-      return dB - dA;
-    });
-  } catch (error) {
-    console.error("Error getting available inventory units:", error);
-    return [];
-  }
-};
-
-export const getInventoryUnitByImei = async (
-  imei: string,
-): Promise<InventoryUnit | null> => {
-  try {
-    const normalized = normalizeImeiText(imei);
-    if (!normalized) return null;
-    const all = await getInventoryUnits();
-    return (
-      all.find((u) => normalizeImeiText(u.imeiNormalized || u.imeiNumber) === normalized) ||
-      null
-    );
-  } catch (error) {
-    console.error("Error getting inventory unit by IMEI:", error);
-    return null;
-  }
-};
-
-export const saveInventoryUnit = async (unit: InventoryUnit): Promise<void> => {
-  try {
-    const userId = getUserId();
-    const now = new Date().toISOString();
-    const docRef = doc(db, COLLECTIONS.INVENTORY_UNITS, unit.id);
-    await setDoc(
-      docRef,
-      removeUndefined({
-        ...unit,
-        userId,
-        imeiNormalized: normalizeImeiText(unit.imeiNumber),
-        updatedAt: unit.updatedAt || now,
-      }),
-      { merge: true },
-    );
-  } catch (error) {
-    console.error("Error saving inventory unit:", error);
-    throw error;
-  }
-};
-
-const normalizeImeiText = (value?: string): string =>
-  (value || "").toString().replace(/\s+/g, "").trim().toLowerCase();
-
-const isSerializedTracking = (product?: Product | null): boolean =>
-  (product?.trackingType || "standard") === "serialized";
-
-const normalizeVariantPart = (value?: string): string =>
-  (value || "").toString().trim().toLowerCase();
-
-const normalizeImei = (value?: string): string =>
-  (value || "").toString().replace(/\s+/g, "").toLowerCase();
-
-const buildVariantKey = (item: {
-  description?: string;
-  name?: string;
-  model?: string;
-  storage?: string;
-  color?: string;
-}): string =>
-  [
-    normalizeVariantPart(item.description || item.name),
-    normalizeVariantPart(item.model),
-    normalizeVariantPart(item.storage),
-    normalizeVariantPart(item.color),
-  ].join("|");
-
-const buildProductMasterKey = (item: {
-  description?: string;
-  name?: string;
-  model?: string;
-}): string =>
-  [
-    normalizeVariantPart(item.description || item.name),
-    normalizeVariantPart(item.model),
-  ].join("|");
-
 export const addPurchaseItemsToInventory = async (
   bill: PurchaseBill,
   itemsWithSellingPrice: InventoryItemInput[],
-  conflictResolutions?: Map<string, string> // HSN -> chosen name
+  conflictResolutions?: Map<string, string>, // HSN -> chosen name
 ): Promise<InventoryAddResult> => {
   try {
     const userId = getUserId();
@@ -1676,54 +1357,19 @@ export const addPurchaseItemsToInventory = async (
     let added = 0;
     let updated = 0;
     const conflicts: ProductConflict[] = [];
-    const seenImeis = new Set<string>();
-    const existingUnits = await getInventoryUnits();
 
     for (const item of itemsWithSellingPrice) {
-      const normalizedImei = normalizeImei(item.imeiNumber);
-      const isSerializedItem = Boolean(normalizedImei);
-
-      if (isSerializedItem) {
-        if (Number(item.quantity) !== 1) {
-          throw new Error(
-            `IMEI/Serial item "${item.description}" must have quantity 1.`,
-          );
-        }
-      }
-
-      if (!normalizedImei) continue;
-
-
-      if (seenImeis.has(normalizedImei)) {
-        throw new Error(
-          `Duplicate IMEI/Serial in this bill: ${item.imeiNumber || ""}`,
-        );
-      }
-      seenImeis.add(normalizedImei);
-
-      const existingImeiProduct = products.find(
-        (p) => normalizeImei((p as any).imeiNumber) === normalizedImei,
-      );
-      const existingImeiUnit = existingUnits.find(
-        (u) =>
-          normalizeImei(u.imeiNormalized || u.imeiNumber) === normalizedImei &&
-          u.status !== "deadstock",
-      );
-      if (existingImeiProduct || existingImeiUnit) {
-        throw new Error(
-          `IMEI/Serial ${item.imeiNumber || ""} already exists in inventory (${existingImeiProduct?.name || existingImeiUnit?.productName || "existing unit"}).`,
-        );
-      }
-    }
-
-    for (const item of itemsWithSellingPrice) {
-      const itemMasterKey = buildProductMasterKey(item);
-
       // 1. Check for manual product selection (isNewProduct = false)
       if (item.isNewProduct === false && item.productId) {
         const selectedProduct = products.find((p) => p.id === item.productId);
         if (selectedProduct) {
-          await updateExistingProduct(selectedProduct, item, bill, batch, userId);
+          await updateExistingProduct(
+            selectedProduct,
+            item,
+            bill,
+            batch,
+            userId,
+          );
           updated++;
           continue;
         }
@@ -1743,14 +1389,6 @@ export const addPurchaseItemsToInventory = async (
           (p) => p.hsnCode === item.hsnCode,
         );
         const productToUpdate =
-          productsWithSameHSN.find(
-            (p) =>
-              p.name === chosenName &&
-              buildProductMasterKey(p) === itemMasterKey,
-          ) ||
-          productsWithSameHSN.find(
-            (p) => buildProductMasterKey(p) === itemMasterKey,
-          ) ||
           productsWithSameHSN.find((p) => p.name === chosenName) ||
           productsWithSameHSN[0];
 
@@ -1770,12 +1408,17 @@ export const addPurchaseItemsToInventory = async (
 
       // 4. Default automated matching logic
       if (!item.hsnCode) {
-        const existingProduct = products.find((p) =>
-          buildProductMasterKey(p) === itemMasterKey ||
-          p.name.toLowerCase() === item.description.toLowerCase(),
+        const existingProduct = products.find(
+          (p) => p.name.toLowerCase() === item.description.toLowerCase(),
         );
         if (existingProduct) {
-          await updateExistingProduct(existingProduct, item, bill, batch, userId);
+          await updateExistingProduct(
+            existingProduct,
+            item,
+            bill,
+            batch,
+            userId,
+          );
           updated++;
         } else {
           await createNewProduct(item, bill, batch, userId);
@@ -1791,15 +1434,6 @@ export const addPurchaseItemsToInventory = async (
       if (productsWithSameHSN.length === 0) {
         await createNewProduct(item, bill, batch, userId);
         added++;
-        continue;
-      }
-
-      const masterMatch = productsWithSameHSN.find(
-        (p) => buildProductMasterKey(p) === itemMasterKey,
-      );
-      if (masterMatch) {
-        await updateExistingProduct(masterMatch, item, bill, batch, userId);
-        updated++;
         continue;
       }
 
@@ -1842,102 +1476,42 @@ export const addPurchaseItemsToInventory = async (
 export interface InventoryItemInput {
   description: string;
   hsnCode?: string;
-  barcode?: string;
-  vendorId?: string;
-  itemNo?: string;
-  model?: string;
-  imeiNumber?: string;
-  storage?: string;
-  color?: string;
   quantity: number;
   unit: string;
   purchasePrice: number;
-  sellingPrice?: number;
+  sellingPrice: number;
   gstRate?: number;
   productId?: string;
   isNewProduct?: boolean;
 }
-
-const addInventoryUnitForPurchase = (
-  batch: any,
-  userId: string,
-  item: InventoryItemInput,
-  product: Product,
-  bill: PurchaseBill,
-) => {
-  const normalizedImei = normalizeImei(item.imeiNumber);
-  if (!normalizedImei) return;
-
-  const unitRef = doc(collection(db, COLLECTIONS.INVENTORY_UNITS));
-  const now = new Date().toISOString();
-  const unit: InventoryUnit = {
-    id: unitRef.id,
-    userId,
-    productId: product.id,
-    productName: product.name,
-    imeiNumber: item.imeiNumber || "",
-    imeiNormalized: normalizedImei,
-    variantKey: buildVariantKey({
-      description: item.description || product.name,
-      model: item.model || product.model || "",
-      storage: item.storage || product.storage || "",
-      color: item.color || product.color || "",
-      itemNo: item.itemNo || product.itemNo || "",
-    }),
-    itemNo: item.itemNo || product.itemNo || "",
-    model: item.model || product.model || "",
-    storage: item.storage || product.storage || "",
-    color: item.color || product.color || "",
-    vendorId: item.vendorId || bill.vendorId || "",
-    vendorName: bill.vendorName || "",
-    purchaseBillId: bill.id,
-    purchasePrice: item.purchasePrice,
-    sellingPrice: item.sellingPrice,
-    status: "in_stock",
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  batch.set(unitRef, removeUndefined(unit));
-};
 
 const updateExistingProduct = async (
   existingProduct: Product,
   item: InventoryItemInput,
   bill: PurchaseBill,
   batch: any,
-  userId: string
+  userId: string,
 ) => {
   const productRef = doc(db, COLLECTIONS.PRODUCTS, existingProduct.id);
   const currentStock = existingProduct.stock || 0;
   const currentPurchasePrice = existingProduct.purchasePrice || 0;
-  
+
   // Calculate new stock
   const newStock = Math.round((currentStock + item.quantity) * 100) / 100;
-  
+
   // Calculate new weighted average purchase price
   // Formula: ((Existing Stock * Old Avg Price) + (New Quantity * New Purchase Price)) / New Total Stock
   let newPurchasePrice = item.purchasePrice;
   if (newStock > 0) {
     const existingValue = currentStock * currentPurchasePrice;
     const newValue = item.quantity * item.purchasePrice;
-    newPurchasePrice = Math.round(((existingValue + newValue) / newStock) * 100) / 100;
+    newPurchasePrice =
+      Math.round(((existingValue + newValue) / newStock) * 100) / 100;
   }
 
   const updates: any = {
     stock: newStock,
     purchasePrice: newPurchasePrice,
-    trackingType:
-      normalizeImei(item.imeiNumber) ? "serialized" : existingProduct.trackingType || "standard",
-    variantKey: buildProductMasterKey({
-      description: item.description || existingProduct.name,
-      model: item.model || existingProduct.model || "",
-    }),
-    model: item.model || existingProduct.model || "",
-    imeiNumber: existingProduct.imeiNumber || "",
-    storage: existingProduct.storage || "",
-    color: existingProduct.color || "",
-    itemNo: item.itemNo || existingProduct.itemNo || "",
   };
 
   if (item.sellingPrice > 0) {
@@ -1957,22 +1531,10 @@ const updateExistingProduct = async (
     quantity: item.quantity,
     date: bill.billDate || bill.createdAt,
     purchasePrice: item.purchasePrice,
-    itemNo: item.itemNo || existingProduct.itemNo || "",
-    model: item.model || existingProduct.model || "",
-    imeiNumber: item.imeiNumber || existingProduct.imeiNumber || "",
-    storage: item.storage || existingProduct.storage || "",
-    color: item.color || existingProduct.color || "",
-    vendorId: item.vendorId || bill.vendorId || "",
-    vendorName: bill.vendorName || "",
     userId,
   };
   const cleanedTransactionData = removeUndefined(transaction);
   batch.set(transactionRef, cleanedTransactionData);
-
-  const productForUnit: Product = { ...existingProduct, ...updates };
-  if (isSerializedTracking(productForUnit)) {
-    addInventoryUnitForPurchase(batch, userId, item, productForUnit, bill);
-  }
 };
 
 const updateExistingProductWithNameChange = async (
@@ -1981,40 +1543,30 @@ const updateExistingProductWithNameChange = async (
   chosenName: string,
   bill: PurchaseBill,
   batch: any,
-  userId: string
+  userId: string,
 ) => {
   const productRef = doc(db, COLLECTIONS.PRODUCTS, existingProduct.id);
   const currentStock = existingProduct.stock || 0;
   const currentPurchasePrice = existingProduct.purchasePrice || 0;
-  
+
   // Calculate new stock
   const newStock = Math.round((currentStock + item.quantity) * 100) / 100;
-  
+
   // Calculate new weighted average purchase price
   let newPurchasePrice = item.purchasePrice;
   if (newStock > 0) {
     const existingValue = currentStock * currentPurchasePrice;
     const newValue = item.quantity * item.purchasePrice;
-    newPurchasePrice = Math.round(((existingValue + newValue) / newStock) * 100) / 100;
+    newPurchasePrice =
+      Math.round(((existingValue + newValue) / newStock) * 100) / 100;
   }
 
   const updates: any = {
     name: chosenName, // Update name
     stock: newStock,
     purchasePrice: newPurchasePrice,
-    trackingType:
-      normalizeImei(item.imeiNumber) ? "serialized" : existingProduct.trackingType || "standard",
-    variantKey: buildProductMasterKey({
-      description: chosenName,
-      model: item.model || existingProduct.model || "",
-    }),
     gstRate: item.gstRate || existingProduct.gstRate,
     unit: item.unit || existingProduct.unit,
-    model: item.model || existingProduct.model || "",
-    imeiNumber: existingProduct.imeiNumber || "",
-    storage: existingProduct.storage || "",
-    color: existingProduct.color || "",
-    itemNo: item.itemNo || existingProduct.itemNo || "",
   };
 
   if (item.sellingPrice > 0) {
@@ -2034,47 +1586,27 @@ const updateExistingProductWithNameChange = async (
     quantity: item.quantity,
     date: bill.billDate || bill.createdAt,
     purchasePrice: item.purchasePrice,
-    itemNo: item.itemNo || existingProduct.itemNo || "",
-    model: item.model || existingProduct.model || "",
-    imeiNumber: item.imeiNumber || existingProduct.imeiNumber || "",
-    storage: item.storage || existingProduct.storage || "",
-    color: item.color || existingProduct.color || "",
-    vendorId: item.vendorId || bill.vendorId || "",
-    vendorName: bill.vendorName || "",
     userId,
   };
   const cleanedTransactionData = removeUndefined(transaction);
   batch.set(transactionRef, cleanedTransactionData);
-
-  const productForUnit: Product = { ...existingProduct, ...updates };
-  if (isSerializedTracking(productForUnit)) {
-    addInventoryUnitForPurchase(batch, userId, item, productForUnit, bill);
-  }
 };
 
 const createNewProduct = async (
   item: InventoryItemInput,
   bill: PurchaseBill,
   batch: any,
-  userId: string
+  userId: string,
 ) => {
-  const isSerializedItem = Boolean(normalizeImei(item.imeiNumber));
   const newProduct: Product = {
     id: crypto.randomUUID(),
     name: item.description,
-    variantKey: buildProductMasterKey(item),
-    trackingType: isSerializedItem ? "serialized" : "standard",
-    itemNo: item.itemNo || "",
-    model: item.model || "",
-    imeiNumber: "",
-    storage: "",
-    color: "",
     hsnCode: item.hsnCode || "",
     gstRate: item.gstRate || 0,
     unit: item.unit || "pcs",
-    price: item.sellingPrice || 0,
+    price: item.sellingPrice || item.purchasePrice,
     purchasePrice: item.purchasePrice,
-    sellingPrice: item.sellingPrice || 0,
+    sellingPrice: item.sellingPrice || item.purchasePrice,
     stock: item.quantity,
     createdAt: new Date().toISOString(),
     whereToBuy: bill.vendorName || "",
@@ -2096,27 +1628,16 @@ const createNewProduct = async (
     quantity: item.quantity,
     date: bill.billDate || bill.createdAt,
     purchasePrice: item.purchasePrice,
-    itemNo: item.itemNo || "",
-    model: item.model || "",
-    imeiNumber: item.imeiNumber || "",
-    storage: item.storage || "",
-    color: item.color || "",
-    vendorId: item.vendorId || bill.vendorId || "",
-    vendorName: bill.vendorName || "",
     userId,
   };
   const cleanedTransactionData = removeUndefined(transaction);
   batch.set(transactionRef, cleanedTransactionData);
-
-  if (isSerializedTracking(newProduct)) {
-    addInventoryUnitForPurchase(batch, userId, item, newProduct, bill);
-  }
 };
 
 export const isPurchaseBillDuplicate = async (
   billNumber: string,
   vendorName: string,
-  excludeId?: string
+  excludeId?: string,
 ): Promise<boolean> => {
   try {
     if (!billNumber) return false;
@@ -2125,7 +1646,7 @@ export const isPurchaseBillDuplicate = async (
       (b) =>
         b.id !== excludeId &&
         b.billNumber?.toLowerCase() === billNumber.toLowerCase() &&
-        b.vendorName.toLowerCase() === vendorName.toLowerCase()
+        b.vendorName.toLowerCase() === vendorName.toLowerCase(),
     );
   } catch (error) {
     console.error("Error checking purchase bill duplicate:", error);
@@ -2134,7 +1655,7 @@ export const isPurchaseBillDuplicate = async (
 };
 
 export const isPurchaseBillInventoryAdded = async (
-  billId: string
+  billId: string,
 ): Promise<boolean> => {
   try {
     const billRef = doc(db, COLLECTIONS.PURCHASE_BILLS, billId);
@@ -2182,7 +1703,7 @@ export const updatePurchaseBillOverdueStatus = async (): Promise<void> => {
 
 export const checkStockAvailability = async (
   productId: string,
-  requiredQty: number
+  requiredQty: number,
 ): Promise<{ available: boolean; stock: number; productName: string }> => {
   try {
     const productRef = doc(db, COLLECTIONS.PRODUCTS, productId);
@@ -2193,15 +1714,11 @@ export const checkStockAvailability = async (
     }
 
     const product = productSnap.data() as Product;
-    const isSerializedProduct = (product.trackingType || "standard") === "serialized";
-    const currentStock = isSerializedProduct
-      ? (await getAvailableInventoryUnits(productId)).length
-      : product.stock || 0;
-    const available = currentStock >= requiredQty && currentStock > 0;
+    const available = product.stock >= requiredQty && product.stock > 0;
 
     return {
       available,
-      stock: currentStock,
+      stock: product.stock,
       productName: product.name,
     };
   } catch (error) {
@@ -2211,16 +1728,15 @@ export const checkStockAvailability = async (
 };
 
 export const validateBillStock = async (
-  items: { productId: string; quantity: number }[]
+  items: { productId: string; quantity: number }[],
 ): Promise<{ valid: boolean; errors: string[] }> => {
   try {
     const errors: string[] = [];
-    const requiredByProduct = new Map<string, number>();
 
     for (const item of items) {
       if (item.quantity <= 0) {
         const product = await getDoc(
-          doc(db, COLLECTIONS.PRODUCTS, item.productId)
+          doc(db, COLLECTIONS.PRODUCTS, item.productId),
         );
         const productName = product.exists()
           ? (product.data() as Product).name
@@ -2228,22 +1744,16 @@ export const validateBillStock = async (
         errors.push(`${productName}: Quantity must be greater than 0`);
         continue;
       }
-      requiredByProduct.set(
-        item.productId,
-        (requiredByProduct.get(item.productId) || 0) + item.quantity,
-      );
-    }
 
-    for (const [productId, requiredQty] of requiredByProduct.entries()) {
       const { available, stock, productName } = await checkStockAvailability(
-        productId,
-        requiredQty,
+        item.productId,
+        item.quantity,
       );
       if (!available) {
         errors.push(
-          `${productName}: Required ${requiredQty.toFixed(
-            2
-          )}, Available ${stock.toFixed(2)}`
+          `${productName}: Required ${item.quantity.toFixed(
+            2,
+          )}, Available ${stock.toFixed(2)}`,
         );
       }
     }
@@ -2264,7 +1774,7 @@ export const getBillReturns = async (): Promise<BillReturn[]> => {
     const userId = getUserId();
     const q = query(
       collection(db, COLLECTIONS.BILL_RETURNS),
-      where("userId", "==", userId)
+      where("userId", "==", userId),
     );
     const querySnapshot = await getDocs(q);
 
@@ -2287,11 +1797,13 @@ export const getPurchaseReturns = async (): Promise<PurchaseReturn[]> => {
     const userId = getUserId();
     const q = query(
       collection(db, COLLECTIONS.PURCHASE_RETURNS),
-      where("userId", "==", userId)
+      where("userId", "==", userId),
     );
     const querySnapshot = await getDocs(q);
 
-    const returns = querySnapshot.docs.map((doc) => doc.data() as PurchaseReturn);
+    const returns = querySnapshot.docs.map(
+      (doc) => doc.data() as PurchaseReturn,
+    );
 
     // Sort by createdAt descending in JavaScript (avoids index requirement)
     return returns.sort((a, b) => {
@@ -2323,7 +1835,7 @@ export const getDeadstock = async (): Promise<DeadstockItem[]> => {
     const userId = getUserId();
     const q = query(
       collection(db, COLLECTIONS.DEADSTOCK),
-      where("userId", "==", userId)
+      where("userId", "==", userId),
     );
     const querySnapshot = await getDocs(q);
 
@@ -2358,19 +1870,11 @@ export const processBillReturn = async (
   returnItems: {
     productId: string;
     productName: string;
-    inventoryUnitId?: string;
-    imeiNumber?: string;
     quantity: number;
     condition: "good" | "bad";
     returnReason?: string;
     costPrice: number;
   }[],
-  options?: {
-    returnMode?: "full_bill" | "item_wise" | "amount_only";
-    customReturnAmount?: number;
-    refundPaidAmount?: number;
-    refundNote?: string;
-  },
 ): Promise<BillReturn> => {
   try {
     const userId = getUserId();
@@ -2382,67 +1886,6 @@ export const processBillReturn = async (
     }
 
     const bill = billSnap.data() as Bill;
-    const returnMode = options?.returnMode || "item_wise";
-    const customReturnAmount = roundToTwo(options?.customReturnAmount || 0);
-    const refundPaidAmount = roundToTwo(options?.refundPaidAmount || 0);
-    const refundNote = (options?.refundNote || "").trim();
-
-    if (returnMode === "amount_only" && customReturnAmount <= 0) {
-      throw new Error("Return amount must be greater than 0 for amount-only returns.");
-    }
-
-    const findMatchedBillItem = (item: {
-      productId: string;
-      inventoryUnitId?: string;
-      imeiNumber?: string;
-    }) =>
-      bill.items.find(
-        (b) =>
-          Boolean(item.inventoryUnitId) &&
-          Boolean((b as any).inventoryUnitId) &&
-          (b as any).inventoryUnitId === item.inventoryUnitId,
-      ) ||
-      bill.items.find(
-        (b) =>
-          normalizeImeiText(item.imeiNumber) &&
-          normalizeImeiText((b as any).imeiNumber) ===
-            normalizeImeiText(item.imeiNumber),
-      ) ||
-      bill.items.find((b) => b.productId === item.productId);
-
-    const computeItemWiseReturnValue = () =>
-      roundToTwo(
-        returnItems.reduce((sum, item) => {
-          const matchedBillItem = findMatchedBillItem(item);
-          if (!matchedBillItem || matchedBillItem.quantity <= 0) return sum;
-          const lineTotal =
-            (matchedBillItem.amount || 0) +
-            (matchedBillItem.cgst || 0) +
-            (matchedBillItem.sgst || 0) +
-            (matchedBillItem.igst || 0);
-          const perUnitValue = lineTotal / matchedBillItem.quantity;
-          return sum + item.quantity * perUnitValue;
-        }, 0),
-      );
-
-    const totalReturnValue =
-      returnMode === "amount_only"
-        ? customReturnAmount
-        : computeItemWiseReturnValue();
-
-    if (refundPaidAmount < 0) {
-      throw new Error("Refund paid amount cannot be negative.");
-    }
-    if (refundPaidAmount > totalReturnValue) {
-      throw new Error("Refund paid amount cannot exceed total return value.");
-    }
-    if (refundPaidAmount > (bill.paidAmount || 0)) {
-      throw new Error("Refund paid amount cannot exceed amount received.");
-    }
-    if (totalReturnValue > (bill.total || 0)) {
-      throw new Error("Return value cannot be greater than bill value.");
-    }
-
     const billReturn: BillReturn = {
       id: crypto.randomUUID(),
       billId,
@@ -2451,34 +1894,22 @@ export const processBillReturn = async (
       items: returnItems.map((item) => ({
         productId: item.productId,
         productName: item.productName,
-        inventoryUnitId: item.inventoryUnitId,
-        imeiNumber: item.imeiNumber,
         quantity: item.quantity,
         condition: item.condition,
         returnReason: item.returnReason,
       })),
-      totalReturnValue,
-      returnMode,
-      refundPaidAmount,
-      refundNote: refundNote || undefined,
+      totalReturnValue: returnItems.reduce(
+        (sum, item) => sum + item.quantity * item.costPrice,
+        0,
+      ),
       returnDate: new Date().toISOString(),
       createdAt: new Date().toISOString(),
     };
 
     const batch = writeBatch(db);
-    const allUnits = await getInventoryUnits();
 
     // Process each returned item
     for (const item of returnItems) {
-      const normalizedImei = normalizeImeiText(item.imeiNumber);
-      const isSerialized = Boolean(item.inventoryUnitId || normalizedImei);
-
-      if (isSerialized && item.quantity !== 1) {
-        throw new Error(
-          `IMEI/Serial return for ${item.productName} must have quantity 1.`,
-        );
-      }
-
       if (item.condition === "good") {
         // Good product - add back to inventory
         const productRef = doc(db, COLLECTIONS.PRODUCTS, item.productId);
@@ -2510,42 +1941,14 @@ export const processBillReturn = async (
         batch.set(deadstockRef, cleanedDeadstockData);
       }
 
-      if (isSerialized) {
-        const matchedUnit =
-          allUnits.find((u) => u.id === item.inventoryUnitId) ||
-          allUnits.find(
-            (u) =>
-              normalizeImeiText(u.imeiNormalized || u.imeiNumber) ===
-                normalizedImei && u.soldBillId === billId,
-          );
-
-        if (!matchedUnit) {
-          throw new Error(
-            `Could not find sold IMEI unit for ${item.productName} (${item.imeiNumber || "unknown"}).`,
-          );
-        }
-
-        const unitRef = doc(db, COLLECTIONS.INVENTORY_UNITS, matchedUnit.id);
-        batch.update(unitRef, {
-          status: item.condition === "good" ? "in_stock" : "deadstock",
-          soldBillId: null,
-          soldAt: null,
-          notes: item.returnReason || matchedUnit.notes || "",
-          updatedAt: new Date().toISOString(),
-        });
-      }
-
       // Record inventory transaction
       const transaction: InventoryTransaction = {
         id: crypto.randomUUID(),
         productId: item.productId,
-        billId: billId,
-        billReturnId: billReturn.id,
+        billId: billReturn.id,
         type: "return",
-        quantity: item.quantity,
+        quantity: -item.quantity, // Negative because it's a return of a sale (adding back to stock but reducing sale quantity)
         date: new Date().toISOString(),
-        inventoryUnitId: item.inventoryUnitId,
-        imeiNumber: item.imeiNumber || "",
         userId,
       };
       const transactionRef = doc(db, COLLECTIONS.INVENTORY, transaction.id);
@@ -2557,10 +1960,7 @@ export const processBillReturn = async (
     }
 
     // Update the original bill
-    await updateBillAfterReturn(billId, returnItems, {
-      customReturnAmount: returnMode === "amount_only" ? customReturnAmount : 0,
-      refundPaidAmount,
-    });
+    await updateBillAfterReturn(billId, returnItems);
 
     // Save bill return
     const returnRef = doc(db, COLLECTIONS.BILL_RETURNS, billReturn.id);
@@ -2584,10 +1984,6 @@ export const updateBillAfterReturn = async (
     productName?: string;
     returnReason?: string;
   }[],
-  options?: {
-    customReturnAmount?: number;
-    refundPaidAmount?: number;
-  },
 ): Promise<void> => {
   try {
     const billRef = doc(db, COLLECTIONS.BILLS, billId);
@@ -2597,18 +1993,13 @@ export const updateBillAfterReturn = async (
 
     const bill = billSnap.data() as Bill;
     let totalReturnValue = 0;
-    const customReturnAmount = roundToTwo(options?.customReturnAmount || 0);
-    const refundPaidAmount = roundToTwo(options?.refundPaidAmount || 0);
 
     // Update item quantities in the bill
     const isIGST = bill.gstType === "igst";
-    const updatedItems =
-      returnItems.length === 0
-        ? [...bill.items]
-        : bill.items
+    const updatedItems = bill.items
       .map((item) => {
         const returnItem = returnItems.find(
-          (r) => r.productId === item.productId
+          (r) => r.productId === item.productId,
         );
         if (returnItem) {
           const newQuantity = item.quantity - returnItem.quantity;
@@ -2644,33 +2035,15 @@ export const updateBillAfterReturn = async (
       })
       .filter((item) => item.quantity > 0);
 
-    if (returnItems.length === 0) {
-      totalReturnValue = customReturnAmount;
-    }
-
     // Recalculate bill totals
-    const subtotal = roundToTwo(
-      updatedItems.reduce((sum, item) => sum + item.amount, 0),
+    const subtotal = updatedItems.reduce((sum, item) => sum + item.amount, 0);
+    const totalTax = updatedItems.reduce(
+      (sum, item) => sum + item.cgst + item.sgst + (item.igst || 0),
+      0,
     );
-    const totalTax = roundToTwo(
-      updatedItems.reduce(
-        (sum, item) => sum + item.cgst + item.sgst + (item.igst || 0),
-        0,
-      ),
-    );
-    const rawTotal = Math.max(0, roundToTwo(subtotal + totalTax - totalReturnValue));
+    const rawTotal = subtotal + totalTax;
     const roundedTotal = Math.round(rawTotal);
-    const roundOff = roundToTwo(roundedTotal - rawTotal);
-
-    const nextPaidAmount = Math.max(0, roundToTwo((bill.paidAmount || 0) - refundPaidAmount));
-    let paymentStatus: Bill["paymentStatus"] = "pending";
-    if (nextPaidAmount >= roundedTotal) {
-      paymentStatus = nextPaidAmount > roundedTotal ? "overpaid" : "paid";
-    } else if (nextPaidAmount > 0) {
-      paymentStatus = "pending";
-    } else if (bill.dueDate && new Date(bill.dueDate) < new Date()) {
-      paymentStatus = "overdue";
-    }
+    const roundOff = roundedTotal - rawTotal;
 
     const existingComment = bill.returnComment || "";
     const returnDate = new Date().toISOString();
@@ -2691,8 +2064,6 @@ export const updateBillAfterReturn = async (
       totalTax,
       roundOff,
       total: roundedTotal,
-      paidAmount: nextPaidAmount,
-      paymentStatus,
       returnComment,
       updatedAt: new Date().toISOString(),
     });
@@ -2703,7 +2074,7 @@ export const updateBillAfterReturn = async (
 };
 
 export const getBillReturnsByBillId = async (
-  billId: string
+  billId: string,
 ): Promise<BillReturn[]> => {
   try {
     const returns = await getBillReturns();
@@ -2716,7 +2087,7 @@ export const getBillReturnsByBillId = async (
 
 export const getReturnedQuantity = async (
   billId: string,
-  productId: string
+  productId: string,
 ): Promise<number> => {
   try {
     const returns = await getBillReturnsByBillId(billId);
@@ -2735,7 +2106,7 @@ export const getTotalDeadstockLoss = async (): Promise<number> => {
     const deadstock = await getDeadstock();
     return deadstock.reduce(
       (sum, item) => sum + item.quantity * item.costPrice,
-      0
+      0,
     );
   } catch (error) {
     console.error("Error getting total deadstock loss:", error);
@@ -2767,7 +2138,7 @@ export const getCostOfGoodsSold = async (): Promise<number> => {
 
 // User Preferences (for theme, PWA settings, etc.)
 export const getUserPreference = async (
-  key: string
+  key: string,
 ): Promise<string | null> => {
   try {
     const userId = getUserId();
@@ -2787,7 +2158,7 @@ export const getUserPreference = async (
 
 export const setUserPreference = async (
   key: string,
-  value: string
+  value: string,
 ): Promise<void> => {
   try {
     const userId = getUserId();
@@ -2810,7 +2181,7 @@ export const getExpenses = async (): Promise<Expense[]> => {
       const q = query(
         collection(db, COLLECTIONS.EXPENSES),
         where("userId", "==", userId),
-        orderBy("createdAt", "desc")
+        orderBy("createdAt", "desc"),
       );
       querySnapshot = await getDocs(q);
     } catch (orderByError) {
@@ -2818,7 +2189,7 @@ export const getExpenses = async (): Promise<Expense[]> => {
       console.warn("OrderBy failed, sorting client-side:", orderByError);
       const q = query(
         collection(db, COLLECTIONS.EXPENSES),
-        where("userId", "==", userId)
+        where("userId", "==", userId),
       );
       querySnapshot = await getDocs(q);
     }
@@ -2828,7 +2199,7 @@ export const getExpenses = async (): Promise<Expense[]> => {
         ({
           id: doc.id,
           ...doc.data(),
-        } as Expense)
+        }) as Expense,
     );
 
     // Sort by createdAt descending (most recent first), with fallback to date if createdAt is missing
@@ -2889,11 +2260,12 @@ export const uploadFile = async (file: File): Promise<UploadedFile> => {
     const userId = getUserId();
     const fileId = crypto.randomUUID();
     const timestamp = Date.now();
-    
+
     // Get file extension safely
     const fileNameParts = file.name.split(".");
-    const fileExtension = fileNameParts.length > 1 ? fileNameParts.pop() || "" : "";
-    
+    const fileExtension =
+      fileNameParts.length > 1 ? fileNameParts.pop() || "" : "";
+
     // Sanitize file name for storage (remove special characters that might cause issues)
     const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
     const storageFileName = `${timestamp}_${fileId}${fileExtension ? `.${fileExtension}` : ""}`;
@@ -2942,7 +2314,7 @@ export const getFiles = async (): Promise<UploadedFile[]> => {
     const userId = getUserId();
     const q = query(
       collection(db, COLLECTIONS.FILES),
-      where("userId", "==", userId)
+      where("userId", "==", userId),
     );
     const querySnapshot = await getDocs(q);
 
@@ -2962,7 +2334,7 @@ export const getFiles = async (): Promise<UploadedFile[]> => {
 
 export const deleteFile = async (
   fileId: string,
-  storagePath: string
+  storagePath: string,
 ): Promise<void> => {
   try {
     // Delete from Firestore
@@ -2980,7 +2352,7 @@ export const deleteFile = async (
 
 export const downloadFile = async (
   downloadUrl: string,
-  fileName: string
+  fileName: string,
 ): Promise<void> => {
   try {
     const response = await fetch(downloadUrl);
@@ -3009,12 +2381,12 @@ export const getNotes = async (date?: string): Promise<Note[]> => {
       q = query(
         collection(db, COLLECTIONS.NOTES),
         where("userId", "==", userId),
-        where("date", "==", date)
+        where("date", "==", date),
       );
     } else {
       q = query(
         collection(db, COLLECTIONS.NOTES),
-        where("userId", "==", userId)
+        where("userId", "==", userId),
       );
     }
 
@@ -3066,7 +2438,7 @@ export const deleteNote = async (noteId: string): Promise<void> => {
 
 export const updateNoteStatus = async (
   noteId: string,
-  isDone: boolean
+  isDone: boolean,
 ): Promise<void> => {
   try {
     const docRef = doc(db, COLLECTIONS.NOTES, noteId);
@@ -3098,7 +2470,6 @@ export const getProductSalesData = async (productId: string) => {
   return { totalSoldQty, totalSaleRevenue };
 };
 
-
 const SAMPLE_BILLS_COLLECTION = "sampleBills";
 const SAMPLE_BILL_COUNTER_DOC = "sampleBillCounter";
 
@@ -3107,7 +2478,7 @@ export const getSampleBills = async (): Promise<SampleBill[]> => {
     const userId = getUserId();
     const q = query(
       collection(db, SAMPLE_BILLS_COLLECTION),
-      where("userId", "==", userId)
+      where("userId", "==", userId),
     );
     const querySnapshot = await getDocs(q);
 
@@ -3138,7 +2509,7 @@ export const getSampleBills = async (): Promise<SampleBill[]> => {
 
 // Get single sample bill by ID
 export const getSampleBillById = async (
-  id: string
+  id: string,
 ): Promise<SampleBill | null> => {
   try {
     const billRef = doc(db, SAMPLE_BILLS_COLLECTION, id);
@@ -3196,7 +2567,7 @@ export const updateSampleBillPayment = async (
   billId: string,
   paidAmount: number,
   paymentType: PaymentMethod,
-  note?: string
+  note?: string,
 ): Promise<void> => {
   try {
     const billRef = doc(db, SAMPLE_BILLS_COLLECTION, billId);
@@ -3216,7 +2587,9 @@ export const updateSampleBillPayment = async (
         note: note,
       };
 
-      const payments = Array.isArray(bill.payments) ? [...bill.payments, newPayment] : [newPayment];
+      const payments = Array.isArray(bill.payments)
+        ? [...bill.payments, newPayment]
+        : [newPayment];
 
       await updateDoc(billRef, {
         paidAmount: newPaidAmount,
@@ -3238,7 +2611,7 @@ export const getSampleBillCounter = async (): Promise<number> => {
     const counterRef = doc(
       db,
       COLLECTIONS.COUNTERS,
-      `${userId}_${SAMPLE_BILL_COUNTER_DOC}`
+      `${userId}_${SAMPLE_BILL_COUNTER_DOC}`,
     );
     const counterSnap = await getDoc(counterRef);
 
@@ -3259,7 +2632,7 @@ export const incrementSampleBillCounter = async (): Promise<number> => {
     const counterRef = doc(
       db,
       COLLECTIONS.COUNTERS,
-      `${userId}_${SAMPLE_BILL_COUNTER_DOC}`
+      `${userId}_${SAMPLE_BILL_COUNTER_DOC}`,
     );
     const counterSnap = await getDoc(counterRef);
 

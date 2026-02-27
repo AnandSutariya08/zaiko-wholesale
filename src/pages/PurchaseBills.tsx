@@ -61,6 +61,7 @@ import { PaymentDialog } from "@/components/PaymentDialog";
 import {
   formatCurrency,
   formatDate,
+  calculateSellingPriceFromCommission,
 } from "@/lib/billUtils";
 import { PurchaseReturnForm } from "@/components/PurchaseReturnForm";
 import {
@@ -109,7 +110,6 @@ import { ConflictResolutionDialog } from "@/components/ConflictResolutionDialog"
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { compressFile, getBase64SizeKB } from "@/lib/imageCompression";
 import { ProductAutocomplete } from "@/components/ProductAutocomplete";
-import { ProductForm } from "@/components/ProductForm";
 
 function PurchaseBills() {
   const navigate = useNavigate();
@@ -169,145 +169,17 @@ function PurchaseBills() {
     );
   };
 
-  const normalizeVariantPart = (value?: string) =>
-    (value || "").toString().trim().toLowerCase();
-
-  const normalizeImei = (value?: string) =>
-    (value || "").toString().replace(/\s+/g, "").toLowerCase();
-
-  const buildVariantKey = (item: {
-    description?: string;
-    name?: string;
-    model?: string;
-  }) =>
-    [
-      normalizeVariantPart(item.description || item.name),
-      normalizeVariantPart(item.model),
-    ].join("|");
-
-  const isVariantSensitiveItem = (item: {
-    model?: string;
-    storage?: string;
-    color?: string;
-    itemNo?: string;
-  }) =>
-    Boolean(
-      normalizeVariantPart(item.model) ||
-        normalizeVariantPart(item.storage) ||
-        normalizeVariantPart(item.color) ||
-        normalizeVariantPart(item.itemNo),
-    );
-
-  const findExistingProductForPurchaseItem = (item: PurchaseBillItem) => {
-    const variantSensitive = isVariantSensitiveItem(item);
-    const variantKey = buildVariantKey(item);
-
-    if (variantSensitive) {
-      const variantMatch = products.find(
-        (p) => buildVariantKey(p) === variantKey,
-      );
-      if (variantMatch) return variantMatch;
-    }
-
-    return products.find(
-      (p) =>
-        p.name.toLowerCase().trim() === item.description.toLowerCase().trim() ||
-        (item.hsnCode && p.hsnCode === item.hsnCode),
-    );
-  };
-
-  const validatePhoneItemRules = (
-    items: Array<{
-      description?: string;
-      quantity: number;
-      imeiNumber?: string;
-      imeiListText?: string;
-      productId?: string;
-      vendorId?: string;
-      isNewProduct?: boolean;
-    }>,
-    opts?: {
-      checkAgainstProducts?: boolean;
-      requireInventoryFields?: boolean;
-      allowListQuantity?: boolean;
-    },
-  ): string | null => {
-    const seenImeis = new Set<string>();
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      const lineLabel = item.description?.trim()
-        ? item.description.trim()
-        : `Item ${i + 1}`;
-      const normalizedImei = normalizeImei(item.imeiNumber);
-
-      if (opts?.requireInventoryFields) {
-        if (!item.vendorId) {
-          return `${lineLabel}: vendor is required before adding to inventory.`;
-        }
-        if (item.isNewProduct === false && !item.productId) {
-          return `${lineLabel}: select a product for "Update Stock" or switch to "Create New".`;
-        }
-      }
-
-      if (!normalizedImei) continue;
-
-      if (!opts?.allowListQuantity && Number(item.quantity) !== 1) {
-        return `${lineLabel}: quantity must be 1 when IMEI/Serial is provided.`;
-      }
-
-      if (seenImeis.has(normalizedImei)) {
-        return `${lineLabel}: duplicate IMEI/Serial in this bill (${item.imeiNumber}).`;
-      }
-      seenImeis.add(normalizedImei);
-
-      if (opts?.checkAgainstProducts) {
-        const existing = products.find(
-          (p) => normalizeImei((p as any).imeiNumber) === normalizedImei,
-        );
-        if (existing) {
-          return `${lineLabel}: IMEI/Serial already exists in inventory (${existing.name}).`;
-        }
-      }
-    }
-    return null;
-  };
-
-  const splitImeiList = (raw?: string): string[] => {
-    if (!raw) return [];
-    return Array.from(
-      new Set(
-        raw
-          .split(/[\n,;]+/g)
-          .map((v) => v.trim())
-          .filter(Boolean),
-      ),
-    );
-  };
-
-  const getInventoryRowImeis = (item: {
-    imeiNumber?: string;
-    imeiListText?: string;
-  }): string[] => {
-    const list = splitImeiList(item.imeiListText || "");
-    if (list.length > 0) return list;
-    const single = (item.imeiNumber || "").trim();
-    return single ? [single] : [];
-  };
-
-  const isSerializedInventoryRow = (item: {
-    productId?: string;
-    imeiNumber?: string;
-    imeiListText?: string;
-  }): boolean => {
-    return getInventoryRowImeis(item).length > 0;
-  };
-
   const getAvailableStockForBill = (bill: PurchaseBill) => {
     if (!bill || !products) return 0;
     const billProductIds = new Set(
       bill.items
         .map((item) => {
-          const p = findExistingProductForPurchaseItem(item);
+          const p = products.find(
+            (p) =>
+              p.name.toLowerCase().trim() ===
+                item.description.toLowerCase().trim() ||
+              (item.hsnCode && p.hsnCode === item.hsnCode),
+          );
           return p?.id;
         })
         .filter(Boolean),
@@ -433,16 +305,11 @@ function PurchaseBills() {
   const [inventoryItems, setInventoryItems] = useState<
     {
       description: string;
-      itemNo?: string;
-      model?: string;
-      imeiNumber?: string;
-      imeiListText?: string;
-      storage?: string;
-      color?: string;
       hsnCode: string;
       quantity: number;
       unit: string;
       purchasePrice: number;
+      sellingPrice: number;
       gstRate: number;
       weight: number;
       weightUnit: string;
@@ -456,8 +323,6 @@ function PurchaseBills() {
   const [vendors, setVendors] = useState<Vendor[]>([]);
 
   const [products, setProducts] = useState<any[]>([]);
-  const [createProductOpen, setCreateProductOpen] = useState(false);
-  const [createProductForIndex, setCreateProductForIndex] = useState<number | null>(null);
   const [manualCreateOpen, setManualCreateOpen] = useState(false);
   const manualImageInputRef = useRef<HTMLInputElement>(null);
   const [manualVendorMode, setManualVendorMode] = useState<"select" | "create">(
@@ -497,11 +362,6 @@ function PurchaseBills() {
       {
         description: "",
         hsnCode: "",
-        itemNo: "",
-        model: "",
-        imeiNumber: "",
-        storage: "",
-        color: "",
         quantity: 1,
         unit: "pcs",
         rate: 0,
@@ -909,11 +769,6 @@ function PurchaseBills() {
         {
           description: "",
           hsnCode: "",
-          itemNo: "",
-          model: "",
-          imeiNumber: "",
-          storage: "",
-          color: "",
           quantity: 1,
           unit: "pcs",
           rate: 0,
@@ -940,17 +795,6 @@ function PurchaseBills() {
     const item = { ...items[index] };
     (item as any)[field] = value;
 
-    if (
-      (field === ("imeiNumber" as keyof PurchaseBillItem) ||
-        normalizeImei((item as any).imeiNumber)) &&
-      normalizeImei((item as any).imeiNumber)
-    ) {
-      item.quantity = 1;
-      if (!item.unit || item.unit.toLowerCase() !== "pcs") {
-        item.unit = "pcs";
-      }
-    }
-
     if (field === "quantity" || field === "rate") {
       item.amount = item.quantity * item.rate;
       item.gstAmount = (item.amount * (item.gstRate || 0)) / 100;
@@ -972,26 +816,11 @@ function PurchaseBills() {
     item.rate = product.purchasePrice ?? item.rate;
     item.gstRate = product.gstRate ?? item.gstRate ?? 0;
     item.unit = product.unit || item.unit || "pcs";
-    item.itemNo = product.itemNo || item.itemNo || "";
-    item.model = product.model || item.model || "";
-    item.imeiNumber = product.imeiNumber || item.imeiNumber || "";
-    item.storage = product.storage || item.storage || "";
-    item.color = product.color || item.color || "";
-
-    if (normalizeImei(item.imeiNumber)) {
-      item.quantity = 1;
-      item.unit = "pcs";
-    }
     item.amount = item.quantity * item.rate;
     item.gstAmount = (item.amount * (item.gstRate || 0)) / 100;
 
     items[index] = item;
     setManualBill((prev) => ({ ...prev, items }));
-  };
-
-  const handleCreateProductFromManualItem = (index: number) => {
-    setCreateProductForIndex(index);
-    setCreateProductOpen(true);
   };
 
   const addManualItemRow = () => {
@@ -1002,11 +831,6 @@ function PurchaseBills() {
         {
           description: "",
           hsnCode: "",
-          itemNo: "",
-          model: "",
-          imeiNumber: "",
-          storage: "",
-          color: "",
           quantity: 1,
           unit: "pcs",
           rate: 0,
@@ -1154,22 +978,11 @@ function PurchaseBills() {
         })
         .filter((item) => item.description && item.quantity > 0);
 
-      const manualValidationError = validatePhoneItemRules(cleanedItems, {
-        checkAgainstProducts: false,
-      });
-      if (manualValidationError) {
-        toast({
-          title: "Invalid Item Data",
-          description: manualValidationError,
-          variant: "destructive",
-        });
-        return;
-      }
-
       if (cleanedItems.length === 0) {
         toast({
           title: "Items Required",
-          description: "Add at least one valid item with quantity greater than 0.",
+          description:
+            "Add at least one valid item with quantity greater than 0.",
           variant: "destructive",
         });
         return;
@@ -1341,32 +1154,27 @@ function PurchaseBills() {
       return;
     }
 
-    // Open dialog to confirm inventory mapping details before add
+    // Open dialog to enter selling prices
+    // Use commission settings from company profile to calculate default selling price
     const products = await getProducts();
     const items = bill.items.map((item) => {
-      const itemVariantSensitive = isVariantSensitiveItem(item);
-      const itemVariantKey = buildVariantKey(item);
-      const existingProduct = itemVariantSensitive
-        ? products.find((p) => buildVariantKey(p) === itemVariantKey)
-        : products.find(
-            (p) =>
-              p.name.toLowerCase() === item.description.toLowerCase() ||
-              p.hsnCode === item.hsnCode,
-          );
+      const existingProduct = products.find(
+        (p) =>
+          p.name.toLowerCase() === item.description.toLowerCase() ||
+          p.hsnCode === item.hsnCode,
+      );
 
       return {
         description: item.description,
-        itemNo: (item as any).itemNo || "",
-        model: (item as any).model || "",
-        imeiNumber: (item as any).imeiNumber || "",
-        imeiListText: (item as any).imeiNumber || "",
-        storage: (item as any).storage || "",
-        color: (item as any).color || "",
         hsnCode: item.hsnCode || "",
         barcode: "", // Added barcode field for inventory addition
         quantity: item.quantity,
         unit: item.unit,
         purchasePrice: item.rate,
+        sellingPrice: calculateSellingPriceFromCommission(
+          item.rate,
+          companyProfile?.commissionSettings,
+        ),
         gstRate: item.gstRate || 0,
         whereToBuy: (item as any).whereToBuy || bill.vendorName || "",
         weight: (item as any).weight || 0,
@@ -1428,106 +1236,37 @@ function PurchaseBills() {
         }
       }
 
-      const inventoryValidationError = validatePhoneItemRules(inventoryItems, {
-        checkAgainstProducts: true,
-        requireInventoryFields: true,
-        allowListQuantity: true,
-      });
-      if (inventoryValidationError) {
+      // Validate all selling prices
+      const hasInvalidPrices = inventoryItems.some(
+        (item) => item.sellingPrice <= 0,
+      );
+      if (hasInvalidPrices) {
         toast({
-          title: "Invalid Inventory Data",
-          description: inventoryValidationError,
+          title: "Invalid Prices",
+          description: "Please enter valid selling prices for all items",
           variant: "destructive",
         });
         setLoadingInventory(null);
         return;
       }
 
-      for (let i = 0; i < inventoryItems.length; i += 1) {
-        const row = inventoryItems[i];
-        const rowImeis = getInventoryRowImeis(row);
-        const rowLabel = row.description?.trim() || `Item ${i + 1}`;
-        if (isSerializedInventoryRow(row)) {
-          if (rowImeis.length === 0) {
-            toast({
-              title: "Serialized IMEI Required",
-              description: `${rowLabel}: add IMEI list for serialized item.`,
-              variant: "destructive",
-            });
-            setLoadingInventory(null);
-            return;
-          }
-          if (Number(row.quantity) !== rowImeis.length) {
-            toast({
-              title: "IMEI Count Mismatch",
-              description: `${rowLabel}: quantity ${row.quantity} must match ${rowImeis.length} IMEI entries.`,
-              variant: "destructive",
-            });
-            setLoadingInventory(null);
-            return;
-          }
-        }
-      }
-
-      const itemsInput: InventoryItemInput[] = inventoryItems.flatMap((item) => {
-        const rowImeis = getInventoryRowImeis(item);
-        const serialized = isSerializedInventoryRow(item);
-        const base = {
-          description: item.description,
-          itemNo: item.itemNo || "",
-          model: item.model || "",
-          storage: item.storage || "",
-          color: item.color || "",
-          hsnCode: item.hsnCode,
-          barcode: item.barcode,
-          vendorId: item.vendorId,
-          purchasePrice: item.purchasePrice,
-          sellingPrice: 0,
-          gstRate: item.gstRate,
-          productId: item.productId,
-          isNewProduct: item.isNewProduct,
-          whereToBuy: item.isNewProduct
-            ? (inventoryDialogBill as any).vendorName
-            : undefined,
-          weight: item.weight,
-          weightUnit: item.weightUnit,
-        };
-        if (!serialized) {
-          return [
-            {
-              ...base,
-              imeiNumber: "",
-              quantity: item.quantity,
-              unit: item.unit,
-            },
-          ] satisfies InventoryItemInput[];
-        }
-        return rowImeis.map(
-          (imei) =>
-            ({
-              ...base,
-              imeiNumber: imei,
-              quantity: 1,
-              unit: "pcs",
-            }) satisfies InventoryItemInput,
-        );
-      });
-
-      const seenInputImeis = new Set<string>();
-      for (const inputItem of itemsInput) {
-        const normalizedImei = normalizeImei(inputItem.imeiNumber);
-        if (!normalizedImei) continue;
-        if (seenInputImeis.has(normalizedImei)) {
-          toast({
-            title: "Duplicate IMEI",
-            description: `Duplicate IMEI/Serial found in inventory entries: ${inputItem.imeiNumber}`,
-            variant: "destructive",
-          });
-          setLoadingInventory(null);
-          return;
-        }
-        seenInputImeis.add(normalizedImei);
-      }
+      const itemsInput: InventoryItemInput[] = inventoryItems.map((item) => ({
+        description: item.description,
+        hsnCode: item.hsnCode,
+        barcode: item.barcode, // Pass barcode to inventory service
+        quantity: item.quantity,
+        unit: item.unit,
+        purchasePrice: item.purchasePrice,
+        sellingPrice: item.sellingPrice,
+        gstRate: item.gstRate,
+        productId: item.productId,
+        isNewProduct: item.isNewProduct,
+        whereToBuy: item.isNewProduct
+          ? (inventoryDialogBill as any).vendorName
+          : undefined,
+        weight: item.weight,
+        weightUnit: item.weightUnit,
+      }));
 
       const result = await addPurchaseItemsToInventory(
         inventoryDialogBill,
@@ -1541,7 +1280,7 @@ function PurchaseBills() {
         setPendingInventoryBill(inventoryDialogBill);
         setPendingInventoryItems(itemsInput);
         setProductConflicts(result.conflicts);
-        setInventoryDialogBill(null); // Close inventory mapping dialog
+        setInventoryDialogBill(null); // Close the selling price dialog
         setLoadingInventory(null);
         return;
       }
@@ -1604,22 +1343,6 @@ function PurchaseBills() {
 
     setLoadingInventory(pendingInventoryBill.id);
     try {
-      const conflictValidationError = validatePhoneItemRules(
-        pendingInventoryItems,
-        {
-          checkAgainstProducts: true,
-          requireInventoryFields: true,
-        },
-      );
-      if (conflictValidationError) {
-        toast({
-          title: "Invalid Inventory Data",
-          description: conflictValidationError,
-          variant: "destructive",
-        });
-        return;
-      }
-
       const result = await addPurchaseItemsToInventory(
         pendingInventoryBill,
         pendingInventoryItems,
@@ -1656,6 +1379,15 @@ function PurchaseBills() {
     }
   };
 
+  const updateInventoryItemSellingPrice = (
+    index: number,
+    sellingPrice: number,
+  ) => {
+    const items = [...inventoryItems];
+    items[index].sellingPrice = sellingPrice;
+    setInventoryItems(items);
+  };
+
   const startEditing = (bill: PurchaseBill) => {
     const clone: PurchaseBill = JSON.parse(JSON.stringify(bill));
     // Auto-fill item-level "Bought from" with Vendor Name if missing
@@ -1675,11 +1407,6 @@ function PurchaseBills() {
     const newItem: PurchaseBillItem = {
       description: "",
       hsnCode: "",
-      itemNo: "",
-      model: "",
-      imeiNumber: "",
-      storage: "",
-      color: "",
       quantity: 1,
       unit: "pcs",
       rate: 0,
@@ -1704,57 +1431,12 @@ function PurchaseBills() {
 
     setSavingEditedBill(true);
     try {
-      const normalizedItems = (editedBill.items || [])
-        .map((item) => {
-          const description = (item.description || "").trim();
-          const quantity = Number(item.quantity) || 0;
-          const rate = Number(item.rate) || 0;
-          const gstRate = Number(item.gstRate) || 0;
-          const amount = quantity * rate;
-          const gstAmount = (amount * gstRate) / 100;
-          const imei = normalizeImei((item as any).imeiNumber);
-          return {
-            ...item,
-            description,
-            quantity: imei ? 1 : quantity,
-            unit: imei ? "pcs" : item.unit || "pcs",
-            rate,
-            gstRate,
-            amount,
-            gstAmount,
-            hasError: false,
-            errorMessage: undefined,
-          };
-        })
-        .filter((item) => item.description && item.quantity > 0);
-
-      const editedValidationError = validatePhoneItemRules(normalizedItems, {
-        checkAgainstProducts: false,
-      });
-      if (editedValidationError) {
-        toast({
-          title: "Invalid Item Data",
-          description: editedValidationError,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (normalizedItems.length === 0) {
-        toast({
-          title: "Items Required",
-          description: "Add at least one valid item with quantity greater than 0.",
-          variant: "destructive",
-        });
-        return;
-      }
-
       // Recalculate totals
-      const subtotal = normalizedItems.reduce(
+      const subtotal = editedBill.items.reduce(
         (sum, item) => sum + item.amount,
         0,
       );
-      const totalTax = normalizedItems.reduce(
+      const totalTax = editedBill.items.reduce(
         (sum, item) => sum + (item.gstAmount || 0),
         0,
       );
@@ -1762,7 +1444,6 @@ function PurchaseBills() {
 
       const updatedBill: PurchaseBill = {
         ...editedBill,
-        items: normalizedItems,
         subtotal,
         totalTax,
         total,
@@ -1806,15 +1487,6 @@ function PurchaseBills() {
 
     (item as any)[field] = value;
 
-    if (
-      (field === ("imeiNumber" as keyof PurchaseBillItem) ||
-        normalizeImei((item as any).imeiNumber)) &&
-      normalizeImei((item as any).imeiNumber)
-    ) {
-      item.quantity = 1;
-      item.unit = "pcs";
-    }
-
     // Recalculate amount
     if (field === "quantity" || field === "rate") {
       item.amount = item.quantity * item.rate;
@@ -1839,11 +1511,6 @@ function PurchaseBills() {
 
     item.description = product.name; // Update description
     if (product.hsnCode) item.hsnCode = product.hsnCode; // Update HSN if available
-    item.itemNo = product.itemNo || item.itemNo || "";
-    item.model = product.model || item.model || "";
-    item.imeiNumber = product.imeiNumber || item.imeiNumber || "";
-    item.storage = product.storage || item.storage || "";
-    item.color = product.color || item.color || "";
 
     // Update rate if available (assuming purchasePrice is the buying rate)
     if (product.purchasePrice) item.rate = product.purchasePrice;
@@ -1853,10 +1520,6 @@ function PurchaseBills() {
 
     // Update Unit
     if (product.unit) item.unit = product.unit;
-    if (normalizeImei(item.imeiNumber)) {
-      item.quantity = 1;
-      item.unit = "pcs";
-    }
 
     // Recalculate amounts
     item.amount = item.quantity * item.rate;
@@ -1961,7 +1624,9 @@ function PurchaseBills() {
     0,
   );
   const manualGrandTotal = manualSubtotal + manualTaxTotal;
-  const manualSelectedVendor = vendors.find((v) => v.id === manualBill.vendorId);
+  const manualSelectedVendor = vendors.find(
+    (v) => v.id === manualBill.vendorId,
+  );
 
   if (loading) {
     return (
@@ -2150,1302 +1815,2429 @@ function PurchaseBills() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-border/70 bg-background/70 p-2 sm:p-4">
-      <div className="h-full overflow-y-auto space-y-5 pr-1 sm:pr-2">
+        <div className="h-full overflow-y-auto space-y-5 pr-1 sm:pr-2">
+          {/* Summary Tiles */}
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+            <Card className="border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5 shadow-sm">
+              <CardContent className="p-3 sm:p-4">
+                <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase text-muted-foreground">
+                  <BookOpen className="h-3 w-3 text-primary" /> Total Purchase
+                </p>
+                <p className="truncate text-xl font-bold">
+                  {formatCurrency(stats.totalPurchase)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="border-emerald-200 bg-gradient-to-br from-emerald-100/60 to-emerald-50 shadow-sm">
+              <CardContent className="p-3 sm:p-4">
+                <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase text-emerald-600">
+                  <CheckCircle className="h-3 w-3" /> Amount Paid
+                </p>
+                <p className="truncate text-xl font-bold text-emerald-700">
+                  {formatCurrency(stats.totalPaid)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="border-orange-200 bg-gradient-to-br from-orange-100/60 to-orange-50 shadow-sm">
+              <CardContent className="p-3 sm:p-4">
+                <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase text-orange-600">
+                  <Clock className="h-3 w-3" /> Remaining to Pay
+                </p>
+                <p className="truncate text-xl font-bold text-orange-700">
+                  {formatCurrency(stats.amountRemaining)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="border-rose-200 bg-gradient-to-br from-rose-100/60 to-rose-50 shadow-sm">
+              <CardContent className="p-3 sm:p-4">
+                <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase text-rose-600">
+                  <RotateCcw className="h-3 w-3" /> Total Return
+                </p>
+                <p className="truncate text-xl font-bold text-rose-700">
+                  {formatCurrency(stats.totalReturns)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="col-span-2 border-blue-200 bg-gradient-to-br from-blue-100/60 to-blue-50 shadow-sm lg:col-span-1">
+              <CardContent className="p-3 sm:p-4">
+                <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase text-blue-600">
+                  <IndianRupee className="h-3 w-3" /> Return Collected
+                </p>
+                <p className="truncate text-xl font-bold text-blue-700">
+                  {formatCurrency(stats.totalReturnCollected)}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
 
-      {/* Summary Tiles */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <Card className="border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5 shadow-sm">
-          <CardContent className="p-3 sm:p-4">
-            <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase text-muted-foreground">
-              <BookOpen className="h-3 w-3 text-primary" /> Total Purchase
-            </p>
-            <p className="truncate text-xl font-bold">{formatCurrency(stats.totalPurchase)}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-emerald-200 bg-gradient-to-br from-emerald-100/60 to-emerald-50 shadow-sm">
-          <CardContent className="p-3 sm:p-4">
-            <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase text-emerald-600">
-              <CheckCircle className="h-3 w-3" /> Amount Paid
-            </p>
-            <p className="truncate text-xl font-bold text-emerald-700">{formatCurrency(stats.totalPaid)}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-orange-200 bg-gradient-to-br from-orange-100/60 to-orange-50 shadow-sm">
-          <CardContent className="p-3 sm:p-4">
-            <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase text-orange-600">
-              <Clock className="h-3 w-3" /> Remaining to Pay
-            </p>
-            <p className="truncate text-xl font-bold text-orange-700">{formatCurrency(stats.amountRemaining)}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-rose-200 bg-gradient-to-br from-rose-100/60 to-rose-50 shadow-sm">
-          <CardContent className="p-3 sm:p-4">
-            <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase text-rose-600">
-              <RotateCcw className="h-3 w-3" /> Total Return
-            </p>
-            <p className="truncate text-xl font-bold text-rose-700">{formatCurrency(stats.totalReturns)}</p>
-          </CardContent>
-        </Card>
-        <Card className="col-span-2 border-blue-200 bg-gradient-to-br from-blue-100/60 to-blue-50 shadow-sm lg:col-span-1">
-          <CardContent className="p-3 sm:p-4">
-            <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase text-blue-600">
-              <IndianRupee className="h-3 w-3" /> Return Collected
-            </p>
-            <p className="truncate text-xl font-bold text-blue-700">
-              {formatCurrency(stats.totalReturnCollected)}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+          <Card className="mb-1 overflow-hidden border border-border/70 bg-gradient-to-r from-background via-slate-50/60 to-sky-50/40 dark:via-background dark:to-slate-900/20">
+            <CardContent className="p-3 sm:p-5">
+              <button
+                type="button"
+                onClick={() => setShowFilters((prev) => !prev)}
+                className="flex w-full items-center justify-between gap-3 rounded-xl border border-border/70 bg-background/80 px-3 py-3 text-left transition hover:bg-background"
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-primary" />
+                    <p className="text-sm font-medium">Search & Filters</p>
+                  </div>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {gstLabelMap[gstFilter]} - {statusLabelMap[statusFilter]} -{" "}
+                    {sortLabelMap[sortBy]}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant="secondary"
+                    className="h-8 rounded-lg px-3 text-xs font-semibold"
+                  >
+                    {filteredBills.length} Results
+                  </Badge>
+                  <ChevronDown
+                    className={`h-4 w-4 transition-transform ${showFilters ? "rotate-180" : ""}`}
+                  />
+                </div>
+              </button>
 
-      <Card className="mb-1 overflow-hidden border border-border/70 bg-gradient-to-r from-background via-slate-50/60 to-sky-50/40 dark:via-background dark:to-slate-900/20">
-        <CardContent className="p-3 sm:p-5">
-          <button
-            type="button"
-            onClick={() => setShowFilters((prev) => !prev)}
-            className="flex w-full items-center justify-between gap-3 rounded-xl border border-border/70 bg-background/80 px-3 py-3 text-left transition hover:bg-background"
-          >
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-primary" />
-                <p className="text-sm font-medium">Search & Filters</p>
-              </div>
-              <p className="truncate text-xs text-muted-foreground">
-                {gstLabelMap[gstFilter]} - {statusLabelMap[statusFilter]} - {sortLabelMap[sortBy]}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="h-8 rounded-lg px-3 text-xs font-semibold">
-                {filteredBills.length} Results
-              </Badge>
-              <ChevronDown
-                className={`h-4 w-4 transition-transform ${showFilters ? "rotate-180" : ""}`}
-              />
-            </div>
-          </button>
+              {showFilters && (
+                <div className="mx-auto mt-3 w-full max-w-4xl space-y-3">
+                  <div className="relative">
+                    <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Search vendor, bill number, items..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="h-12 rounded-2xl border border-border/70 bg-white pl-12 text-base shadow-sm transition focus-visible:ring-2 focus-visible:ring-primary/30 dark:bg-background/90"
+                    />
+                  </div>
 
-          {showFilters && (
-            <div className="mx-auto mt-3 w-full max-w-4xl space-y-3">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search vendor, bill number, items..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="h-12 rounded-2xl border border-border/70 bg-white pl-12 text-base shadow-sm transition focus-visible:ring-2 focus-visible:ring-primary/30 dark:bg-background/90"
-                />
-              </div>
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    <Select value={gstFilter} onValueChange={setGstFilter}>
+                      <SelectTrigger className="h-9 w-[170px] rounded-xl bg-background/90">
+                        <SelectValue placeholder="Bill Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Bills</SelectItem>
+                        <SelectItem value="gst">GST Bills</SelectItem>
+                        <SelectItem value="non-gst">Non-GST Bills</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={statusFilter}
+                      onValueChange={setStatusFilter}
+                    >
+                      <SelectTrigger className="h-9 w-[170px] rounded-xl bg-background/90">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="paid">Paid</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="overdue">Overdue</SelectItem>
+                        <SelectItem value="overpaid">Overpaid</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={sortBy} onValueChange={setSortBy}>
+                      <SelectTrigger className="h-9 w-[200px] rounded-xl bg-background/90">
+                        <SelectValue placeholder="Sort by" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="date-desc">Date (Newest)</SelectItem>
+                        <SelectItem value="date-asc">Date (Oldest)</SelectItem>
+                        <SelectItem value="due-date">Due Date</SelectItem>
+                        <SelectItem value="amount-desc">
+                          Amount (High to Low)
+                        </SelectItem>
+                        <SelectItem value="amount-asc">
+                          Amount (Low to High)
+                        </SelectItem>
+                        <SelectItem value="vendor">Vendor Name</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                <Select value={gstFilter} onValueChange={setGstFilter}>
-                  <SelectTrigger className="h-9 w-[170px] rounded-xl bg-background/90">
-                    <SelectValue placeholder="Bill Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Bills</SelectItem>
-                    <SelectItem value="gst">GST Bills</SelectItem>
-                    <SelectItem value="non-gst">Non-GST Bills</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="h-9 w-[170px] rounded-xl bg-background/90">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="paid">Paid</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="overdue">Overdue</SelectItem>
-                    <SelectItem value="overpaid">Overpaid</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="h-9 w-[200px] rounded-xl bg-background/90">
-                    <SelectValue placeholder="Sort by" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="date-desc">Date (Newest)</SelectItem>
-                    <SelectItem value="date-asc">Date (Oldest)</SelectItem>
-                    <SelectItem value="due-date">Due Date</SelectItem>
-                    <SelectItem value="amount-desc">Amount (High to Low)</SelectItem>
-                    <SelectItem value="amount-asc">Amount (Low to High)</SelectItem>
-                    <SelectItem value="vendor">Vendor Name</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+          {/* Loading State */}
+          {isExtracting && (
+            <Card className="border-primary/50 bg-primary/5">
+              <CardContent className="py-8 text-center">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+                <p className="mt-3 text-foreground font-medium">
+                  AI is analyzing your bill...
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Extracting vendor info, items, amounts, and validating
+                  calculations
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Bills List */}
+          {filteredBills.length === 0 && !isExtracting ? (
+            <Card className="border-2 border-dashed">
+              <CardContent className="py-12 text-center">
+                <FileText className="h-12 w-12 mx-auto text-muted-foreground/50" />
+                <p className="mt-4 text-muted-foreground">
+                  No purchase bills found
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Upload a bill image or create a bill manually to get started
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4">
+              {pagedBills.map((bill) => (
+                <Card
+                  key={bill.id}
+                  className={`group overflow-hidden rounded-2xl border shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${
+                    isOverdue(bill) || bill.paymentStatus === "overdue"
+                      ? "border-rose-200/70 bg-gradient-to-br from-rose-50/60 via-background to-background"
+                      : bill.paymentStatus === "paid"
+                        ? "border-emerald-200/70 bg-gradient-to-br from-emerald-50/60 via-background to-background"
+                        : "border-sky-200/70 bg-gradient-to-br from-sky-50/70 via-background to-background"
+                  }`}
+                >
+                  <CardContent className="p-3 sm:p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      {/* Bill Image Thumbnail */}
+                      <div
+                        className="h-20 w-full cursor-pointer overflow-hidden rounded-xl bg-muted sm:w-20"
+                        onClick={() => {
+                          if (bill.billImage) setViewImageBill(bill);
+                        }}
+                      >
+                        {bill.billImage ? (
+                          <img
+                            src={bill.billImage}
+                            alt="Bill"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                            <ImageIcon className="h-5 w-5" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Bill Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <h3 className="font-semibold text-foreground truncate">
+                              {bill.vendorName}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                              {bill.billNumber
+                                ? `#${bill.billNumber}`
+                                : "No bill number"}{" "}
+                              • {formatDate(bill.billDate || bill.createdAt)}
+                            </p>
+                            {bill.dueDate && (
+                              <p
+                                className={`text-xs mt-1 ${
+                                  isOverdue(bill)
+                                    ? "text-destructive font-medium"
+                                    : "text-muted-foreground"
+                                }`}
+                              >
+                                Due: {formatDate(bill.dueDate)}
+                                {bill.paymentTerms
+                                  ? ` (${bill.paymentTerms} days)`
+                                  : ""}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex flex-col items-end gap-1">
+                            <div
+                              className={`cursor-pointer ${
+                                loadingPayment === bill.id
+                                  ? "opacity-50 pointer-events-none"
+                                  : ""
+                              }`}
+                              onClick={() => openPaymentDialog(bill)}
+                            >
+                              {loadingPayment === bill.id ? (
+                                <Badge variant="secondary">
+                                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />{" "}
+                                  Updating...
+                                </Badge>
+                              ) : (
+                                <div className="flex flex-col gap-1 items-end">
+                                  {getPaymentStatusBadge(bill)}
+                                  {bill.paymentStatus !== "paid" && (
+                                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                                      Paid:{" "}
+                                      {formatCurrency(bill.paidAmount || 0)}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            {bill.extractionErrors &&
+                              bill.extractionErrors.length > 0 && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-amber-600 border-amber-400"
+                                >
+                                  <AlertTriangle className="h-3 w-3 mr-1" />{" "}
+                                  {bill.extractionErrors.length} issue(s)
+                                </Badge>
+                              )}
+                          </div>
+                        </div>
+
+                        <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-2 text-[13px] text-muted-foreground">
+                          <div className="flex items-center gap-1.5">
+                            <PackagePlus className="h-3.5 w-3.5" />
+                            <span>{bill.items.length} item(s)</span>
+                          </div>
+                          {bill.vendorGstin && (
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-medium">GSTIN:</span>
+                              <span>{bill.vendorGstin}</span>
+                            </div>
+                          )}
+                          {bill.itemsAddedToInventory && (
+                            <Badge
+                              variant="outline"
+                              className="text-emerald-600 border-emerald-500 bg-emerald-50/50 h-5 text-[11px]"
+                            >
+                              <PackagePlus className="h-3 w-3 mr-1" /> In
+                              Inventory
+                            </Badge>
+                          )}
+                        </div>
+
+                        <div className="mt-4 flex flex-col justify-between gap-4 border-t pt-4 sm:flex-row sm:items-center">
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-wider font-bold">
+                                Total:
+                              </span>
+                              <p className="text-[10px] sm:text-base font-black text-foreground">
+                                {formatCurrency(
+                                  bill.total -
+                                    (bill.returns?.reduce(
+                                      (sum, r) => sum + r.totalReturnValue,
+                                      0,
+                                    ) || 0),
+                                )}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-wider font-bold">
+                                Remaining:
+                              </span>
+                              <p
+                                className={`text-sm sm:text-base font-black text-foreground ${
+                                  bill.total -
+                                    (bill.returns?.reduce(
+                                      (sum, r) => sum + r.totalReturnValue,
+                                      0,
+                                    ) || 0) -
+                                    (bill.paidAmount || 0) <
+                                  0
+                                    ? "text-red-600"
+                                    : "text-black-600"
+                                }`}
+                              >
+                                {formatCurrency(
+                                  bill.total -
+                                    (bill.returns?.reduce(
+                                      (sum, r) => sum + r.totalReturnValue,
+                                      0,
+                                    ) || 0) -
+                                    (bill.paidAmount || 0),
+                                )}
+                              </p>
+                            </div>
+                            {bill.returns && bill.returns.length > 0 && (
+                              <p className="text-[11px] sm:text-xs text-orange-600 font-bold">
+                                Ret:{" "}
+                                {formatCurrency(
+                                  bill.returns.reduce(
+                                    (sum, r) => sum + r.totalReturnValue,
+                                    0,
+                                  ),
+                                )}
+                              </p>
+                            )}
+                            {bill.paidAmount > 0 &&
+                              bill.payments &&
+                              bill.payments.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5">
+                                  {Object.entries(
+                                    bill.payments.reduce(
+                                      (acc, p) => {
+                                        acc[p.method] =
+                                          (acc[p.method] || 0) + p.amount;
+                                        return acc;
+                                      },
+                                      {} as Record<string, number>,
+                                    ),
+                                  ).map(([method, amount]) => (
+                                    <Badge
+                                      key={method}
+                                      variant="outline"
+                                      className={`text-[10px] sm:text-[11px] px-2 py-0 h-5 flex items-center gap-1 font-bold ${
+                                        amount < 0
+                                          ? "bg-green-50 border-green-200 text-green-700"
+                                          : "bg-red-50 border-red-200 text-red-700"
+                                      }`}
+                                    >
+                                      <span>{method}:</span>
+                                      <span>
+                                        {formatCurrency(Math.abs(amount))}
+                                      </span>
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+                          </div>
+
+                          <div className="flex items-center justify-end gap-2 self-end sm:self-auto">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 w-8 rounded-lg bg-background/80 p-0 hover:bg-primary/5"
+                              onClick={() => setSelectedBill(bill)}
+                              title="View Details"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
+
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 w-8 rounded-lg bg-background/80 p-0 hover:bg-primary/5"
+                                >
+                                  <MoreVertical className="h-3.5 w-3.5" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-48">
+                                <DropdownMenuItem
+                                  onClick={() => openPaymentDialog(bill)}
+                                  disabled={(() => {
+                                    const totalReturns = (
+                                      bill.returns || []
+                                    ).reduce(
+                                      (sum, r) => sum + r.totalReturnValue,
+                                      0,
+                                    );
+                                    const netTotal = bill.total - totalReturns;
+                                    const isOverpaid =
+                                      (bill.paidAmount || 0) > netTotal;
+                                    return (
+                                      bill.paymentStatus === "paid" &&
+                                      !isOverpaid
+                                    );
+                                  })()}
+                                  className="gap-2"
+                                >
+                                  <IndianRupee className="h-4 w-4" />
+                                  Pay Now
+                                </DropdownMenuItem>
+
+                                {!bill.itemsAddedToInventory && (
+                                  <DropdownMenuItem
+                                    onClick={() => handleAddToInventory(bill)}
+                                    disabled={loadingInventory === bill.id}
+                                    className="gap-2 text-emerald-600 focus:text-emerald-600"
+                                  >
+                                    {loadingInventory === bill.id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <PackagePlus className="h-4 w-4" />
+                                    )}
+                                    Add to Inventory
+                                  </DropdownMenuItem>
+                                )}
+
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setSelectedBillForReturn(bill);
+                                    setReturnDialogOpen(true);
+                                  }}
+                                  className="gap-2 text-orange-600 focus:text-orange-600"
+                                >
+                                  <RotateCcw className="h-4 w-4" />
+                                  Purchase Return
+                                </DropdownMenuItem>
+
+                                <DropdownMenuItem
+                                  onClick={() => openHistoryDialog(bill)}
+                                  className="gap-2"
+                                >
+                                  <Clock className="h-4 w-4" />
+                                  Transaction History
+                                </DropdownMenuItem>
+
+                                <DropdownMenuItem
+                                  onClick={() => setViewImageBill(bill)}
+                                  className="gap-2"
+                                  disabled={!bill.billImage}
+                                >
+                                  <ImageIcon className="h-4 w-4" />
+                                  {bill.billImage
+                                    ? "View Bill Image"
+                                    : "No Bill Image"}
+                                </DropdownMenuItem>
+
+                                <DropdownMenuSeparator />
+
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <DropdownMenuItem
+                                      onSelect={(e) => e.preventDefault()}
+                                      className="gap-2 text-destructive focus:text-destructive"
+                                      disabled={bill.itemsAddedToInventory}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                      Delete Bill
+                                      {bill.itemsAddedToInventory && (
+                                        <span className="text-[10px] ml-auto opacity-70">
+                                          (In Inventory)
+                                        </span>
+                                      )}
+                                    </DropdownMenuItem>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>
+                                        Delete Purchase Bill?
+                                      </AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        This action cannot be undone and will
+                                        remove all associated payment and return
+                                        records.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>
+                                        Cancel
+                                      </AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => handleDelete(bill.id)}
+                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                        disabled={!!isDeleting}
+                                      >
+                                        {isDeleting === bill.id ? (
+                                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        ) : null}
+                                        Delete
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+              {filteredBills.length > pageSize && (
+                <div className="mt-6 flex flex-col items-start justify-between gap-2 px-2 sm:flex-row sm:items-center">
+                  <p className="text-xs text-muted-foreground">
+                    Showing {(currentPage - 1) * pageSize + 1} to{" "}
+                    {Math.min(currentPage * pageSize, filteredBills.length)} of{" "}
+                    {filteredBills.length}
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setPage((p) => Math.min(totalPages, p + 1))
+                      }
+                      disabled={currentPage === totalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
-        </CardContent>
-      </Card>
 
-      {/* Loading State */}
-      {isExtracting && (
-        <Card className="border-primary/50 bg-primary/5">
-          <CardContent className="py-8 text-center">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-            <p className="mt-3 text-foreground font-medium">
-              AI is analyzing your bill...
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Extracting vendor info, items, amounts, and validating
-              calculations
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Bills List */}
-      {filteredBills.length === 0 && !isExtracting ? (
-        <Card className="border-2 border-dashed">
-          <CardContent className="py-12 text-center">
-            <FileText className="h-12 w-12 mx-auto text-muted-foreground/50" />
-            <p className="mt-4 text-muted-foreground">
-              No purchase bills found
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Upload a bill image or create a bill manually to get started
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4">
-          {pagedBills.map((bill) => (
-            <Card
-              key={bill.id}
-              className={`group overflow-hidden rounded-2xl border shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${
-                isOverdue(bill) || bill.paymentStatus === "overdue"
-                  ? "border-rose-200/70 bg-gradient-to-br from-rose-50/60 via-background to-background"
-                  : bill.paymentStatus === "paid"
-                    ? "border-emerald-200/70 bg-gradient-to-br from-emerald-50/60 via-background to-background"
-                    : "border-sky-200/70 bg-gradient-to-br from-sky-50/70 via-background to-background"
-              }`}
+          {/* Manual Create Dialog */}
+          <Dialog
+            open={manualCreateOpen}
+            onOpenChange={(open) => {
+              setManualCreateOpen(open);
+              if (!open) resetManualCreate();
+            }}
+          >
+            <DialogContent
+              className="w-[100vw] sm:w-[95vw] lg:w-[92vw] max-w-6xl
+          h-[100dvh] sm:h-[92vh] max-h-[100dvh] sm:max-h-[92vh]
+          left-0 top-0 translate-x-0 translate-y-0
+          sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%]
+          rounded-none sm:rounded-xl p-0 flex flex-col gap-0"
             >
-              <CardContent className="p-3 sm:p-4">
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  {/* Bill Image Thumbnail */}
-                  <div
-                    className="h-20 w-full cursor-pointer overflow-hidden rounded-xl bg-muted sm:w-20"
+              <DialogHeader className="px-4 sm:px-6 py-4 border-b bg-background sticky top-0 z-10 pt-[calc(env(safe-area-inset-top)+1rem)]">
+                <DialogTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <span className="text-xl font-bold">New Purchase Bill</span>
+                  <span className="text-xs font-normal text-muted-foreground">
+                    Quick flow: Vendor, Bill Details, Items, Save
+                  </span>
+                </DialogTitle>
+              </DialogHeader>
+
+              <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+                  <div className="xl:col-span-8 space-y-4">
+                    <Card className="border-primary/20 bg-primary/[0.03]">
+                      <CardContent className="pt-4">
+                        <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+                          <Badge variant="outline" className="px-2 py-1">
+                            1 Vendor
+                          </Badge>
+                          <Badge variant="outline" className="px-2 py-1">
+                            2 Bill Info
+                          </Badge>
+                          <Badge variant="outline" className="px-2 py-1">
+                            3 Items
+                          </Badge>
+                          <Badge variant="outline" className="px-2 py-1">
+                            4 Review and Save
+                          </Badge>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base">
+                          Optional Bill Attachment
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => manualImageInputRef.current?.click()}
+                            disabled={isCompressing}
+                          >
+                            {isCompressing ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <Upload className="h-4 w-4 mr-2" />
+                            )}
+                            {manualBill.billImage
+                              ? "Replace Image"
+                              : "Upload Image"}
+                          </Button>
+                          {manualBill.billImage && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              onClick={() =>
+                                setManualBill((prev) => ({
+                                  ...prev,
+                                  billImage: "",
+                                }))
+                              }
+                            >
+                              Remove Image
+                            </Button>
+                          )}
+                        </div>
+                        {manualBill.billImage ? (
+                          <img
+                            src={manualBill.billImage}
+                            alt="Bill preview"
+                            className="w-full max-h-64 object-contain rounded-md border bg-muted/30"
+                          />
+                        ) : (
+                          <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                            Continue without image if you do not have a bill
+                            photo.
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base">1. Vendor</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="inline-flex items-center gap-2 rounded-lg border bg-muted/30 p-1">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={
+                              manualVendorMode === "select"
+                                ? "default"
+                                : "outline"
+                            }
+                            onClick={() => setManualVendorMode("select")}
+                          >
+                            Select Vendor
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={
+                              manualVendorMode === "create"
+                                ? "default"
+                                : "outline"
+                            }
+                            onClick={() => setManualVendorMode("create")}
+                          >
+                            Create Vendor
+                          </Button>
+                        </div>
+
+                        {manualVendorMode === "select" ? (
+                          <div className="space-y-1">
+                            <Label>Vendor *</Label>
+                            <Select
+                              value={manualBill.vendorId || ""}
+                              onValueChange={(val) => {
+                                if (val === "__create_vendor__") {
+                                  setManualVendorMode("create");
+                                  return;
+                                }
+                                const vendor = vendors.find(
+                                  (v) => v.id === val,
+                                );
+                                setManualBill((prev) => ({
+                                  ...prev,
+                                  vendorId: val,
+                                  vendorName: vendor?.name || "",
+                                  vendorAddress: vendor?.address || "",
+                                  vendorGstin: vendor?.gstin || "",
+                                  items: prev.items.map((it) => ({
+                                    ...it,
+                                    whereToBuy:
+                                      it.whereToBuy || vendor?.name || "",
+                                  })),
+                                }));
+                              }}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select vendor" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {vendors.map((v) => (
+                                  <SelectItem key={v.id} value={v.id}>
+                                    {v.name}
+                                  </SelectItem>
+                                ))}
+                                <SelectItem value="__create_vendor__">
+                                  + Create new vendor
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <Label>Vendor Name *</Label>
+                              <Input
+                                value={manualVendorForm.name}
+                                onChange={(e) =>
+                                  setManualVendorForm((prev) => ({
+                                    ...prev,
+                                    name: e.target.value,
+                                  }))
+                                }
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label>GSTIN</Label>
+                              <Input
+                                value={manualVendorForm.gstin}
+                                onChange={(e) =>
+                                  setManualVendorForm((prev) => ({
+                                    ...prev,
+                                    gstin: e.target.value.toUpperCase(),
+                                  }))
+                                }
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label>Phone</Label>
+                              <Input
+                                value={manualVendorForm.phone}
+                                onChange={(e) =>
+                                  setManualVendorForm((prev) => ({
+                                    ...prev,
+                                    phone: e.target.value,
+                                  }))
+                                }
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label>Email</Label>
+                              <Input
+                                value={manualVendorForm.email}
+                                onChange={(e) =>
+                                  setManualVendorForm((prev) => ({
+                                    ...prev,
+                                    email: e.target.value,
+                                  }))
+                                }
+                              />
+                            </div>
+                            <div className="space-y-1 md:col-span-2">
+                              <Label>Address</Label>
+                              <Textarea
+                                rows={2}
+                                value={manualVendorForm.address}
+                                onChange={(e) =>
+                                  setManualVendorForm((prev) => ({
+                                    ...prev,
+                                    address: e.target.value,
+                                  }))
+                                }
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base">
+                          2. Bill Details
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <div className="space-y-1">
+                          <Label>Bill Number</Label>
+                          <Input
+                            value={manualBill.billNumber || ""}
+                            onChange={(e) =>
+                              setManualBill((prev) => ({
+                                ...prev,
+                                billNumber: e.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Bill Date *</Label>
+                          <Input
+                            type="date"
+                            value={manualBill.billDate}
+                            onChange={(e) =>
+                              setManualBill((prev) => ({
+                                ...prev,
+                                billDate: e.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Due Date</Label>
+                          <Input
+                            type="date"
+                            value={manualBill.dueDate || ""}
+                            onChange={(e) =>
+                              setManualBill((prev) => ({
+                                ...prev,
+                                dueDate: e.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Payment Terms (Days)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={manualBill.paymentTerms || 0}
+                            onChange={(e) =>
+                              setManualBill((prev) => ({
+                                ...prev,
+                                paymentTerms: parseInt(e.target.value) || 0,
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1 md:col-span-2 lg:col-span-4">
+                          <Label>Notes</Label>
+                          <Textarea
+                            rows={2}
+                            value={manualBill.notes || ""}
+                            onChange={(e) =>
+                              setManualBill((prev) => ({
+                                ...prev,
+                                notes: e.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base flex items-center justify-between">
+                          <span>3. Items</span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={addManualItemRow}
+                          >
+                            <PackagePlus className="h-4 w-4 mr-2" />
+                            Add Item
+                          </Button>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {manualBill.items.map((item, index) => (
+                          <div
+                            key={index}
+                            className="rounded-lg border p-3 bg-muted/10 space-y-3"
+                          >
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-medium">
+                                Item {index + 1}
+                              </p>
+                              {manualBill.items.length > 1 && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => removeManualItemRow(index)}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-1" />
+                                  Remove
+                                </Button>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <Label>Description *</Label>
+                                <ProductAutocomplete
+                                  products={products}
+                                  value={item.description}
+                                  onChange={(val) =>
+                                    updateManualItem(index, "description", val)
+                                  }
+                                  onSelect={(product) =>
+                                    handleManualProductSelect(index, product)
+                                  }
+                                  placeholder="Item / Product name"
+                                  type="name"
+                                  className="h-9 text-sm"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label>HSN</Label>
+                                <ProductAutocomplete
+                                  products={products}
+                                  value={item.hsnCode || ""}
+                                  onChange={(val) =>
+                                    updateManualItem(index, "hsnCode", val)
+                                  }
+                                  onSelect={(product) =>
+                                    handleManualProductSelect(index, product)
+                                  }
+                                  placeholder="HSN"
+                                  type="hsn"
+                                  className="h-9 text-sm"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label>Quantity *</Label>
+                                <Input
+                                  type="number"
+                                  value={item.quantity}
+                                  onChange={(e) =>
+                                    updateManualItem(
+                                      index,
+                                      "quantity",
+                                      parseFloat(e.target.value) || 0,
+                                    )
+                                  }
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label>Unit</Label>
+                                <Input
+                                  value={item.unit}
+                                  onChange={(e) =>
+                                    updateManualItem(
+                                      index,
+                                      "unit",
+                                      e.target.value,
+                                    )
+                                  }
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label>Rate *</Label>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  value={item.rate}
+                                  onChange={(e) =>
+                                    updateManualItem(
+                                      index,
+                                      "rate",
+                                      parseFloat(e.target.value) || 0,
+                                    )
+                                  }
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label>GST %</Label>
+                                <Input
+                                  type="number"
+                                  step="0.1"
+                                  value={item.gstRate || 0}
+                                  onChange={(e) =>
+                                    updateManualItem(
+                                      index,
+                                      "gstRate",
+                                      parseFloat(e.target.value) || 0,
+                                    )
+                                  }
+                                />
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm bg-background border rounded-md px-3 py-2">
+                              <div className="text-muted-foreground">
+                                Amount:{" "}
+                                <span className="font-semibold text-foreground">
+                                  {formatCurrency(item.amount || 0)}
+                                </span>
+                              </div>
+                              <div className="text-muted-foreground">
+                                Tax:{" "}
+                                <span className="font-semibold text-foreground">
+                                  {formatCurrency(item.gstAmount || 0)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  </div>
+                  <div className="xl:col-span-4 space-y-4">
+                    <Card className="xl:sticky xl:top-4">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base">4. Review</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="rounded-md bg-muted/30 p-3 text-sm">
+                          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                            Vendor
+                          </p>
+                          <p className="font-semibold mt-1">
+                            {manualVendorMode === "create"
+                              ? manualVendorForm.name || "New vendor"
+                              : manualSelectedVendor?.name || "Not selected"}
+                          </p>
+                        </div>
+
+                        <div className="rounded-md bg-muted/30 p-3 space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">
+                              Bill Date
+                            </span>
+                            <span className="font-medium">
+                              {manualBill.billDate || "-"}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">
+                              Bill Number
+                            </span>
+                            <span className="font-medium">
+                              {manualBill.billNumber || "-"}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Items</span>
+                            <span className="font-medium">
+                              {manualBill.items.length}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="rounded-md border p-3 space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">
+                              Subtotal
+                            </span>
+                            <span className="font-medium">
+                              {formatCurrency(manualSubtotal)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Tax</span>
+                            <span className="font-medium">
+                              {formatCurrency(manualTaxTotal)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-base font-bold pt-2 border-t">
+                            <span>Total</span>
+                            <span className="text-primary">
+                              {formatCurrency(manualGrandTotal)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {manualBill.billImage ? (
+                          <img
+                            src={manualBill.billImage}
+                            alt="Bill preview"
+                            className="w-full h-36 object-cover rounded-md border"
+                          />
+                        ) : (
+                          <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+                            No image attached
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              </div>
+              <div className="shrink-0 border-t bg-background px-4 sm:px-6 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+                <div className="flex items-center justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
                     onClick={() => {
-                      if (bill.billImage) setViewImageBill(bill);
+                      setManualCreateOpen(false);
+                      resetManualCreate();
                     }}
                   >
-                    {bill.billImage ? (
-                      <img
-                        src={bill.billImage}
-                        alt="Bill"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                        <ImageIcon className="h-5 w-5" />
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleSaveManualBill}
+                    loading={isSaving}
+                  >
+                    Create Purchase Bill
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Image View Dialog */}
+          <Dialog
+            open={!!viewImageBill}
+            onOpenChange={() => setViewImageBill(null)}
+          >
+            <DialogContent
+              className="w-[100vw] sm:w-[90vw] lg:w-[85vw] max-w-4xl
+          h-[100dvh] sm:h-[90vh] max-h-[100dvh] sm:max-h-[90vh]
+          left-0 top-0 translate-x-0 translate-y-0
+          sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%]
+          rounded-none sm:rounded-lg
+          p-0 flex flex-col gap-0"
+            >
+              <DialogHeader className="px-6 sm:px-8 py-5 border-b shrink-0 bg-background sticky top-0 z-10 pt-[calc(env(safe-area-inset-top)+1rem)]">
+                <DialogTitle>Original Bill Image</DialogTitle>
+              </DialogHeader>
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-[calc(env(safe-area-inset-bottom)+2rem)]">
+                {viewImageBill?.billImage ? (
+                  <img
+                    src={viewImageBill.billImage}
+                    alt="Bill"
+                    className="w-full rounded-lg"
+                  />
+                ) : (
+                  <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
+                    No bill image uploaded for this purchase bill.
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Detail View Dialog */}
+          {/* Detail View Dialog */}
+          <Dialog
+            open={!!selectedBill}
+            onOpenChange={() => {
+              setSelectedBill(null);
+              setIsEditing(false);
+              setEditedBill(null);
+            }}
+          >
+            <DialogContent
+              className="w-[100vw] sm:w-[90vw] lg:w-[85vw] xl:w-[80vw] max-w-[1800px]
+          h-[100dvh] sm:h-[90vh] max-h-[100dvh] sm:max-h-[90vh]
+          left-0 top-0 translate-x-0 translate-y-0
+          sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%]
+          rounded-none sm:rounded-lg
+          p-0 flex flex-col gap-0"
+            >
+              {/* Fixed Header */}
+              <DialogHeader className="px-6 sm:px-8 py-4 border-b shrink-0 bg-background sticky top-0 z-10 pt-[calc(env(safe-area-inset-top)+1rem)]">
+                <DialogTitle className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                  <span className="text-xl lg:text-2xl font-bold">
+                    Extracted Bill Details
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedBill && !isEditing && (
+                      <>
+                        <PDFDownloadLink
+                          document={<PurchaseBillPDF bill={selectedBill} />}
+                          fileName={`Bill_${selectedBill.billNumber || selectedBill.id}.pdf`}
+                        >
+                          {({ loading }) => (
+                            <Button
+                              variant="outline"
+                              size="default"
+                              disabled={loading}
+                            >
+                              {loading ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              ) : (
+                                <Download className="h-4 w-4 mr-2" />
+                              )}
+                              Download PDF
+                            </Button>
+                          )}
+                        </PDFDownloadLink>
+                        <Button
+                          variant="outline"
+                          size="default"
+                          onClick={() => startEditing(selectedBill)}
+                        >
+                          <Edit2 className="h-4 w-4 mr-2" /> Edit
+                        </Button>
+                      </>
+                    )}
+                    {isEditing && (
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="default"
+                          onClick={() => {
+                            setIsEditing(false);
+                            setEditedBill(null);
+                          }}
+                        >
+                          <X className="h-4 w-4 mr-2" /> Cancel
+                        </Button>
+                        <Button
+                          size="default"
+                          onClick={saveEditedBill}
+                          loading={savingEditedBill}
+                        >
+                          <Save className="h-4 w-4 mr-2" /> Save
+                        </Button>
                       </div>
                     )}
                   </div>
+                </DialogTitle>
+              </DialogHeader>
 
-                  {/* Bill Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h3 className="font-semibold text-foreground truncate">
-                          {bill.vendorName}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                          {bill.billNumber
-                            ? `#${bill.billNumber}`
-                            : "No bill number"}{" "}
-                          • {formatDate(bill.billDate || bill.createdAt)}
-                        </p>
-                        {bill.dueDate && (
-                          <p
-                            className={`text-xs mt-1 ${
-                              isOverdue(bill)
-                                ? "text-destructive font-medium"
-                                : "text-muted-foreground"
-                            }`}
-                          >
-                            Due: {formatDate(bill.dueDate)}
-                            {bill.paymentTerms
-                              ? ` (${bill.paymentTerms} days)`
-                              : ""}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <div
-                          className={`cursor-pointer ${
-                            loadingPayment === bill.id
-                              ? "opacity-50 pointer-events-none"
-                              : ""
-                          }`}
-                          onClick={() => openPaymentDialog(bill)}
-                        >
-                          {loadingPayment === bill.id ? (
-                            <Badge variant="secondary">
-                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />{" "}
-                              Updating...
-                            </Badge>
-                          ) : (
-                            <div className="flex flex-col gap-1 items-end">
-                              {getPaymentStatusBadge(bill)}
-                              {bill.paymentStatus !== "paid" && (
-                                <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                                  Paid: {formatCurrency(bill.paidAmount || 0)}
+              {/* Scrollable Content */}
+              <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-6 pb-[calc(env(safe-area-inset-bottom)+2rem)]">
+                {/* Extraction Errors Alert */}
+                {selectedBill?.extractionErrors &&
+                  selectedBill.extractionErrors.length > 0 &&
+                  !isEditing && (
+                    <Card className="border-amber-400 bg-amber-50 dark:bg-amber-950/20 mb-6">
+                      <CardContent className="py-4">
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                          <div className="space-y-2 flex-1">
+                            <p className="font-semibold text-base text-amber-800 dark:text-amber-200">
+                              AI detected potential issues:
+                            </p>
+                            <ul className="space-y-2 text-sm text-amber-700 dark:text-amber-300">
+                              {selectedBill.extractionErrors.map((error, i) => (
+                                <li
+                                  key={i}
+                                  className="flex flex-col lg:flex-row lg:items-start gap-2"
+                                >
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                      error.severity === "error"
+                                        ? "bg-destructive/20 text-destructive"
+                                        : "bg-amber-200 text-amber-800"
+                                    }`}
+                                  >
+                                    {error.severity.toUpperCase()}
+                                  </span>
+                                  <div className="flex-1">
+                                    <span className="block text-sm">
+                                      {error.message}
+                                    </span>
+                                    {error.suggestion && (
+                                      <span className="block text-xs text-amber-600 mt-1">
+                                        Suggestion: {error.suggestion}
+                                      </span>
+                                    )}
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="mt-3 border-amber-400 text-amber-700"
+                              onClick={() => startEditing(selectedBill)}
+                            >
+                              <Edit2 className="h-4 w-4 mr-2" /> Fix Issues
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                {(isEditing ? editedBill : selectedBill) && (
+                  <div className="space-y-6">
+                    {/* Vendor Information */}
+                    <Card className="overflow-hidden shadow-sm">
+                      <CardHeader className="bg-muted/40 px-5 py-3.5">
+                        <CardTitle className="text-lg lg:text-xl font-semibold">
+                          Vendor Information
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-5 px-5 pb-5">
+                        {isEditing ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                            <div className="space-y-1.5 md:col-span-2 xl:col-span-3">
+                              <Label className="text-sm font-medium">
+                                Vendor
+                              </Label>
+                              <Select
+                                value={editedBill?.vendorId || ""}
+                                onValueChange={(val) => {
+                                  const vendor = vendors.find(
+                                    (v) => v.id === val,
+                                  );
+                                  setEditedBill((prev) =>
+                                    prev
+                                      ? {
+                                          ...prev,
+                                          vendorId: val,
+                                          vendorName:
+                                            vendor?.name || prev.vendorName,
+                                          vendorAddress:
+                                            vendor?.address ||
+                                            prev.vendorAddress,
+                                          vendorGstin:
+                                            vendor?.gstin || prev.vendorGstin,
+                                        }
+                                      : null,
+                                  );
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select Vendor" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {vendors.map((v) => (
+                                    <SelectItem key={v.id} value={v.id}>
+                                      {v.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-sm font-medium">
+                                Vendor Name (Override)
+                              </Label>
+                              <Input
+                                value={editedBill?.vendorName || ""}
+                                onChange={(e) =>
+                                  setEditedBill((prev) =>
+                                    prev
+                                      ? { ...prev, vendorName: e.target.value }
+                                      : null,
+                                  )
+                                }
+                                className="h-10 text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-sm font-medium">
+                                GSTIN
+                              </Label>
+                              <Input
+                                value={editedBill?.vendorGstin || ""}
+                                onChange={(e) =>
+                                  setEditedBill((prev) =>
+                                    prev
+                                      ? {
+                                          ...prev,
+                                          vendorGstin:
+                                            e.target.value.toUpperCase(),
+                                        }
+                                      : null,
+                                  )
+                                }
+                                className="h-10 text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-sm font-medium">
+                                Bill Number
+                              </Label>
+                              <Input
+                                value={editedBill?.billNumber || ""}
+                                onChange={(e) =>
+                                  setEditedBill((prev) =>
+                                    prev
+                                      ? { ...prev, billNumber: e.target.value }
+                                      : null,
+                                  )
+                                }
+                                className="h-10 text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-sm font-medium">
+                                Bill Date
+                              </Label>
+                              <Input
+                                type="date"
+                                value={
+                                  editedBill?.billDate?.split("T")[0] || ""
+                                }
+                                onChange={(e) => {
+                                  const newDate = new Date(e.target.value);
+                                  const now = new Date();
+                                  newDate.setHours(
+                                    now.getHours(),
+                                    now.getMinutes(),
+                                    now.getSeconds(),
+                                    now.getMilliseconds(),
+                                  );
+                                  setEditedBill((prev) =>
+                                    prev
+                                      ? {
+                                          ...prev,
+                                          billDate: newDate.toISOString(),
+                                        }
+                                      : null,
+                                  );
+                                }}
+                                className="h-10 text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-sm font-medium">
+                                Due Date
+                              </Label>
+                              <Input
+                                type="date"
+                                value={editedBill?.dueDate?.split("T")[0] || ""}
+                                onChange={(e) => {
+                                  const newDate = new Date(e.target.value);
+                                  const now = new Date();
+                                  newDate.setHours(
+                                    now.getHours(),
+                                    now.getMinutes(),
+                                    now.getSeconds(),
+                                    now.getMilliseconds(),
+                                  );
+                                  setEditedBill((prev) =>
+                                    prev
+                                      ? {
+                                          ...prev,
+                                          dueDate: newDate.toISOString(),
+                                        }
+                                      : null,
+                                  );
+                                }}
+                                className="h-10 text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-sm font-medium">
+                                Payment Terms (Days)
+                              </Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                value={editedBill?.paymentTerms || ""}
+                                onChange={(e) =>
+                                  setEditedBill((prev) =>
+                                    prev
+                                      ? {
+                                          ...prev,
+                                          paymentTerms:
+                                            parseInt(e.target.value) || 0,
+                                        }
+                                      : null,
+                                  )
+                                }
+                                className="h-10 text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1.5 md:col-span-2 xl:col-span-3">
+                              <Label className="text-sm font-medium">
+                                Address
+                              </Label>
+                              <Textarea
+                                value={editedBill?.vendorAddress || ""}
+                                onChange={(e) =>
+                                  setEditedBill((prev) =>
+                                    prev
+                                      ? {
+                                          ...prev,
+                                          vendorAddress: e.target.value,
+                                        }
+                                      : null,
+                                  )
+                                }
+                                rows={3}
+                                className="resize-none text-sm"
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-sm">
+                            <div className="space-y-4">
+                              <div>
+                                <span className="text-xs text-muted-foreground uppercase tracking-wide">
+                                  Vendor Name
                                 </span>
+                                <p className="font-semibold text-lg mt-1 break-words">
+                                  {selectedBill?.vendorName}
+                                </p>
+                              </div>
+                              {selectedBill?.vendorAddress && (
+                                <div>
+                                  <span className="text-xs text-muted-foreground uppercase tracking-wide">
+                                    Address
+                                  </span>
+                                  <p className="mt-1 whitespace-pre-line break-words">
+                                    {selectedBill.vendorAddress}
+                                  </p>
+                                </div>
+                              )}
+                              {selectedBill?.vendorGstin && (
+                                <div>
+                                  <span className="text-xs text-muted-foreground uppercase tracking-wide">
+                                    GSTIN
+                                  </span>
+                                  <p className="mt-1 font-medium break-all">
+                                    {selectedBill.vendorGstin}
+                                  </p>
+                                </div>
                               )}
                             </div>
-                          )}
-                        </div>
-                        {bill.extractionErrors &&
-                          bill.extractionErrors.length > 0 && (
-                            <Badge
-                              variant="outline"
-                              className="text-amber-600 border-amber-400"
-                            >
-                              <AlertTriangle className="h-3 w-3 mr-1" />{" "}
-                              {bill.extractionErrors.length} issue(s)
-                            </Badge>
-                          )}
-                      </div>
-                    </div>
-
-                    <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-2 text-[13px] text-muted-foreground">
-                      <div className="flex items-center gap-1.5">
-                        <PackagePlus className="h-3.5 w-3.5" />
-                        <span>{bill.items.length} item(s)</span>
-                      </div>
-                      {bill.vendorGstin && (
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-medium">GSTIN:</span>
-                          <span>{bill.vendorGstin}</span>
-                        </div>
-                      )}
-                      {bill.itemsAddedToInventory && (
-                        <Badge
-                          variant="outline"
-                          className="text-emerald-600 border-emerald-500 bg-emerald-50/50 h-5 text-[11px]"
-                        >
-                          <PackagePlus className="h-3 w-3 mr-1" /> In Inventory
-                        </Badge>
-                      )}
-                    </div>
-
-                    <div className="mt-4 flex flex-col justify-between gap-4 border-t pt-4 sm:flex-row sm:items-center">
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-wider font-bold">
-                            Total:
-                          </span>
-                          <p className="text-[10px] sm:text-base font-black text-foreground">
-                            {formatCurrency(
-                              bill.total -
-                                (bill.returns?.reduce(
-                                  (sum, r) => sum + r.totalReturnValue,
-                                  0,
-                                ) || 0),
-                            )}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-wider font-bold">
-                            Remaining:
-                          </span>
-                          <p
-                            className={`text-sm sm:text-base font-black text-foreground ${
-                              bill.total -
-                                (bill.returns?.reduce(
-                                  (sum, r) => sum + r.totalReturnValue,
-                                  0,
-                                ) || 0) -
-                                (bill.paidAmount || 0) <
-                              0
-                                ? "text-red-600"
-                                : "text-black-600"
-                            }`}
-                          >
-                            {formatCurrency(
-                              bill.total -
-                                (bill.returns?.reduce(
-                                  (sum, r) => sum + r.totalReturnValue,
-                                  0,
-                                ) || 0) -
-                                (bill.paidAmount || 0),
-                            )}
-                          </p>
-                        </div>
-                        {bill.returns && bill.returns.length > 0 && (
-                          <p className="text-[11px] sm:text-xs text-orange-600 font-bold">
-                            Ret:{" "}
-                            {formatCurrency(
-                              bill.returns.reduce(
-                                (sum, r) => sum + r.totalReturnValue,
-                                0,
-                              ),
-                            )}
-                          </p>
+                            <div className="space-y-4">
+                              <div>
+                                <span className="text-xs text-muted-foreground uppercase tracking-wide">
+                                  Bill Number
+                                </span>
+                                <p className="mt-1 font-semibold text-base">
+                                  {selectedBill?.billNumber || "—"}
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-xs text-muted-foreground uppercase tracking-wide">
+                                  Bill Date
+                                </span>
+                                <p className="mt-1">
+                                  {formatDate(selectedBill?.billDate)}
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-xs text-muted-foreground uppercase tracking-wide">
+                                  Due Date
+                                </span>
+                                <p
+                                  className={`mt-1 font-medium ${
+                                    isOverdue(selectedBill)
+                                      ? "text-destructive"
+                                      : ""
+                                  }`}
+                                >
+                                  {formatDate(selectedBill?.dueDate)}{" "}
+                                  {selectedBill?.paymentTerms
+                                    ? `(${selectedBill.paymentTerms} days)`
+                                    : ""}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
                         )}
-                        {bill.paidAmount > 0 &&
-                          bill.payments &&
-                          bill.payments.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5">
+                      </CardContent>
+                    </Card>
+
+                    {/* Payment History */}
+                    <Card className="overflow-hidden shadow-sm">
+                      <CardHeader className="bg-muted/40 px-5 py-3.5">
+                        <CardTitle className="text-lg lg:text-xl font-semibold flex items-center justify-between">
+                          <span>Payment History</span>
+                          <Badge
+                            variant={
+                              (isEditing ? editedBill : selectedBill)
+                                ?.paymentStatus === "paid"
+                                ? "default"
+                                : "secondary"
+                            }
+                            className="text-sm py-1 px-3"
+                          >
+                            {(isEditing
+                              ? editedBill
+                              : selectedBill
+                            )?.paymentStatus.toUpperCase()}
+                          </Badge>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-5 px-5 pb-5">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                          <div className="space-y-1.5 p-4 bg-muted/20 rounded-lg border">
+                            <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                              Total Amount
+                            </span>
+                            <p className="text-2xl font-bold text-foreground">
+                              {formatCurrency(
+                                (isEditing ? editedBill : selectedBill)
+                                  ?.total || 0,
+                              )}
+                            </p>
+                          </div>
+                          <div className="space-y-1.5 p-4 bg-emerald-50 dark:bg-emerald-950/20 rounded-lg border border-emerald-100 dark:border-emerald-900">
+                            <span className="text-xs text-emerald-700 dark:text-emerald-300 uppercase tracking-wider font-semibold">
+                              Total Paid
+                            </span>
+                            <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                              {formatCurrency(
+                                (isEditing ? editedBill : selectedBill)
+                                  ?.paidAmount || 0,
+                              )}
+                            </p>
+                          </div>
+                          <div className="space-y-1.5 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-100 dark:border-blue-900">
+                            <span className="text-xs text-blue-700 dark:text-blue-300 uppercase tracking-wider font-semibold">
+                              Payment Breakdown
+                            </span>
+                            <div className="flex flex-wrap gap-1.5 pt-1">
                               {Object.entries(
-                                bill.payments.reduce(
+                                (isEditing
+                                  ? editedBill
+                                  : selectedBill
+                                )?.payments?.reduce(
                                   (acc, p) => {
                                     acc[p.method] =
                                       (acc[p.method] || 0) + p.amount;
                                     return acc;
                                   },
                                   {} as Record<string, number>,
-                                ),
+                                ) || {},
                               ).map(([method, amount]) => (
                                 <Badge
                                   key={method}
-                                  variant="outline"
-                                  className={`text-[10px] sm:text-[11px] px-2 py-0 h-5 flex items-center gap-1 font-bold ${
-                                    amount < 0
-                                      ? "bg-green-50 border-green-200 text-green-700"
-                                      : "bg-red-50 border-red-200 text-red-700"
-                                  }`}
+                                  variant="secondary"
+                                  className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100 border-none text-xs"
                                 >
-                                  <span>{method}:</span>
-                                  <span>
-                                    {formatCurrency(Math.abs(amount))}
-                                  </span>
+                                  {method}: {formatCurrency(amount)}
                                 </Badge>
                               ))}
+                              {((isEditing ? editedBill : selectedBill)
+                                ?.payments?.length || 0) === 0 && (
+                                <span className="text-xs text-muted-foreground italic">
+                                  No payments yet
+                                </span>
+                              )}
                             </div>
-                          )}
-                      </div>
+                          </div>
+                        </div>
 
-                      <div className="flex items-center justify-end gap-2 self-end sm:self-auto">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 w-8 rounded-lg bg-background/80 p-0 hover:bg-primary/5"
-                          onClick={() => setSelectedBill(bill)}
-                          title="View Details"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                        </Button>
-
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 w-8 rounded-lg bg-background/80 p-0 hover:bg-primary/5"
-                            >
-                              <MoreVertical className="h-3.5 w-3.5" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuItem
-                              onClick={() => openPaymentDialog(bill)}
-                              disabled={(() => {
-                                const totalReturns = (
-                                  bill.returns || []
-                                ).reduce(
-                                  (sum, r) => sum + r.totalReturnValue,
-                                  0,
-                                );
-                                const netTotal = bill.total - totalReturns;
-                                const isOverpaid =
-                                  (bill.paidAmount || 0) > netTotal;
-                                return (
-                                  bill.paymentStatus === "paid" && !isOverpaid
-                                );
-                              })()}
-                              className="gap-2"
-                            >
-                              <IndianRupee className="h-4 w-4" />
-                              Pay Now
-                            </DropdownMenuItem>
-
-                            {!bill.itemsAddedToInventory && (
-                              <DropdownMenuItem
-                                onClick={() => handleAddToInventory(bill)}
-                                disabled={loadingInventory === bill.id}
-                                className="gap-2 text-emerald-600 focus:text-emerald-600"
-                              >
-                                {loadingInventory === bill.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <PackagePlus className="h-4 w-4" />
-                                )}
-                                Add to Inventory
-                              </DropdownMenuItem>
-                            )}
-
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setSelectedBillForReturn(bill);
-                                setReturnDialogOpen(true);
-                              }}
-                              className="gap-2 text-orange-600 focus:text-orange-600"
-                            >
-                              <RotateCcw className="h-4 w-4" />
-                              Purchase Return
-                            </DropdownMenuItem>
-
-                            <DropdownMenuItem
-                              onClick={() => openHistoryDialog(bill)}
-                              className="gap-2"
-                            >
-                              <Clock className="h-4 w-4" />
-                              Transaction History
-                            </DropdownMenuItem>
-
-                            <DropdownMenuItem
-                              onClick={() => setViewImageBill(bill)}
-                              className="gap-2"
-                              disabled={!bill.billImage}
-                            >
-                              <ImageIcon className="h-4 w-4" />
-                              {bill.billImage ? "View Bill Image" : "No Bill Image"}
-                            </DropdownMenuItem>
-
-                            <DropdownMenuSeparator />
-
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <DropdownMenuItem
-                                  onSelect={(e) => e.preventDefault()}
-                                  className="gap-2 text-destructive focus:text-destructive"
-                                  disabled={bill.itemsAddedToInventory}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                  Delete Bill
-                                  {bill.itemsAddedToInventory && (
-                                    <span className="text-[10px] ml-auto opacity-70">
-                                      (In Inventory)
-                                    </span>
-                                  )}
-                                </DropdownMenuItem>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>
-                                    Delete Purchase Bill?
-                                  </AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    This action cannot be undone and will remove
-                                    all associated payment and return records.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handleDelete(bill.id)}
-                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                    disabled={!!isDeleting}
+                        {((isEditing ? editedBill : selectedBill)?.payments
+                          ?.length || 0) > 0 ? (
+                          <div className="overflow-x-auto rounded-lg border">
+                            <table className="w-full text-sm">
+                              <thead className="bg-muted/60">
+                                <tr>
+                                  <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wide">
+                                    Date
+                                  </th>
+                                  <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wide">
+                                    Method
+                                  </th>
+                                  <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wide">
+                                    Amount
+                                  </th>
+                                  <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wide">
+                                    Note
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {(isEditing
+                                  ? editedBill
+                                  : selectedBill
+                                )?.payments?.map((payment, i) => (
+                                  <tr
+                                    key={payment.id || i}
+                                    className="border-t"
                                   >
-                                    {isDeleting === bill.id ? (
-                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                    ) : null}
-                                    Delete
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-          {filteredBills.length > pageSize && (
-            <div className="mt-6 flex flex-col items-start justify-between gap-2 px-2 sm:flex-row sm:items-center">
-              <p className="text-xs text-muted-foreground">
-                Showing {(currentPage - 1) * pageSize + 1} to{" "}
-                {Math.min(currentPage * pageSize, filteredBills.length)} of{" "}
-                {filteredBills.length}
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+                                    <td className="px-4 py-3 text-sm">
+                                      {formatDate(payment.date)}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs"
+                                      >
+                                        {payment.method}
+                                      </Badge>
+                                    </td>
+                                    <td className="px-4 py-3 text-right font-semibold">
+                                      {formatCurrency(payment.amount)}
+                                    </td>
+                                    <td className="px-4 py-3 text-muted-foreground text-sm">
+                                      {payment.note || "—"}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 bg-muted/10 rounded-lg border border-dashed">
+                            <p className="text-sm text-muted-foreground">
+                              No payments recorded yet.
+                            </p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
 
-      {/* Manual Create Dialog */}
-      <Dialog
-        open={manualCreateOpen}
-        onOpenChange={(open) => {
-          setManualCreateOpen(open);
-          if (!open) resetManualCreate();
-        }}
-      >
-        <DialogContent
-          className="w-[100vw] sm:w-[95vw] lg:w-[92vw] max-w-6xl
-          h-[100dvh] sm:h-[92vh] max-h-[100dvh] sm:max-h-[92vh]
-          left-0 top-0 translate-x-0 translate-y-0
-          sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%]
-          rounded-none sm:rounded-xl p-0 flex flex-col gap-0"
-        >
-          <DialogHeader className="px-4 sm:px-6 py-4 border-b bg-background sticky top-0 z-10 pt-[calc(env(safe-area-inset-top)+1rem)]">
-            <DialogTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <span className="text-xl font-bold">New Purchase Bill</span>
-              <span className="text-xs font-normal text-muted-foreground">
-                Quick flow: Vendor, Bill Details, Items, Save
-              </span>
-            </DialogTitle>
-          </DialogHeader>
+                    {/* Items Table */}
+                    <Card className="overflow-hidden shadow-sm">
+                      <CardHeader className="bg-muted/40 px-5 py-3.5">
+                        <CardTitle className="text-lg lg:text-xl font-semibold flex items-center justify-between">
+                          <span>Items</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-normal text-muted-foreground">
+                              {
+                                (isEditing
+                                  ? editedBill?.items
+                                  : selectedBill?.items
+                                )?.length
+                              }{" "}
+                              item(s)
+                            </span>
+                            {isEditing && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={addEditedItemRow}
+                              >
+                                <PackagePlus className="h-4 w-4 mr-2" />
+                                Add Item
+                              </Button>
+                            )}
+                          </div>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-0">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead className="bg-muted/60">
+                              <tr>
+                                <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wide sticky left-0 bg-muted/60">
+                                  #
+                                </th>
+                                <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wide min-w-[250px]">
+                                  Description
+                                </th>
+                                <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wide">
+                                  HSN
+                                </th>
+                                <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wide">
+                                  Qty
+                                </th>
+                                <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wide">
+                                  Rate
+                                </th>
+                                <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wide">
+                                  GST%
+                                </th>
+                                <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wide">
+                                  Amount
+                                </th>
+                                {isEditing && (
+                                  <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wide">
+                                    Actions
+                                  </th>
+                                )}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(isEditing
+                                ? editedBill?.items
+                                : selectedBill?.items
+                              )?.map((item, index) => (
+                                <tr
+                                  key={index}
+                                  className={`border-t ${
+                                    item.hasError
+                                      ? "bg-amber-50 dark:bg-amber-900/20"
+                                      : ""
+                                  }`}
+                                >
+                                  <td className="px-4 py-3 font-medium sticky left-0 bg-background text-sm">
+                                    {index + 1}
+                                  </td>
+                                  <td className="px-4 py-3 max-w-md">
+                                    {isEditing ? (
+                                      <div className="space-y-2">
+                                        <ProductAutocomplete
+                                          products={products}
+                                          value={item.description}
+                                          onChange={(val) =>
+                                            updateEditedItem(
+                                              index,
+                                              "description",
+                                              val,
+                                            )
+                                          }
+                                          onSelect={(product) =>
+                                            handleProductSelect(index, product)
+                                          }
+                                          placeholder="Item / Product name"
+                                          type="name"
+                                          className="h-9 text-sm"
+                                        />
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                          <Input
+                                            value={
+                                              (item as any).whereToBuy || ""
+                                            }
+                                            onChange={(e) =>
+                                              updateEditedItem(
+                                                index,
+                                                "whereToBuy" as any,
+                                                e.target.value,
+                                              )
+                                            }
+                                            className="h-8 text-sm"
+                                            placeholder="Bought from (optional)"
+                                          />
+                                          <Input
+                                            value={(item as any).weight || ""}
+                                            onChange={(e) =>
+                                              updateEditedItem(
+                                                index,
+                                                "weight" as any,
+                                                e.target.value,
+                                              )
+                                            }
+                                            className="h-8 text-sm"
+                                            placeholder="Weight (optional)"
+                                          />
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div>
+                                        <div className="font-medium break-words text-sm">
+                                          {item.description}
+                                        </div>
+                                        {(item as any).whereToBuy && (
+                                          <div className="text-xs text-muted-foreground mt-1">
+                                            Bought from:{" "}
+                                            {(item as any).whereToBuy}
+                                          </div>
+                                        )}
+                                        {(item as any).weight && (
+                                          <div className="text-xs text-muted-foreground">
+                                            Weight: {(item as any).weight}
+                                          </div>
+                                        )}
+                                        {item.hasError && (
+                                          <p className="text-xs text-amber-600 mt-1">
+                                            {item.errorMessage}
+                                          </p>
+                                        )}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    {isEditing ? (
+                                      <ProductAutocomplete
+                                        products={products}
+                                        value={item.hsnCode || ""}
+                                        onChange={(val) =>
+                                          updateEditedItem(
+                                            index,
+                                            "hsnCode",
+                                            val,
+                                          )
+                                        }
+                                        onSelect={(product) =>
+                                          handleProductSelect(index, product)
+                                        }
+                                        placeholder="HSN"
+                                        type="hsn"
+                                        className="h-9 w-28 mx-auto text-sm"
+                                      />
+                                    ) : (
+                                      <span className="text-sm">
+                                        {item.hsnCode || "—"}
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3 text-right">
+                                    {isEditing ? (
+                                      <div className="flex items-center justify-end gap-2">
+                                        <Input
+                                          type="number"
+                                          value={item.quantity}
+                                          onChange={(e) =>
+                                            updateEditedItem(
+                                              index,
+                                              "quantity",
+                                              parseFloat(e.target.value) || 0,
+                                            )
+                                          }
+                                          className="h-9 w-20 text-right text-sm"
+                                        />
+                                        <Input
+                                          value={item.unit}
+                                          onChange={(e) =>
+                                            updateEditedItem(
+                                              index,
+                                              "unit",
+                                              e.target.value,
+                                            )
+                                          }
+                                          className="h-9 w-16 text-sm"
+                                        />
+                                      </div>
+                                    ) : (
+                                      <span className="font-medium text-sm">
+                                        {item.quantity} {item.unit}
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3 text-right">
+                                    {isEditing ? (
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        value={item.rate}
+                                        onChange={(e) =>
+                                          updateEditedItem(
+                                            index,
+                                            "rate",
+                                            parseFloat(e.target.value) || 0,
+                                          )
+                                        }
+                                        className="h-9 w-28 text-right text-sm"
+                                      />
+                                    ) : (
+                                      <span className="text-sm">
+                                        {formatCurrency(item.rate)}
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3 text-right">
+                                    {isEditing ? (
+                                      <Input
+                                        type="number"
+                                        step="0.1"
+                                        value={item.gstRate || 0}
+                                        onChange={(e) =>
+                                          updateEditedItem(
+                                            index,
+                                            "gstRate",
+                                            parseFloat(e.target.value) || 0,
+                                          )
+                                        }
+                                        className="h-9 w-20 text-right text-sm"
+                                      />
+                                    ) : (
+                                      <span className="font-medium text-sm">
+                                        {item.gstRate || 0}%
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3 text-right font-semibold text-sm">
+                                    {formatCurrency(item.amount)}
+                                  </td>
+                                  {isEditing && (
+                                    <td className="px-4 py-3 text-right">
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() =>
+                                          removeEditedItemRow(index)
+                                        }
+                                        className="text-destructive hover:text-destructive"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </td>
+                                  )}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </CardContent>
+                    </Card>
 
-          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-            <div className="xl:col-span-8 space-y-4">
-            <Card className="border-primary/20 bg-primary/[0.03]">
-              <CardContent className="pt-4">
-                <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
-                  <Badge variant="outline" className="px-2 py-1">
-                    1 Vendor
-                  </Badge>
-                  <Badge variant="outline" className="px-2 py-1">
-                    2 Bill Info
-                  </Badge>
-                  <Badge variant="outline" className="px-2 py-1">
-                    3 Items
-                  </Badge>
-                  <Badge variant="outline" className="px-2 py-1">
-                    4 Review and Save
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Optional Bill Attachment</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => manualImageInputRef.current?.click()}
-                    disabled={isCompressing}
-                  >
-                    {isCompressing ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <Upload className="h-4 w-4 mr-2" />
-                    )}
-                    {manualBill.billImage ? "Replace Image" : "Upload Image"}
-                  </Button>
-                  {manualBill.billImage && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() =>
-                        setManualBill((prev) => ({ ...prev, billImage: "" }))
-                      }
-                    >
-                      Remove Image
-                    </Button>
-                  )}
-                </div>
-                {manualBill.billImage ? (
-                  <img
-                    src={manualBill.billImage}
-                    alt="Bill preview"
-                    className="w-full max-h-64 object-contain rounded-md border bg-muted/30"
-                  />
-                ) : (
-                  <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-                    Continue without image if you do not have a bill photo.
+                    {/* Purchase Returns Section */}
+                    {selectedBill?.returns &&
+                      selectedBill.returns.length > 0 && (
+                        <Card className="overflow-hidden shadow-sm border-2 border-orange-200 bg-orange-50/5">
+                          <CardHeader className="bg-orange-100/30 px-5 py-3.5">
+                            <CardTitle className="text-lg lg:text-xl font-semibold flex items-center gap-2 text-orange-600">
+                              <RotateCcw className="h-5 w-5" />
+                              Purchase Returns
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="p-0">
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-sm">
+                                <thead className="bg-orange-100/50">
+                                  <tr>
+                                    <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wide">
+                                      Item / Reason
+                                    </th>
+                                    <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wide">
+                                      Qty
+                                    </th>
+                                    <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wide">
+                                      Date
+                                    </th>
+                                    <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wide">
+                                      Value
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-orange-100">
+                                  {selectedBill.returns.map((ret) =>
+                                    ret.items.map((item, idx) => (
+                                      <tr
+                                        key={`${ret.id}-${idx}`}
+                                        className="hover:bg-orange-100/10"
+                                      >
+                                        <td className="px-4 py-3">
+                                          <div className="space-y-1">
+                                            <p className="font-semibold text-sm text-foreground">
+                                              {item.description}
+                                            </p>
+                                            {ret.notes && (
+                                              <p className="text-xs text-muted-foreground italic flex items-center gap-1">
+                                                <BookOpen className="h-3 w-3" />{" "}
+                                                {ret.notes}
+                                              </p>
+                                            )}
+                                          </div>
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                          <Badge
+                                            variant="outline"
+                                            className="text-orange-600 border-orange-200 bg-orange-100/50 font-semibold text-xs"
+                                          >
+                                            -{item.quantity}
+                                          </Badge>
+                                        </td>
+                                        <td className="px-4 py-3 text-right text-muted-foreground text-sm">
+                                          {formatDate(ret.returnDate)}
+                                        </td>
+                                        <td className="px-4 py-3 text-right font-semibold text-orange-600">
+                                          -
+                                          {formatCurrency(
+                                            item.quantity *
+                                              item.rate *
+                                              (1 + (item.gstRate || 0) / 100),
+                                          )}
+                                        </td>
+                                      </tr>
+                                    )),
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                    {/* Totals Summary */}
+                    <Card className="shadow-sm">
+                      <CardHeader className="bg-muted/40 px-5 py-3.5">
+                        <CardTitle className="text-lg lg:text-xl font-semibold">
+                          Bill Summary
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-5 px-5 pb-5">
+                        <div className="max-w-lg ml-auto space-y-3">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">
+                              Subtotal
+                            </span>
+                            <span className="font-semibold">
+                              {formatCurrency(
+                                isEditing
+                                  ? editedBill?.items.reduce(
+                                      (sum, item) => sum + item.amount,
+                                      0,
+                                    ) || 0
+                                  : selectedBill?.subtotal || 0,
+                              )}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">
+                              Tax Amount
+                            </span>
+                            <span className="font-semibold">
+                              {formatCurrency(
+                                isEditing
+                                  ? editedBill?.items.reduce(
+                                      (sum, item) =>
+                                        sum + (item.gstAmount || 0),
+                                      0,
+                                    ) || 0
+                                  : selectedBill?.totalTax || 0,
+                              )}
+                            </span>
+                          </div>
+                          <div className="border-t-2 border-primary pt-3 space-y-2.5">
+                            <div className="flex justify-between text-sm text-muted-foreground">
+                              <span>Original Bill Amount</span>
+                              <span className="font-semibold">
+                                {formatCurrency(
+                                  isEditing
+                                    ? (editedBill?.items.reduce(
+                                        (sum, item) => sum + item.amount,
+                                        0,
+                                      ) || 0) +
+                                        (editedBill?.items.reduce(
+                                          (sum, item) =>
+                                            sum + (item.gstAmount || 0),
+                                          0,
+                                        ) || 0)
+                                    : selectedBill?.total || 0,
+                                )}
+                              </span>
+                            </div>
+                            {selectedBill?.returns &&
+                              selectedBill.returns.length > 0 && (
+                                <div className="flex justify-between text-sm text-red-600">
+                                  <span>- Returns</span>
+                                  <span className="font-semibold">
+                                    {formatCurrency(
+                                      selectedBill.returns.reduce(
+                                        (sum, r) => sum + r.totalReturnValue,
+                                        0,
+                                      ),
+                                    )}
+                                  </span>
+                                </div>
+                              )}
+                            <div className="flex justify-between text-xl lg:text-2xl pt-2 border-t">
+                              <span className="font-bold">Current Total</span>
+                              <span className="font-bold text-primary">
+                                {formatCurrency(
+                                  (isEditing
+                                    ? (editedBill?.items.reduce(
+                                        (sum, item) => sum + item.amount,
+                                        0,
+                                      ) || 0) +
+                                      (editedBill?.items.reduce(
+                                        (sum, item) =>
+                                          sum + (item.gstAmount || 0),
+                                        0,
+                                      ) || 0)
+                                    : selectedBill?.total || 0) -
+                                    (selectedBill?.returns?.reduce(
+                                      (sum, r) => sum + r.totalReturnValue,
+                                      0,
+                                    ) || 0),
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
                 )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">1. Vendor</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="inline-flex items-center gap-2 rounded-lg border bg-muted/30 p-1">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={manualVendorMode === "select" ? "default" : "outline"}
-                    onClick={() => setManualVendorMode("select")}
-                  >
-                    Select Vendor
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={manualVendorMode === "create" ? "default" : "outline"}
-                    onClick={() => setManualVendorMode("create")}
-                  >
-                    Create Vendor
-                  </Button>
-                </div>
-
-                {manualVendorMode === "select" ? (
-                  <div className="space-y-1">
-                    <Label>Vendor *</Label>
-                    <Select
-                      value={manualBill.vendorId || ""}
-                      onValueChange={(val) => {
-                        if (val === "__create_vendor__") {
-                          setManualVendorMode("create");
-                          return;
-                        }
-                        const vendor = vendors.find((v) => v.id === val);
-                        setManualBill((prev) => ({
-                          ...prev,
-                          vendorId: val,
-                          vendorName: vendor?.name || "",
-                          vendorAddress: vendor?.address || "",
-                          vendorGstin: vendor?.gstin || "",
-                          items: prev.items.map((it) => ({
-                            ...it,
-                            whereToBuy: it.whereToBuy || vendor?.name || "",
-                          })),
-                        }));
+              </div>
+              {/* Sticky footer actions (always visible on mobile) */}
+              {!isEditing && selectedBill && (
+                <div className="shrink-0 border-t bg-background px-6 sm:px-8 py-3 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+                  <div className="flex flex-col lg:flex-row gap-3 justify-end">
+                    {!selectedBill.itemsAddedToInventory ? (
+                      <Button
+                        onClick={() => handleAddToInventory(selectedBill)}
+                        size="default"
+                        className="bg-emerald-600 hover:bg-emerald-700"
+                        disabled={loadingInventory === selectedBill.id}
+                      >
+                        {loadingInventory === selectedBill.id ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <PackagePlus className="h-4 w-4 mr-2" />
+                        )}
+                        Add to Inventory
+                      </Button>
+                    ) : (
+                      <Badge variant="secondary" className="py-2 px-4 text-sm">
+                        <PackagePlus className="h-4 w-4 mr-2" />
+                        Added to Inventory
+                      </Badge>
+                    )}
+                    {selectedBill.billImage ? (
+                      <Button
+                        variant="outline"
+                        size="default"
+                        onClick={() => setViewImageBill(selectedBill)}
+                      >
+                        <Image className="h-4 w-4 mr-2" />
+                        View Original Bill
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="default" disabled>
+                        <Image className="h-4 w-4 mr-2" />
+                        No Bill Image
+                      </Button>
+                    )}
+                    <Button
+                      size="default"
+                      variant={
+                        selectedBill.paymentStatus === "paid"
+                          ? "secondary"
+                          : "default"
+                      }
+                      onClick={() => {
+                        handleTogglePayment(selectedBill);
+                        setSelectedBill({
+                          ...selectedBill,
+                          paymentStatus:
+                            selectedBill.paymentStatus === "paid"
+                              ? "pending"
+                              : "paid",
+                        });
                       }}
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select vendor" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {vendors.map((v) => (
-                          <SelectItem key={v.id} value={v.id}>
-                            {v.name}
-                          </SelectItem>
-                        ))}
-                        <SelectItem value="__create_vendor__">
-                          + Create new vendor
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                      {selectedBill.paymentStatus === "paid"
+                        ? "Mark as Pending"
+                        : "Mark as Paid"}
+                    </Button>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label>Vendor Name *</Label>
-                      <Input
-                        value={manualVendorForm.name}
-                        onChange={(e) =>
-                          setManualVendorForm((prev) => ({
-                            ...prev,
-                            name: e.target.value,
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>GSTIN</Label>
-                      <Input
-                        value={manualVendorForm.gstin}
-                        onChange={(e) =>
-                          setManualVendorForm((prev) => ({
-                            ...prev,
-                            gstin: e.target.value.toUpperCase(),
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Phone</Label>
-                      <Input
-                        value={manualVendorForm.phone}
-                        onChange={(e) =>
-                          setManualVendorForm((prev) => ({
-                            ...prev,
-                            phone: e.target.value,
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Email</Label>
-                      <Input
-                        value={manualVendorForm.email}
-                        onChange={(e) =>
-                          setManualVendorForm((prev) => ({
-                            ...prev,
-                            email: e.target.value,
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1 md:col-span-2">
-                      <Label>Address</Label>
-                      <Textarea
-                        rows={2}
-                        value={manualVendorForm.address}
-                        onChange={(e) =>
-                          setManualVendorForm((prev) => ({
-                            ...prev,
-                            address: e.target.value,
-                          }))
-                        }
-                      />
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
 
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">2. Bill Details</CardTitle>
-              </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                <div className="space-y-1">
-                  <Label>Bill Number</Label>
-                  <Input
-                    value={manualBill.billNumber || ""}
-                    onChange={(e) =>
-                      setManualBill((prev) => ({
-                        ...prev,
-                        billNumber: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>Bill Date *</Label>
-                  <Input
-                    type="date"
-                    value={manualBill.billDate}
-                    onChange={(e) =>
-                      setManualBill((prev) => ({
-                        ...prev,
-                        billDate: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>Due Date</Label>
-                  <Input
-                    type="date"
-                    value={manualBill.dueDate || ""}
-                    onChange={(e) =>
-                      setManualBill((prev) => ({
-                        ...prev,
-                        dueDate: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>Payment Terms (Days)</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={manualBill.paymentTerms || 0}
-                    onChange={(e) =>
-                      setManualBill((prev) => ({
-                        ...prev,
-                        paymentTerms: parseInt(e.target.value) || 0,
-                      }))
-                    }
-                  />
-                </div>
-                <div className="space-y-1 md:col-span-2 lg:col-span-4">
-                  <Label>Notes</Label>
-                  <Textarea
-                    rows={2}
-                    value={manualBill.notes || ""}
-                    onChange={(e) =>
-                      setManualBill((prev) => ({
-                        ...prev,
-                        notes: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-              </CardContent>
-            </Card>
+          {/* Inventory Dialog - Enter Selling Prices */}
+          <Dialog
+            open={!!inventoryDialogBill}
+            onOpenChange={(open) => !open && setInventoryDialogBill(null)}
+          >
+            <DialogContent className="dialog-form-content max-w-2xl">
+              <DialogHeader className="dialog-form-header">
+                <DialogTitle className="flex items-center gap-2">
+                  <PackagePlus className="h-5 w-5 text-emerald-600" />
+                  Add to Inventory - Set Selling Prices
+                </DialogTitle>
+              </DialogHeader>
 
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center justify-between">
-                  <span>3. Items</span>
-                  <Button type="button" variant="outline" size="sm" onClick={addManualItemRow}>
-                    <PackagePlus className="h-4 w-4 mr-2" />
-                    Add Item
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {manualBill.items.map((item, index) => (
-                  <div key={index} className="rounded-lg border p-3 bg-muted/10 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium">Item {index + 1}</p>
-                      {manualBill.items.length > 1 && (
+              <div className="dialog-form-body space-y-4">
+                {lastInventoryError && (
+                  <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="font-medium">Inventory error details</div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(
+                                lastInventoryError,
+                              );
+                              toast({
+                                title: "Copied",
+                                description:
+                                  "Error details copied to clipboard",
+                              });
+                            } catch {
+                              toast({
+                                title: "Copy failed",
+                                description:
+                                  "Could not copy automatically. Please screenshot this section.",
+                                variant: "destructive",
+                              });
+                            }
+                          }}
+                        >
+                          Copy
+                        </Button>
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => removeManualItemRow(index)}
+                          onClick={() => setLastInventoryError(null)}
                         >
-                          <Trash2 className="h-4 w-4 mr-1" />
-                          Remove
+                          Dismiss
                         </Button>
-                      )}
+                      </div>
                     </div>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <Label>Description *</Label>
-                        <ProductAutocomplete
-                          products={products}
-                          value={item.description}
-                          onChange={(val) =>
-                            updateManualItem(index, "description", val)
-                          }
-                          onSelect={(product) =>
-                            handleManualProductSelect(index, product)
-                          }
-                          onCreateProduct={() =>
-                            handleCreateProductFromManualItem(index)
-                          }
-                          placeholder="Item / Product name"
-                          type="name"
-                          className="h-9 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label>HSN</Label>
-                        <ProductAutocomplete
-                          products={products}
-                          value={item.hsnCode || ""}
-                          onChange={(val) => updateManualItem(index, "hsnCode", val)}
-                          onSelect={(product) =>
-                            handleManualProductSelect(index, product)
-                          }
-                          placeholder="HSN"
-                          type="hsn"
-                          className="h-9 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label>Item No</Label>
-                        <Input
-                          value={(item as any).itemNo || ""}
-                          onChange={(e) =>
-                            updateManualItem(index, "itemNo" as any, e.target.value)
-                          }
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label>Model</Label>
-                        <Input
-                          value={(item as any).model || ""}
-                          onChange={(e) =>
-                            updateManualItem(index, "model" as any, e.target.value)
-                          }
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label>IMEI / Serial</Label>
-                        <Input
-                          value={(item as any).imeiNumber || ""}
-                          onChange={(e) =>
-                            updateManualItem(
-                              index,
-                              "imeiNumber" as any,
-                              e.target.value,
-                            )
-                          }
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label>Storage</Label>
-                        <Input
-                          value={(item as any).storage || ""}
-                          onChange={(e) =>
-                            updateManualItem(index, "storage" as any, e.target.value)
-                          }
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label>Color</Label>
-                        <Input
-                          value={(item as any).color || ""}
-                          onChange={(e) =>
-                            updateManualItem(index, "color" as any, e.target.value)
-                          }
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label>Quantity *</Label>
-                        <Input
-                          type="number"
-                          value={item.quantity}
-                          disabled={!!normalizeImei((item as any).imeiNumber)}
-                          onChange={(e) =>
-                            updateManualItem(
-                              index,
-                              "quantity",
-                              parseFloat(e.target.value) || 0,
-                            )
-                          }
-                        />
-                        {normalizeImei((item as any).imeiNumber) ? (
-                          <p className="text-[11px] text-muted-foreground">
-                            IMEI/Serial item uses quantity 1.
+                    <pre className="mt-2 whitespace-pre-wrap break-words text-xs">
+                      {lastInventoryError}
+                    </pre>
+                  </div>
+                )}
+                <p className="text-sm text-muted-foreground">
+                  Enter the selling price for each item. Purchase price is shown
+                  for reference.
+                </p>
+
+                <div className="space-y-3">
+                  {inventoryItems.map((item, index) => (
+                    <div
+                      key={index}
+                      className="border rounded-lg p-3 bg-muted/30"
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="font-medium text-sm">
+                            {item.description}
                           </p>
-                        ) : null}
+                          <p className="text-xs text-muted-foreground">
+                            {item.quantity} {item.unit} | HSN:{" "}
+                            {item.hsnCode || "N/A"}
+                          </p>
+                        </div>
+                        <Badge variant="outline" className="text-xs">
+                          GST: {item.gstRate}%
+                        </Badge>
                       </div>
-                      <div className="space-y-1">
-                        <Label>Unit</Label>
-                        <Input
-                          value={item.unit}
-                          onChange={(e) => updateManualItem(index, "unit", e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label>Rate *</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={item.rate}
-                          onChange={(e) =>
-                            updateManualItem(
-                              index,
-                              "rate",
-                              parseFloat(e.target.value) || 0,
-                            )
-                          }
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label>GST %</Label>
-                        <Input
-                          type="number"
-                          step="0.1"
-                          value={item.gstRate || 0}
-                          onChange={(e) =>
-                            updateManualItem(
-                              index,
-                              "gstRate",
-                              parseFloat(e.target.value) || 0,
-                            )
-                          }
-                        />
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm bg-background border rounded-md px-3 py-2">
-                      <div className="text-muted-foreground">
-                        Amount: <span className="font-semibold text-foreground">{formatCurrency(item.amount || 0)}</span>
-                      </div>
-                      <div className="text-muted-foreground">
-                        Tax: <span className="font-semibold text-foreground">{formatCurrency(item.gstAmount || 0)}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-            </div>
-            <div className="xl:col-span-4 space-y-4">
-              <Card className="xl:sticky xl:top-4">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">4. Review</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="rounded-md bg-muted/30 p-3 text-sm">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Vendor</p>
-                    <p className="font-semibold mt-1">
-                      {manualVendorMode === "create"
-                        ? manualVendorForm.name || "New vendor"
-                        : manualSelectedVendor?.name || "Not selected"}
-                    </p>
-                  </div>
 
-                  <div className="rounded-md bg-muted/30 p-3 space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Bill Date</span>
-                      <span className="font-medium">{manualBill.billDate || "-"}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Bill Number</span>
-                      <span className="font-medium">{manualBill.billNumber || "-"}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Items</span>
-                      <span className="font-medium">{manualBill.items.length}</span>
-                    </div>
-                  </div>
-
-                  <div className="rounded-md border p-3 space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Subtotal</span>
-                      <span className="font-medium">{formatCurrency(manualSubtotal)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Tax</span>
-                      <span className="font-medium">{formatCurrency(manualTaxTotal)}</span>
-                    </div>
-                    <div className="flex justify-between text-base font-bold pt-2 border-t">
-                      <span>Total</span>
-                      <span className="text-primary">{formatCurrency(manualGrandTotal)}</span>
-                    </div>
-                  </div>
-
-                  {manualBill.billImage ? (
-                    <img
-                      src={manualBill.billImage}
-                      alt="Bill preview"
-                      className="w-full h-36 object-cover rounded-md border"
-                    />
-                  ) : (
-                    <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
-                      No image attached
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-            </div>
-          </div>
-          <div className="shrink-0 border-t bg-background px-4 sm:px-6 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
-            <div className="flex items-center justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setManualCreateOpen(false);
-                  resetManualCreate();
-                }}
-              >
-                Cancel
-              </Button>
-              <Button type="button" onClick={handleSaveManualBill} loading={isSaving}>
-                Create Purchase Bill
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Image View Dialog */}
-      <Dialog
-        open={!!viewImageBill}
-        onOpenChange={() => setViewImageBill(null)}
-      >
-        <DialogContent
-          className="w-[100vw] sm:w-[90vw] lg:w-[85vw] max-w-4xl
-          h-[100dvh] sm:h-[90vh] max-h-[100dvh] sm:max-h-[90vh]
-          left-0 top-0 translate-x-0 translate-y-0
-          sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%]
-          rounded-none sm:rounded-lg
-          p-0 flex flex-col gap-0"
-        >
-          <DialogHeader className="px-6 sm:px-8 py-5 border-b shrink-0 bg-background sticky top-0 z-10 pt-[calc(env(safe-area-inset-top)+1rem)]">
-            <DialogTitle>Original Bill Image</DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-[calc(env(safe-area-inset-bottom)+2rem)]">
-            {viewImageBill?.billImage ? (
-              <img
-                src={viewImageBill.billImage}
-                alt="Bill"
-                className="w-full rounded-lg"
-              />
-            ) : (
-              <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
-                No bill image uploaded for this purchase bill.
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Detail View Dialog */}
-      {/* Detail View Dialog */}
-      <Dialog
-        open={!!selectedBill}
-        onOpenChange={() => {
-          setSelectedBill(null);
-          setIsEditing(false);
-          setEditedBill(null);
-        }}
-      >
-        <DialogContent
-          className="w-[100vw] sm:w-[90vw] lg:w-[85vw] xl:w-[80vw] max-w-[1800px]
-          h-[100dvh] sm:h-[90vh] max-h-[100dvh] sm:max-h-[90vh]
-          left-0 top-0 translate-x-0 translate-y-0
-          sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%]
-          rounded-none sm:rounded-lg
-          p-0 flex flex-col gap-0"
-        >
-          {/* Fixed Header */}
-          <DialogHeader className="px-6 sm:px-8 py-4 border-b shrink-0 bg-background sticky top-0 z-10 pt-[calc(env(safe-area-inset-top)+1rem)]">
-            <DialogTitle className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-              <span className="text-xl lg:text-2xl font-bold">
-                Extracted Bill Details
-              </span>
-              <div className="flex flex-wrap gap-2">
-                {selectedBill && !isEditing && (
-                  <>
-                    <PDFDownloadLink
-                      document={<PurchaseBillPDF bill={selectedBill} />}
-                      fileName={`Bill_${selectedBill.billNumber || selectedBill.id}.pdf`}
-                    >
-                      {({ loading }) => (
-                        <Button
-                          variant="outline"
-                          size="default"
-                          disabled={loading}
-                        >
-                          {loading ? (
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          ) : (
-                            <Download className="h-4 w-4 mr-2" />
-                          )}
-                          Download PDF
-                        </Button>
-                      )}
-                    </PDFDownloadLink>
-                    <Button
-                      variant="outline"
-                      size="default"
-                      onClick={() => startEditing(selectedBill)}
-                    >
-                      <Edit2 className="h-4 w-4 mr-2" /> Edit
-                    </Button>
-                  </>
-                )}
-                {isEditing && (
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="default"
-                      onClick={() => {
-                        setIsEditing(false);
-                        setEditedBill(null);
-                      }}
-                    >
-                      <X className="h-4 w-4 mr-2" /> Cancel
-                    </Button>
-                    <Button
-                      size="default"
-                      onClick={saveEditedBill}
-                      loading={savingEditedBill}
-                    >
-                      <Save className="h-4 w-4 mr-2" /> Save
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </DialogTitle>
-          </DialogHeader>
-
-          {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-6 pb-[calc(env(safe-area-inset-bottom)+2rem)]">
-            {/* Extraction Errors Alert */}
-            {selectedBill?.extractionErrors &&
-              selectedBill.extractionErrors.length > 0 &&
-              !isEditing && (
-                <Card className="border-amber-400 bg-amber-50 dark:bg-amber-950/20 mb-6">
-                  <CardContent className="py-4">
-                    <div className="flex items-start gap-3">
-                      <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                      <div className="space-y-2 flex-1">
-                        <p className="font-semibold text-base text-amber-800 dark:text-amber-200">
-                          AI detected potential issues:
+                      {/* Matching Option */}
+                      <div className="mt-2 p-2 bg-background/50 rounded-md border border-dashed">
+                        <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1.5 px-1">
+                          Inventory Action
                         </p>
-                        <ul className="space-y-2 text-sm text-amber-700 dark:text-amber-300">
-                          {selectedBill.extractionErrors.map((error, i) => (
-                            <li
-                              key={i}
-                              className="flex flex-col lg:flex-row lg:items-start gap-2"
-                            >
-                              <span
-                                className={`px-2 py-0.5 rounded text-xs font-medium ${
-                                  error.severity === "error"
-                                    ? "bg-destructive/20 text-destructive"
-                                    : "bg-amber-200 text-amber-800"
-                                }`}
-                              >
-                                {error.severity.toUpperCase()}
-                              </span>
-                              <div className="flex-1">
-                                <span className="block text-sm">
-                                  {error.message}
-                                </span>
-                                {error.suggestion && (
-                                  <span className="block text-xs text-amber-600 mt-1">
-                                    Suggestion: {error.suggestion}
-                                  </span>
-                                )}
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-3 border-amber-400 text-amber-700"
-                          onClick={() => startEditing(selectedBill)}
-                        >
-                          <Edit2 className="h-4 w-4 mr-2" /> Fix Issues
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-            {(isEditing ? editedBill : selectedBill) && (
-              <div className="space-y-6">
-                {/* Vendor Information */}
-                <Card className="overflow-hidden shadow-sm">
-                  <CardHeader className="bg-muted/40 px-5 py-3.5">
-                    <CardTitle className="text-lg lg:text-xl font-semibold">
-                      Vendor Information
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-5 px-5 pb-5">
-                    {isEditing ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                        <div className="space-y-1.5 md:col-span-2 xl:col-span-3">
-                          <Label className="text-sm font-medium">Vendor</Label>
-                          <Select
-                            value={editedBill?.vendorId || ""}
-                            onValueChange={(val) => {
-                              const vendor = vendors.find((v) => v.id === val);
-                              setEditedBill((prev) =>
-                                prev
-                                  ? {
-                                      ...prev,
-                                      vendorId: val,
-                                      vendorName:
-                                        vendor?.name || prev.vendorName,
-                                      vendorAddress:
-                                        vendor?.address || prev.vendorAddress,
-                                      vendorGstin:
-                                        vendor?.gstin || prev.vendorGstin,
-                                    }
-                                  : null,
-                              );
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant={item.isNewProduct ? "default" : "outline"}
+                            size="sm"
+                            className="flex-1 h-8 text-xs py-0"
+                            onClick={() => {
+                              const newItems = [...inventoryItems];
+                              newItems[index].isNewProduct = true;
+                              setInventoryItems(newItems);
                             }}
                           >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select Vendor" />
+                            Create New
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={!item.isNewProduct ? "default" : "outline"}
+                            size="sm"
+                            className="flex-1 h-8 text-xs py-0"
+                            onClick={() => {
+                              const newItems = [...inventoryItems];
+                              newItems[index].isNewProduct = false;
+                              setInventoryItems(newItems);
+                            }}
+                          >
+                            Update Stock
+                          </Button>
+                        </div>
+
+                        {/* Product Selector for Update Stock */}
+                        {!item.isNewProduct && (
+                          <div className="mt-2 space-y-1">
+                            <Label className="text-[10px] px-1">
+                              Selected Product
+                            </Label>
+                            <Select
+                              value={item.productId || ""}
+                              onValueChange={(val) => {
+                                const newItems = [...inventoryItems];
+                                newItems[index].productId = val;
+                                const selectedProduct = products.find(
+                                  (p) => p.id === val,
+                                );
+                                if (selectedProduct) {
+                                  newItems[index].hsnCode =
+                                    selectedProduct.hsnCode || "";
+                                }
+                                setInventoryItems(newItems);
+                              }}
+                            >
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue placeholder="Select Product" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {products.map((p) => (
+                                  <SelectItem
+                                    key={p.id}
+                                    value={p.id}
+                                    className="text-xs"
+                                  >
+                                    {p.name} (₹{p.sellingPrice})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+
+                        {!item.productId && !item.isNewProduct && (
+                          <p className="text-[10px] text-amber-600 mt-1 px-1">
+                            No matching product found by name/HSN. Please select
+                            one manually.
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs font-semibold">
+                            Vendor *
+                          </Label>
+                          <Select
+                            value={item.vendorId}
+                            onValueChange={(val) => {
+                              const newItems = [...inventoryItems];
+                              newItems[index].vendorId = val;
+                              setInventoryItems(newItems);
+                            }}
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder="Select vendor" />
                             </SelectTrigger>
                             <SelectContent>
                               {vendors.map((v) => (
@@ -3456,1556 +4248,340 @@ function PurchaseBills() {
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-sm font-medium">
-                            Vendor Name (Override)
+                        <div className="space-y-1">
+                          <Label className="text-xs font-semibold">
+                            Weight (optional)
                           </Label>
-                          <Input
-                            value={editedBill?.vendorName || ""}
-                            onChange={(e) =>
-                              setEditedBill((prev) =>
-                                prev
-                                  ? { ...prev, vendorName: e.target.value }
-                                  : null,
-                              )
-                            }
-                            className="h-10 text-sm"
-                          />
+                          <div className="flex gap-1">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              className="h-9 flex-1"
+                              value={item.weight}
+                              onChange={(e) => {
+                                const newItems = [...inventoryItems];
+                                newItems[index].weight =
+                                  parseFloat(e.target.value) || 0;
+                                setInventoryItems(newItems);
+                              }}
+                              placeholder="0.00"
+                            />
+                            <Select
+                              value={item.weightUnit}
+                              onValueChange={(val) => {
+                                const newItems = [...inventoryItems];
+                                newItems[index].weightUnit = val;
+                                setInventoryItems(newItems);
+                              }}
+                            >
+                              <SelectTrigger className="h-9 w-16 px-1">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="g">g</SelectItem>
+                                <SelectItem value="kg">kg</SelectItem>
+                                <SelectItem value="mg">mg</SelectItem>
+                                <SelectItem value="ct">ct</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-sm font-medium">GSTIN</Label>
-                          <Input
-                            value={editedBill?.vendorGstin || ""}
-                            onChange={(e) =>
-                              setEditedBill((prev) =>
-                                prev
-                                  ? {
-                                      ...prev,
-                                      vendorGstin: e.target.value.toUpperCase(),
-                                    }
-                                  : null,
-                              )
-                            }
-                            className="h-10 text-sm"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-sm font-medium">
-                            Bill Number
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">
+                            Purchase Price
                           </Label>
-                          <Input
-                            value={editedBill?.billNumber || ""}
-                            onChange={(e) =>
-                              setEditedBill((prev) =>
-                                prev
-                                  ? { ...prev, billNumber: e.target.value }
-                                  : null,
-                              )
-                            }
-                            className="h-10 text-sm"
-                          />
+                          <div className="text-sm font-medium bg-muted px-3 py-2 rounded">
+                            ₹{item.purchasePrice.toFixed(2)}
+                          </div>
                         </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-sm font-medium">
-                            Bill Date
-                          </Label>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Barcode (Optional)</Label>
                           <Input
-                            type="date"
-                            value={editedBill?.billDate?.split("T")[0] || ""}
+                            placeholder="Scan or type barcode"
+                            value={item.barcode || ""}
                             onChange={(e) => {
-                              const newDate = new Date(e.target.value);
-                              const now = new Date();
-                              newDate.setHours(
-                                now.getHours(),
-                                now.getMinutes(),
-                                now.getSeconds(),
-                                now.getMilliseconds(),
-                              );
-                              setEditedBill((prev) =>
-                                prev
-                                  ? { ...prev, billDate: newDate.toISOString() }
-                                  : null,
-                              );
+                              const newItems = [...inventoryItems];
+                              newItems[index].barcode = e.target.value;
+                              setInventoryItems(newItems);
                             }}
-                            className="h-10 text-sm"
+                            className="h-9"
                           />
                         </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-sm font-medium">
-                            Due Date
-                          </Label>
-                          <Input
-                            type="date"
-                            value={editedBill?.dueDate?.split("T")[0] || ""}
-                            onChange={(e) => {
-                              const newDate = new Date(e.target.value);
-                              const now = new Date();
-                              newDate.setHours(
-                                now.getHours(),
-                                now.getMinutes(),
-                                now.getSeconds(),
-                                now.getMilliseconds(),
-                              );
-                              setEditedBill((prev) =>
-                                prev
-                                  ? { ...prev, dueDate: newDate.toISOString() }
-                                  : null,
-                              );
-                            }}
-                            className="h-10 text-sm"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-sm font-medium">
-                            Payment Terms (Days)
-                          </Label>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Selling Price *</Label>
                           <Input
                             type="number"
-                            min="0"
-                            value={editedBill?.paymentTerms || ""}
+                            step="0.01"
+                            value={item.sellingPrice}
                             onChange={(e) =>
-                              setEditedBill((prev) =>
-                                prev
-                                  ? {
-                                      ...prev,
-                                      paymentTerms:
-                                        parseInt(e.target.value) || 0,
-                                    }
-                                  : null,
+                              updateInventoryItemSellingPrice(
+                                index,
+                                parseFloat(e.target.value) || 0,
                               )
                             }
-                            className="h-10 text-sm"
-                          />
-                        </div>
-                        <div className="space-y-1.5 md:col-span-2 xl:col-span-3">
-                          <Label className="text-sm font-medium">Address</Label>
-                          <Textarea
-                            value={editedBill?.vendorAddress || ""}
-                            onChange={(e) =>
-                              setEditedBill((prev) =>
-                                prev
-                                  ? { ...prev, vendorAddress: e.target.value }
-                                  : null,
-                              )
-                            }
-                            rows={3}
-                            className="resize-none text-sm"
+                            className="h-9"
                           />
                         </div>
                       </div>
-                    ) : (
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-sm">
-                        <div className="space-y-4">
-                          <div>
-                            <span className="text-xs text-muted-foreground uppercase tracking-wide">
-                              Vendor Name
-                            </span>
-                            <p className="font-semibold text-lg mt-1 break-words">
-                              {selectedBill?.vendorName}
-                            </p>
-                          </div>
-                          {selectedBill?.vendorAddress && (
-                            <div>
-                              <span className="text-xs text-muted-foreground uppercase tracking-wide">
-                                Address
-                              </span>
-                              <p className="mt-1 whitespace-pre-line break-words">
-                                {selectedBill.vendorAddress}
-                              </p>
-                            </div>
-                          )}
-                          {selectedBill?.vendorGstin && (
-                            <div>
-                              <span className="text-xs text-muted-foreground uppercase tracking-wide">
-                                GSTIN
-                              </span>
-                              <p className="mt-1 font-medium break-all">
-                                {selectedBill.vendorGstin}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                        <div className="space-y-4">
-                          <div>
-                            <span className="text-xs text-muted-foreground uppercase tracking-wide">
-                              Bill Number
-                            </span>
-                            <p className="mt-1 font-semibold text-base">
-                              {selectedBill?.billNumber || "—"}
-                            </p>
-                          </div>
-                          <div>
-                            <span className="text-xs text-muted-foreground uppercase tracking-wide">
-                              Bill Date
-                            </span>
-                            <p className="mt-1">
-                              {formatDate(selectedBill?.billDate)}
-                            </p>
-                          </div>
-                          <div>
-                            <span className="text-xs text-muted-foreground uppercase tracking-wide">
-                              Due Date
-                            </span>
-                            <p
-                              className={`mt-1 font-medium ${
-                                isOverdue(selectedBill)
-                                  ? "text-destructive"
-                                  : ""
-                              }`}
-                            >
-                              {formatDate(selectedBill?.dueDate)}{" "}
-                              {selectedBill?.paymentTerms
-                                ? `(${selectedBill.paymentTerms} days)`
-                                : ""}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Payment History */}
-                <Card className="overflow-hidden shadow-sm">
-                  <CardHeader className="bg-muted/40 px-5 py-3.5">
-                    <CardTitle className="text-lg lg:text-xl font-semibold flex items-center justify-between">
-                      <span>Payment History</span>
-                      <Badge
-                        variant={
-                          (isEditing ? editedBill : selectedBill)
-                            ?.paymentStatus === "paid"
-                            ? "default"
-                            : "secondary"
-                        }
-                        className="text-sm py-1 px-3"
-                      >
-                        {(isEditing
-                          ? editedBill
-                          : selectedBill
-                        )?.paymentStatus.toUpperCase()}
-                      </Badge>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-5 px-5 pb-5">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                      <div className="space-y-1.5 p-4 bg-muted/20 rounded-lg border">
-                        <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                          Total Amount
-                        </span>
-                        <p className="text-2xl font-bold text-foreground">
-                          {formatCurrency(
-                            (isEditing ? editedBill : selectedBill)?.total || 0,
-                          )}
+                      {item.sellingPrice > 0 && (
+                        <p className="text-xs text-emerald-600 mt-2">
+                          Margin: ₹
+                          {(item.sellingPrice - item.purchasePrice).toFixed(2)}(
+                          {(
+                            ((item.sellingPrice - item.purchasePrice) /
+                              item.purchasePrice) *
+                            100
+                          ).toFixed(1)}
+                          %)
                         </p>
-                      </div>
-                      <div className="space-y-1.5 p-4 bg-emerald-50 dark:bg-emerald-950/20 rounded-lg border border-emerald-100 dark:border-emerald-900">
-                        <span className="text-xs text-emerald-700 dark:text-emerald-300 uppercase tracking-wider font-semibold">
-                          Total Paid
-                        </span>
-                        <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                          {formatCurrency(
-                            (isEditing ? editedBill : selectedBill)
-                              ?.paidAmount || 0,
-                          )}
-                        </p>
-                      </div>
-                      <div className="space-y-1.5 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-100 dark:border-blue-900">
-                        <span className="text-xs text-blue-700 dark:text-blue-300 uppercase tracking-wider font-semibold">
-                          Payment Breakdown
-                        </span>
-                        <div className="flex flex-wrap gap-1.5 pt-1">
-                          {Object.entries(
-                            (isEditing
-                              ? editedBill
-                              : selectedBill
-                            )?.payments?.reduce(
-                              (acc, p) => {
-                                acc[p.method] = (acc[p.method] || 0) + p.amount;
-                                return acc;
-                              },
-                              {} as Record<string, number>,
-                            ) || {},
-                          ).map(([method, amount]) => (
-                            <Badge
-                              key={method}
-                              variant="secondary"
-                              className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100 border-none text-xs"
-                            >
-                              {method}: {formatCurrency(amount)}
-                            </Badge>
-                          ))}
-                          {((isEditing ? editedBill : selectedBill)?.payments
-                            ?.length || 0) === 0 && (
-                            <span className="text-xs text-muted-foreground italic">
-                              No payments yet
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                      )}
                     </div>
+                  ))}
+                </div>
 
-                    {((isEditing ? editedBill : selectedBill)?.payments
-                      ?.length || 0) > 0 ? (
-                      <div className="overflow-x-auto rounded-lg border">
-                        <table className="w-full text-sm">
-                          <thead className="bg-muted/60">
-                            <tr>
-                              <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wide">
-                                Date
-                              </th>
-                              <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wide">
-                                Method
-                              </th>
-                              <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wide">
-                                Amount
-                              </th>
-                              <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wide">
-                                Note
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {(isEditing
-                              ? editedBill
-                              : selectedBill
-                            )?.payments?.map((payment, i) => (
-                              <tr key={payment.id || i} className="border-t">
-                                <td className="px-4 py-3 text-sm">
-                                  {formatDate(payment.date)}
-                                </td>
-                                <td className="px-4 py-3">
-                                  <Badge variant="outline" className="text-xs">
-                                    {payment.method}
-                                  </Badge>
-                                </td>
-                                <td className="px-4 py-3 text-right font-semibold">
-                                  {formatCurrency(payment.amount)}
-                                </td>
-                                <td className="px-4 py-3 text-muted-foreground text-sm">
-                                  {payment.note || "—"}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 bg-muted/10 rounded-lg border border-dashed">
-                        <p className="text-sm text-muted-foreground">
-                          No payments recorded yet.
-                        </p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Items Table */}
-                <Card className="overflow-hidden shadow-sm">
-                  <CardHeader className="bg-muted/40 px-5 py-3.5">
-                    <CardTitle className="text-lg lg:text-xl font-semibold flex items-center justify-between">
-                      <span>Items</span>
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-normal text-muted-foreground">
-                          {
-                            (isEditing
-                              ? editedBill?.items
-                              : selectedBill?.items
-                            )?.length
-                          }{" "}
-                          item(s)
-                        </span>
-                        {isEditing && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={addEditedItemRow}
-                          >
-                            <PackagePlus className="h-4 w-4 mr-2" />
-                            Add Item
-                          </Button>
-                        )}
-                      </div>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead className="bg-muted/60">
-                          <tr>
-                            <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wide sticky left-0 bg-muted/60">
-                              #
-                            </th>
-                            <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wide min-w-[250px]">
-                              Description
-                            </th>
-                            <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wide">
-                              HSN
-                            </th>
-                            <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wide">
-                              Qty
-                            </th>
-                            <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wide">
-                              Rate
-                            </th>
-                            <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wide">
-                              GST%
-                            </th>
-                            <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wide">
-                              Amount
-                            </th>
-                            {isEditing && (
-                              <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wide">
-                                Actions
-                              </th>
-                            )}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(isEditing
-                            ? editedBill?.items
-                            : selectedBill?.items
-                          )?.map((item, index) => (
-                            <tr
-                              key={index}
-                              className={`border-t ${
-                                item.hasError
-                                  ? "bg-amber-50 dark:bg-amber-900/20"
-                                  : ""
-                              }`}
-                            >
-                              <td className="px-4 py-3 font-medium sticky left-0 bg-background text-sm">
-                                {index + 1}
-                              </td>
-                              <td className="px-4 py-3 max-w-md">
-                                {isEditing ? (
-                                  <div className="space-y-2">
-                                    <ProductAutocomplete
-                                      products={products}
-                                      value={item.description}
-                                      onChange={(val) =>
-                                        updateEditedItem(
-                                          index,
-                                          "description",
-                                          val,
-                                        )
-                                      }
-                                      onSelect={(product) =>
-                                        handleProductSelect(index, product)
-                                      }
-                                      placeholder="Item / Product name"
-                                      type="name"
-                                      className="h-9 text-sm"
-                                    />
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                      <Input
-                                        value={(item as any).itemNo || ""}
-                                        onChange={(e) =>
-                                          updateEditedItem(
-                                            index,
-                                            "itemNo" as any,
-                                            e.target.value,
-                                          )
-                                        }
-                                        className="h-8 text-sm"
-                                        placeholder="Item No"
-                                      />
-                                      <Input
-                                        value={(item as any).model || ""}
-                                        onChange={(e) =>
-                                          updateEditedItem(
-                                            index,
-                                            "model" as any,
-                                            e.target.value,
-                                          )
-                                        }
-                                        className="h-8 text-sm"
-                                        placeholder="Model"
-                                      />
-                                      <Input
-                                        value={(item as any).imeiNumber || ""}
-                                        onChange={(e) =>
-                                          updateEditedItem(
-                                            index,
-                                            "imeiNumber" as any,
-                                            e.target.value,
-                                          )
-                                        }
-                                        className="h-8 text-sm"
-                                        placeholder="IMEI / Serial"
-                                      />
-                                      <Input
-                                        value={(item as any).storage || ""}
-                                        onChange={(e) =>
-                                          updateEditedItem(
-                                            index,
-                                            "storage" as any,
-                                            e.target.value,
-                                          )
-                                        }
-                                        className="h-8 text-sm"
-                                        placeholder="Storage"
-                                      />
-                                      <Input
-                                        value={(item as any).color || ""}
-                                        onChange={(e) =>
-                                          updateEditedItem(
-                                            index,
-                                            "color" as any,
-                                            e.target.value,
-                                          )
-                                        }
-                                        className="h-8 text-sm"
-                                        placeholder="Color"
-                                      />
-                                      <Input
-                                        value={(item as any).whereToBuy || ""}
-                                        onChange={(e) =>
-                                          updateEditedItem(
-                                            index,
-                                            "whereToBuy" as any,
-                                            e.target.value,
-                                          )
-                                        }
-                                        className="h-8 text-sm"
-                                        placeholder="Bought from (optional)"
-                                      />
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div>
-                                    <div className="font-medium break-words text-sm">
-                                      {item.description}
-                                    </div>
-                                    <div className="text-xs text-muted-foreground mt-1">
-                                      {[
-                                        (item as any).itemNo ? `Item: ${(item as any).itemNo}` : null,
-                                        (item as any).model ? `Model: ${(item as any).model}` : null,
-                                        (item as any).imeiNumber ? `IMEI: ${(item as any).imeiNumber}` : null,
-                                        (item as any).storage || (item as any).color
-                                          ? `${(item as any).storage || "-"}${(item as any).color ? ` / ${(item as any).color}` : ""}`
-                                          : null,
-                                      ]
-                                        .filter(Boolean)
-                                        .map((line, idx) => (
-                                          <div key={idx}>{line}</div>
-                                        ))}
-                                    </div>
-                                    {(item as any).whereToBuy && (
-                                      <div className="text-xs text-muted-foreground mt-1">
-                                        Bought from: {(item as any).whereToBuy}
-                                      </div>
-                                    )}
-                                    {item.hasError && (
-                                      <p className="text-xs text-amber-600 mt-1">
-                                        {item.errorMessage}
-                                      </p>
-                                    )}
-                                  </div>
-                                )}
-                              </td>
-                              <td className="px-4 py-3 text-center">
-                                {isEditing ? (
-                                  <ProductAutocomplete
-                                    products={products}
-                                    value={item.hsnCode || ""}
-                                    onChange={(val) =>
-                                      updateEditedItem(index, "hsnCode", val)
-                                    }
-                                    onSelect={(product) =>
-                                      handleProductSelect(index, product)
-                                    }
-                                    placeholder="HSN"
-                                    type="hsn"
-                                    className="h-9 w-28 mx-auto text-sm"
-                                  />
-                                ) : (
-                                  <span className="text-sm">
-                                    {item.hsnCode || "—"}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-4 py-3 text-right">
-                                {isEditing ? (
-                                  <div className="flex items-center justify-end gap-2">
-                                    <Input
-                                      type="number"
-                                      value={item.quantity}
-                                      onChange={(e) =>
-                                        updateEditedItem(
-                                          index,
-                                          "quantity",
-                                          parseFloat(e.target.value) || 0,
-                                        )
-                                      }
-                                      className="h-9 w-20 text-right text-sm"
-                                    />
-                                    <Input
-                                      value={item.unit}
-                                      onChange={(e) =>
-                                        updateEditedItem(
-                                          index,
-                                          "unit",
-                                          e.target.value,
-                                        )
-                                      }
-                                      className="h-9 w-16 text-sm"
-                                    />
-                                  </div>
-                                ) : (
-                                  <span className="font-medium text-sm">
-                                    {item.quantity} {item.unit}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-4 py-3 text-right">
-                                {isEditing ? (
-                                  <Input
-                                    type="number"
-                                    step="0.01"
-                                    value={item.rate}
-                                    onChange={(e) =>
-                                      updateEditedItem(
-                                        index,
-                                        "rate",
-                                        parseFloat(e.target.value) || 0,
-                                      )
-                                    }
-                                    className="h-9 w-28 text-right text-sm"
-                                  />
-                                ) : (
-                                  <span className="text-sm">
-                                    {formatCurrency(item.rate)}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-4 py-3 text-right">
-                                {isEditing ? (
-                                  <Input
-                                    type="number"
-                                    step="0.1"
-                                    value={item.gstRate || 0}
-                                    onChange={(e) =>
-                                      updateEditedItem(
-                                        index,
-                                        "gstRate",
-                                        parseFloat(e.target.value) || 0,
-                                      )
-                                    }
-                                    className="h-9 w-20 text-right text-sm"
-                                  />
-                                ) : (
-                                  <span className="font-medium text-sm">
-                                    {item.gstRate || 0}%
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-4 py-3 text-right font-semibold text-sm">
-                                {formatCurrency(item.amount)}
-                              </td>
-                              {isEditing && (
-                                <td className="px-4 py-3 text-right">
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => removeEditedItemRow(index)}
-                                    className="text-destructive hover:text-destructive"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </td>
-                              )}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Purchase Returns Section */}
-                {selectedBill?.returns && selectedBill.returns.length > 0 && (
-                  <Card className="overflow-hidden shadow-sm border-2 border-orange-200 bg-orange-50/5">
-                    <CardHeader className="bg-orange-100/30 px-5 py-3.5">
-                      <CardTitle className="text-lg lg:text-xl font-semibold flex items-center gap-2 text-orange-600">
-                        <RotateCcw className="h-5 w-5" />
-                        Purchase Returns
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead className="bg-orange-100/50">
-                            <tr>
-                              <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wide">
-                                Item / Reason
-                              </th>
-                              <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wide">
-                                Qty
-                              </th>
-                              <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wide">
-                                Date
-                              </th>
-                              <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wide">
-                                Value
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-orange-100">
-                            {selectedBill.returns.map((ret) =>
-                              ret.items.map((item, idx) => (
-                                <tr
-                                  key={`${ret.id}-${idx}`}
-                                  className="hover:bg-orange-100/10"
-                                >
-                                  <td className="px-4 py-3">
-                                    <div className="space-y-1">
-                                      <p className="font-semibold text-sm text-foreground">
-                                        {item.description}
-                                      </p>
-                                      {ret.notes && (
-                                        <p className="text-xs text-muted-foreground italic flex items-center gap-1">
-                                          <BookOpen className="h-3 w-3" />{" "}
-                                          {ret.notes}
-                                        </p>
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td className="px-4 py-3 text-center">
-                                    <Badge
-                                      variant="outline"
-                                      className="text-orange-600 border-orange-200 bg-orange-100/50 font-semibold text-xs"
-                                    >
-                                      -{item.quantity}
-                                    </Badge>
-                                  </td>
-                                  <td className="px-4 py-3 text-right text-muted-foreground text-sm">
-                                    {formatDate(ret.returnDate)}
-                                  </td>
-                                  <td className="px-4 py-3 text-right font-semibold text-orange-600">
-                                    -
-                                    {formatCurrency(
-                                      item.quantity *
-                                        item.rate *
-                                        (1 + (item.gstRate || 0) / 100),
-                                    )}
-                                  </td>
-                                </tr>
-                              )),
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Totals Summary */}
-                <Card className="shadow-sm">
-                  <CardHeader className="bg-muted/40 px-5 py-3.5">
-                    <CardTitle className="text-lg lg:text-xl font-semibold">
-                      Bill Summary
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-5 px-5 pb-5">
-                    <div className="max-w-lg ml-auto space-y-3">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Subtotal</span>
-                        <span className="font-semibold">
-                          {formatCurrency(
-                            isEditing
-                              ? editedBill?.items.reduce(
-                                  (sum, item) => sum + item.amount,
-                                  0,
-                                ) || 0
-                              : selectedBill?.subtotal || 0,
-                          )}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">
-                          Tax Amount
-                        </span>
-                        <span className="font-semibold">
-                          {formatCurrency(
-                            isEditing
-                              ? editedBill?.items.reduce(
-                                  (sum, item) => sum + (item.gstAmount || 0),
-                                  0,
-                                ) || 0
-                              : selectedBill?.totalTax || 0,
-                          )}
-                        </span>
-                      </div>
-                      <div className="border-t-2 border-primary pt-3 space-y-2.5">
-                        <div className="flex justify-between text-sm text-muted-foreground">
-                          <span>Original Bill Amount</span>
-                          <span className="font-semibold">
-                            {formatCurrency(
-                              isEditing
-                                ? (editedBill?.items.reduce(
-                                    (sum, item) => sum + item.amount,
-                                    0,
-                                  ) || 0) +
-                                    (editedBill?.items.reduce(
-                                      (sum, item) =>
-                                        sum + (item.gstAmount || 0),
-                                      0,
-                                    ) || 0)
-                                : selectedBill?.total || 0,
-                            )}
-                          </span>
-                        </div>
-                        {selectedBill?.returns &&
-                          selectedBill.returns.length > 0 && (
-                            <div className="flex justify-between text-sm text-red-600">
-                              <span>- Returns</span>
-                              <span className="font-semibold">
-                                {formatCurrency(
-                                  selectedBill.returns.reduce(
-                                    (sum, r) => sum + r.totalReturnValue,
-                                    0,
-                                  ),
-                                )}
-                              </span>
-                            </div>
-                          )}
-                        <div className="flex justify-between text-xl lg:text-2xl pt-2 border-t">
-                          <span className="font-bold">Current Total</span>
-                          <span className="font-bold text-primary">
-                            {formatCurrency(
-                              (isEditing
-                                ? (editedBill?.items.reduce(
-                                    (sum, item) => sum + item.amount,
-                                    0,
-                                  ) || 0) +
-                                  (editedBill?.items.reduce(
-                                    (sum, item) => sum + (item.gstAmount || 0),
-                                    0,
-                                  ) || 0)
-                                : selectedBill?.total || 0) -
-                                (selectedBill?.returns?.reduce(
-                                  (sum, r) => sum + r.totalReturnValue,
-                                  0,
-                                ) || 0),
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-          </div>
-          {/* Sticky footer actions (always visible on mobile) */}
-          {!isEditing && selectedBill && (
-            <div className="shrink-0 border-t bg-background px-6 sm:px-8 py-3 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
-              <div className="flex flex-col lg:flex-row gap-3 justify-end">
-                {!selectedBill.itemsAddedToInventory ? (
+                <div className="dialog-form-footer flex gap-2 justify-end pt-2">
                   <Button
-                    onClick={() => handleAddToInventory(selectedBill)}
-                    size="default"
-                    className="bg-emerald-600 hover:bg-emerald-700"
-                    disabled={loadingInventory === selectedBill.id}
+                    variant="outline"
+                    onClick={() => setInventoryDialogBill(null)}
+                    disabled={!!loadingInventory}
                   >
-                    {loadingInventory === selectedBill.id ? (
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => confirmAddToInventory()}
+                    className="bg-emerald-600 hover:bg-emerald-700"
+                    disabled={!!loadingInventory}
+                  >
+                    {loadingInventory ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     ) : (
                       <PackagePlus className="h-4 w-4 mr-2" />
                     )}
                     Add to Inventory
                   </Button>
-                ) : (
-                  <Badge variant="secondary" className="py-2 px-4 text-sm">
-                    <PackagePlus className="h-4 w-4 mr-2" />
-                    Added to Inventory
-                  </Badge>
-                )}
-                {selectedBill.billImage ? (
-                  <Button
-                    variant="outline"
-                    size="default"
-                    onClick={() => setViewImageBill(selectedBill)}
-                  >
-                    <Image className="h-4 w-4 mr-2" />
-                    View Original Bill
-                  </Button>
-                ) : (
-                  <Button variant="outline" size="default" disabled>
-                    <Image className="h-4 w-4 mr-2" />
-                    No Bill Image
-                  </Button>
-                )}
-                <Button
-                  size="default"
-                  variant={
-                    selectedBill.paymentStatus === "paid"
-                      ? "secondary"
-                      : "default"
-                  }
-                  onClick={() => {
-                    handleTogglePayment(selectedBill);
-                    setSelectedBill({
-                      ...selectedBill,
-                      paymentStatus:
-                        selectedBill.paymentStatus === "paid"
-                          ? "pending"
-                          : "paid",
-                    });
-                  }}
-                >
-                  {selectedBill.paymentStatus === "paid"
-                    ? "Mark as Pending"
-                    : "Mark as Paid"}
-                </Button>
+                </div>
               </div>
-            </div>
+            </DialogContent>
+          </Dialog>
+          <ConflictResolutionDialog
+            conflicts={productConflicts}
+            onResolve={handleConflictResolution}
+            onCancel={handleConflictCancel}
+            resolving={loading}
+          />
+          {selectedBillForPayment && (
+            <PaymentDialog
+              bill={selectedBillForPayment as any}
+              open={paymentDialogOpen}
+              onOpenChange={setPaymentDialogOpen}
+              onPaymentCollected={handlePaymentCollected}
+            />
           )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Inventory Dialog - Confirm Inventory Mapping */}
-      <Dialog
-        open={!!inventoryDialogBill}
-        onOpenChange={(open) => !open && setInventoryDialogBill(null)}
-      >
-        <DialogContent className="dialog-form-content max-w-2xl">
-          <DialogHeader className="dialog-form-header">
-            <DialogTitle className="flex items-center gap-2">
-              <PackagePlus className="h-5 w-5 text-emerald-600" />
-              Add to Inventory
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="dialog-form-body space-y-4">
-            {lastInventoryError && (
-              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="font-medium">Inventory error details</div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(
-                            lastInventoryError,
-                          );
-                          toast({
-                            title: "Copied",
-                            description: "Error details copied to clipboard",
-                          });
-                        } catch {
-                          toast({
-                            title: "Copy failed",
-                            description:
-                              "Could not copy automatically. Please screenshot this section.",
-                            variant: "destructive",
-                          });
-                        }
-                      }}
-                    >
-                      Copy
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setLastInventoryError(null)}
-                    >
-                      Dismiss
-                    </Button>
-                  </div>
-                </div>
-                <pre className="mt-2 whitespace-pre-wrap break-words text-xs">
-                  {lastInventoryError}
-                </pre>
-              </div>
-            )}
-            <p className="text-sm text-muted-foreground">
-              Confirm IMEI and product mapping for each row. Purchase rate will be
-              saved as cost only.
-            </p>
-
-            <div className="space-y-3">
-              {inventoryItems.map((item, index) => {
-                const rowImeis = getInventoryRowImeis(item);
-                const serializedRow = isSerializedInventoryRow(item);
-                const imeiCountMismatch =
-                  serializedRow && Number(item.quantity) !== rowImeis.length;
-                return (
-                <div key={index} className="border rounded-lg p-3 bg-muted/30">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="font-medium text-sm">{item.description}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {item.quantity} {item.unit} | HSN:{" "}
-                        {item.hsnCode || "N/A"}
-                      </p>
-                      {serializedRow ? (
-                        <p
-                          className={`text-xs mt-1 ${
-                            imeiCountMismatch
-                              ? "text-amber-600"
-                              : "text-emerald-600"
-                          }`}
-                        >
-                          IMEI entries: {rowImeis.length}
-                          {imeiCountMismatch
-                            ? ` (must match qty ${item.quantity})`
-                            : ""}
-                        </p>
-                      ) : null}
-                      {((item.itemNo || item.model || item.imeiNumber || item.storage || item.color) && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {item.itemNo ? `Item: ${item.itemNo} | ` : ""}
-                          {item.model ? `Model: ${item.model} | ` : ""}
-                          {item.imeiNumber ? `IMEI: ${item.imeiNumber} | ` : ""}
-                          {item.storage || "-"}
-                          {item.color ? ` / ${item.color}` : ""}
-                        </p>
-                      )) || null}
-                    </div>
-                    <Badge variant="outline" className="text-xs">
-                      GST: {item.gstRate}%
-                    </Badge>
-                  </div>
-
-                  <details className="rounded-md border border-dashed bg-background/60 p-2">
-                    <summary className="cursor-pointer text-xs font-semibold text-muted-foreground">
-                      IMEI List (one per line, comma, or semicolon)
-                    </summary>
-                    <div className="mt-2 space-y-2">
-                      <Textarea
-                        rows={3}
-                        value={item.imeiListText || item.imeiNumber || ""}
-                        onChange={(e) => {
-                          const newItems = [...inventoryItems];
-                          newItems[index].imeiListText = e.target.value;
-                          const parsed = getInventoryRowImeis(newItems[index]);
-                          newItems[index].imeiNumber = parsed[0] || "";
-                          if (parsed.length > 0) {
-                            newItems[index].unit = "pcs";
-                          }
-                          setInventoryItems(newItems);
-                        }}
-                        placeholder="350108720225827&#10;350108720225828"
-                        className="text-xs"
-                      />
-                      <p className="text-[11px] text-muted-foreground">
-                        Parsed IMEI count: {rowImeis.length}
-                      </p>
-                    </div>
-                  </details>
-
-                  {/* Matching Option */}
-                  <div className="mt-2 p-2 bg-background/50 rounded-md border border-dashed">
-                    <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1.5 px-1">
-                      Inventory Action
-                    </p>
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        variant={item.isNewProduct ? "default" : "outline"}
-                        size="sm"
-                        className="flex-1 h-8 text-xs py-0"
-                        onClick={() => {
-                          const newItems = [...inventoryItems];
-                          newItems[index].isNewProduct = true;
-                          setInventoryItems(newItems);
-                        }}
-                      >
-                        Create New
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={!item.isNewProduct ? "default" : "outline"}
-                        size="sm"
-                        className="flex-1 h-8 text-xs py-0"
-                        onClick={() => {
-                          const newItems = [...inventoryItems];
-                          newItems[index].isNewProduct = false;
-                          setInventoryItems(newItems);
-                        }}
-                      >
-                        Update Stock
-                      </Button>
-                    </div>
-
-                    {/* Product Selector for Update Stock */}
-                    {!item.isNewProduct && (
-                      <div className="mt-2 space-y-1">
-                        <Label className="text-[10px] px-1">
-                          Selected Product
-                        </Label>
-                        <Select
-                          value={item.productId || ""}
-                          onValueChange={(val) => {
-                            const newItems = [...inventoryItems];
-                            newItems[index].productId = val;
-                            const selectedProduct = products.find(
-                              (p) => p.id === val,
-                            );
-                            if (selectedProduct) {
-                              newItems[index].hsnCode =
-                                selectedProduct.hsnCode || "";
-                            }
-                            setInventoryItems(newItems);
-                          }}
-                        >
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue placeholder="Select Product" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {products.map((p) => (
-                              <SelectItem
-                                key={p.id}
-                                value={p.id}
-                                className="text-xs"
-                              >
-                                {p.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+          <PurchaseReturnForm
+            open={returnDialogOpen}
+            onOpenChange={(open) => {
+              setReturnDialogOpen(open);
+              if (!open) setEditingReturn(null);
+            }}
+            bill={selectedBillForReturn!}
+            onSuccess={loadBills}
+            editReturn={editingReturn}
+          />
+          {/* Transaction History Dialog */}
+          <Dialog
+            open={historyDialogOpen}
+            onOpenChange={(open) => {
+              if (!open) {
+                setHistoryDialogOpen(false);
+                setEditingTransaction(null);
+              }
+            }}
+          >
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 border-none shadow-2xl">
+              <DialogHeader className="p-8 border-b shrink-0 bg-primary text-primary-foreground">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <DialogTitle className="text-2xl font-bold flex items-center gap-3">
+                      <div className="p-2 bg-background/20 rounded-lg backdrop-blur-sm">
+                        <Clock className="h-6 w-6 text-primary-foreground" />
                       </div>
-                    )}
-
-                    {!item.productId && !item.isNewProduct && (
-                      <p className="text-[10px] text-amber-600 mt-1 px-1">
-                        No matching product found by name/HSN. Please select one
-                        manually.
+                      Transaction History
+                    </DialogTitle>
+                    {selectedBillForHistory && (
+                      <p className="text-primary-foreground/80 font-medium">
+                        Bill #{selectedBillForHistory.billNumber || "N/A"} •{" "}
+                        {selectedBillForHistory.vendorName}
                       </p>
                     )}
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                    <div className="space-y-1">
-                      <Label className="text-xs font-semibold">Vendor *</Label>
-                      <Select
-                        value={item.vendorId}
-                        onValueChange={(val) => {
-                          const newItems = [...inventoryItems];
-                          newItems[index].vendorId = val;
-                          setInventoryItems(newItems);
-                        }}
-                      >
-                        <SelectTrigger className="h-9">
-                          <SelectValue placeholder="Select vendor" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {vendors.map((v) => (
-                            <SelectItem key={v.id} value={v.id}>
-                              {v.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                  {selectedBillForHistory && (
+                    <div className="text-right hidden sm:block">
+                      <p className="text-xs text-primary-foreground/70 uppercase font-bold tracking-widest opacity-80">
+                        Remaining Balance
+                      </p>
+                      <p className="text-2xl font-black text-primary-foreground">
+                        {formatCurrency(
+                          selectedBillForHistory.total -
+                            (selectedBillForHistory.returns?.reduce(
+                              (sum, r) => sum + r.totalReturnValue,
+                              0,
+                            ) || 0) -
+                            selectedBillForHistory.paidAmount,
+                        )}
+                      </p>
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs font-semibold">
-                        Weight (optional)
-                      </Label>
-                      <div className="flex gap-1">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          className="h-9 flex-1"
-                          value={item.weight}
-                          onChange={(e) => {
-                            const newItems = [...inventoryItems];
-                            newItems[index].weight =
-                              parseFloat(e.target.value) || 0;
-                            setInventoryItems(newItems);
-                          }}
-                          placeholder="0.00"
-                        />
-                        <Select
-                          value={item.weightUnit}
-                          onValueChange={(val) => {
-                            const newItems = [...inventoryItems];
-                            newItems[index].weightUnit = val;
-                            setInventoryItems(newItems);
-                          }}
-                        >
-                          <SelectTrigger className="h-9 w-16 px-1">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="g">g</SelectItem>
-                            <SelectItem value="kg">kg</SelectItem>
-                            <SelectItem value="mg">mg</SelectItem>
-                            <SelectItem value="ct">ct</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Item No</Label>
-                      <Input
-                        value={item.itemNo || ""}
-                        onChange={(e) => {
-                          const newItems = [...inventoryItems];
-                          newItems[index].itemNo = e.target.value;
-                          setInventoryItems(newItems);
-                        }}
-                        className="h-9"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Model</Label>
-                      <Input
-                        value={item.model || ""}
-                        onChange={(e) => {
-                          const newItems = [...inventoryItems];
-                          newItems[index].model = e.target.value;
-                          setInventoryItems(newItems);
-                        }}
-                        className="h-9"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">IMEI / Serial</Label>
-                      <Input
-                        value={item.imeiNumber || ""}
-                        onChange={(e) => {
-                          const newItems = [...inventoryItems];
-                          newItems[index].imeiNumber = e.target.value;
-                          if (!newItems[index].imeiListText) {
-                            newItems[index].imeiListText = e.target.value;
-                          }
-                          if (normalizeImei(e.target.value)) {
-                            newItems[index].unit = "pcs";
-                          }
-                          setInventoryItems(newItems);
-                        }}
-                        className="h-9"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Storage</Label>
-                      <Input
-                        value={item.storage || ""}
-                        onChange={(e) => {
-                          const newItems = [...inventoryItems];
-                          newItems[index].storage = e.target.value;
-                          setInventoryItems(newItems);
-                        }}
-                        className="h-9"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Color</Label>
-                      <Input
-                        value={item.color || ""}
-                        onChange={(e) => {
-                          const newItems = [...inventoryItems];
-                          newItems[index].color = e.target.value;
-                          setInventoryItems(newItems);
-                        }}
-                        className="h-9"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">
-                        Purchase Price
-                      </Label>
-                      <div className="text-sm font-medium bg-muted px-3 py-2 rounded">
-                        ₹{item.purchasePrice.toFixed(2)}
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Barcode (Optional)</Label>
-                      <Input
-                        placeholder="Scan or type barcode"
-                        value={item.barcode || ""}
-                        onChange={(e) => {
-                          const newItems = [...inventoryItems];
-                          newItems[index].barcode = e.target.value;
-                          setInventoryItems(newItems);
-                        }}
-                        className="h-9"
-                      />
-                    </div>
-                  </div>
+                  )}
                 </div>
-              )})}
-            </div>
+              </DialogHeader>
 
-            <div className="dialog-form-footer flex gap-2 justify-end pt-2">
-              <Button
-                variant="outline"
-                onClick={() => setInventoryDialogBill(null)}
-                disabled={!!loadingInventory}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => confirmAddToInventory()}
-                className="bg-emerald-600 hover:bg-emerald-700"
-                disabled={!!loadingInventory}
-              >
-                {loadingInventory ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <PackagePlus className="h-4 w-4 mr-2" />
-                )}
-                Add to Inventory
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-      <ConflictResolutionDialog
-        conflicts={productConflicts}
-        onResolve={handleConflictResolution}
-        onCancel={handleConflictCancel}
-        resolving={loading}
-      />
-      {selectedBillForPayment && (
-        <PaymentDialog
-          bill={selectedBillForPayment as any}
-          open={paymentDialogOpen}
-          onOpenChange={setPaymentDialogOpen}
-          onPaymentCollected={handlePaymentCollected}
-        />
-      )}
-      <PurchaseReturnForm
-        open={returnDialogOpen}
-        onOpenChange={(open) => {
-          setReturnDialogOpen(open);
-          if (!open) setEditingReturn(null);
-        }}
-        bill={selectedBillForReturn!}
-        onSuccess={loadBills}
-        editReturn={editingReturn}
-      />
-      <ProductForm
-        open={createProductOpen}
-        onOpenChange={(open) => {
-          setCreateProductOpen(open);
-          if (!open) {
-            setCreateProductForIndex(null);
-          }
-        }}
-        onSuccess={(newProduct) => {
-          setProducts((prev) => [...prev, newProduct]);
-          if (createProductForIndex !== null) {
-            handleManualProductSelect(createProductForIndex, newProduct);
-          }
-          setCreateProductForIndex(null);
-          setCreateProductOpen(false);
-        }}
-      />
-      {/* Transaction History Dialog */}
-      <Dialog
-        open={historyDialogOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            setHistoryDialogOpen(false);
-            setEditingTransaction(null);
-          }
-        }}
-      >
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 border-none shadow-2xl">
-          <DialogHeader className="p-8 border-b shrink-0 bg-primary text-primary-foreground">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <DialogTitle className="text-2xl font-bold flex items-center gap-3">
-                  <div className="p-2 bg-background/20 rounded-lg backdrop-blur-sm">
-                    <Clock className="h-6 w-6 text-primary-foreground" />
-                  </div>
-                  Transaction History
-                </DialogTitle>
+              <div className="flex-1 overflow-y-auto bg-background">
                 {selectedBillForHistory && (
-                  <p className="text-primary-foreground/80 font-medium">
-                    Bill #{selectedBillForHistory.billNumber || "N/A"} •{" "}
-                    {selectedBillForHistory.vendorName}
-                  </p>
-                )}
-              </div>
-              {selectedBillForHistory && (
-                <div className="text-right hidden sm:block">
-                  <p className="text-xs text-primary-foreground/70 uppercase font-bold tracking-widest opacity-80">
-                    Remaining Balance
-                  </p>
-                  <p className="text-2xl font-black text-primary-foreground">
-                    {formatCurrency(
-                      selectedBillForHistory.total -
-                        (selectedBillForHistory.returns?.reduce(
-                          (sum, r) => sum + r.totalReturnValue,
-                          0,
-                        ) || 0) -
-                        selectedBillForHistory.paidAmount,
-                    )}
-                  </p>
-                </div>
-              )}
-            </div>
-          </DialogHeader>
+                  <div className="p-6 space-y-6">
+                    {/* Summary Info Cards */}
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                      <Card className="p-4 border shadow-sm">
+                        <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">
+                          Total Bill
+                        </p>
+                        <p className="text-lg font-bold">
+                          {formatCurrency(selectedBillForHistory.total)}
+                        </p>
+                      </Card>
+                      <Card className="p-4 border shadow-sm">
+                        <p className="text-[10px] text-orange-600 dark:text-orange-400 uppercase font-bold mb-1">
+                          Returns
+                        </p>
+                        <p className="text-lg font-bold text-orange-600 dark:text-orange-400">
+                          -
+                          {formatCurrency(
+                            selectedBillForHistory.returns?.reduce(
+                              (sum, r) => sum + r.totalReturnValue,
+                              0,
+                            ) || 0,
+                          )}
+                        </p>
+                      </Card>
+                      <Card className="p-4 border shadow-sm">
+                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 uppercase font-bold mb-1">
+                          Total Paid
+                        </p>
+                        <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                          {formatCurrency(selectedBillForHistory.paidAmount)}
+                        </p>
+                      </Card>
+                      <Card className="p-4 border shadow-sm bg-accent/50 border-accent">
+                        <p className="text-[10px] text-accent-foreground uppercase font-bold mb-1">
+                          Net Payable
+                        </p>
+                        <p className="text-lg font-black text-accent-foreground">
+                          {formatCurrency(
+                            selectedBillForHistory.total -
+                              (selectedBillForHistory.returns?.reduce(
+                                (sum, r) => sum + r.totalReturnValue,
+                                0,
+                              ) || 0),
+                          )}
+                        </p>
+                      </Card>
+                      <Card className="p-4 border shadow-sm bg-blue-50 dark:bg-blue-950/20 border-blue-100 dark:border-blue-900">
+                        <p className="text-[10px] text-blue-600 dark:text-blue-400 uppercase font-bold mb-1">
+                          Available Stock
+                        </p>
+                        <p className="text-lg font-black text-blue-600 dark:text-blue-400">
+                          {getAvailableStockForBill(selectedBillForHistory)}{" "}
+                          Units
+                        </p>
+                      </Card>
+                    </div>
 
-          <div className="flex-1 overflow-y-auto bg-background">
-            {selectedBillForHistory && (
-              <div className="p-6 space-y-6">
-                {/* Summary Info Cards */}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  <Card className="p-4 border shadow-sm">
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">
-                      Total Bill
-                    </p>
-                    <p className="text-lg font-bold">
-                      {formatCurrency(selectedBillForHistory.total)}
-                    </p>
-                  </Card>
-                  <Card className="p-4 border shadow-sm">
-                    <p className="text-[10px] text-orange-600 dark:text-orange-400 uppercase font-bold mb-1">
-                      Returns
-                    </p>
-                    <p className="text-lg font-bold text-orange-600 dark:text-orange-400">
-                      -
-                      {formatCurrency(
-                        selectedBillForHistory.returns?.reduce(
-                          (sum, r) => sum + r.totalReturnValue,
-                          0,
-                        ) || 0,
-                      )}
-                    </p>
-                  </Card>
-                  <Card className="p-4 border shadow-sm">
-                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 uppercase font-bold mb-1">
-                      Total Paid
-                    </p>
-                    <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
-                      {formatCurrency(selectedBillForHistory.paidAmount)}
-                    </p>
-                  </Card>
-                  <Card className="p-4 border shadow-sm bg-accent/50 border-accent">
-                    <p className="text-[10px] text-accent-foreground uppercase font-bold mb-1">
-                      Net Payable
-                    </p>
-                    <p className="text-lg font-black text-accent-foreground">
-                      {formatCurrency(
-                        selectedBillForHistory.total -
-                          (selectedBillForHistory.returns?.reduce(
-                            (sum, r) => sum + r.totalReturnValue,
-                            0,
-                          ) || 0),
-                      )}
-                    </p>
-                  </Card>
-                  <Card className="p-4 border shadow-sm bg-blue-50 dark:bg-blue-950/20 border-blue-100 dark:border-blue-900">
-                    <p className="text-[10px] text-blue-600 dark:text-blue-400 uppercase font-bold mb-1">
-                      Available Stock
-                    </p>
-                    <p className="text-lg font-black text-blue-600 dark:text-blue-400">
-                      {getAvailableStockForBill(selectedBillForHistory)} Units
-                    </p>
-                  </Card>
-                </div>
-
-                {/* Timeline Table */}
-                <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
-                  <table className="w-full border-collapse">
-                    <thead className="bg-muted border-b border-border">
-                      <tr>
-                        <th className="text-left p-4 font-bold text-xs uppercase text-muted-foreground">
-                          Date
-                        </th>
-                        <th className="text-left p-4 font-bold text-xs uppercase text-muted-foreground">
-                          Type
-                        </th>
-                        <th className="text-left p-4 font-bold text-xs uppercase text-muted-foreground">
-                          Details
-                        </th>
-                        <th className="text-right p-4 font-bold text-xs uppercase text-muted-foreground">
-                          Qty
-                        </th>
-                        <th className="text-right p-4 font-bold text-xs uppercase text-muted-foreground">
-                          Amount
-                        </th>
-                        <th className="p-4 font-bold text-xs uppercase text-muted-foreground text-center">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {getPurchaseHistory(selectedBillForHistory).map(
-                        (entry: any) => (
-                          <tr
-                            key={entry.id}
-                            className="hover:bg-muted/50 transition-colors group"
-                          >
-                            <td className="p-4">
-                              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                                <Calendar className="h-4 w-4 text-muted-foreground" />
-                                {formatDate(entry.date)}
-                              </div>
-                            </td>
-                            <td className="p-4">
-                              <Badge
-                                className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
-                                  entry.type === "purchase_payment"
-                                    ? "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 border-rose-200 dark:border-rose-800"
-                                    : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
-                                }`}
+                    {/* Timeline Table */}
+                    <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
+                      <table className="w-full border-collapse">
+                        <thead className="bg-muted border-b border-border">
+                          <tr>
+                            <th className="text-left p-4 font-bold text-xs uppercase text-muted-foreground">
+                              Date
+                            </th>
+                            <th className="text-left p-4 font-bold text-xs uppercase text-muted-foreground">
+                              Type
+                            </th>
+                            <th className="text-left p-4 font-bold text-xs uppercase text-muted-foreground">
+                              Details
+                            </th>
+                            <th className="text-right p-4 font-bold text-xs uppercase text-muted-foreground">
+                              Qty
+                            </th>
+                            <th className="text-right p-4 font-bold text-xs uppercase text-muted-foreground">
+                              Amount
+                            </th>
+                            <th className="p-4 font-bold text-xs uppercase text-muted-foreground text-center">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {getPurchaseHistory(selectedBillForHistory).map(
+                            (entry: any) => (
+                              <tr
+                                key={entry.id}
+                                className="hover:bg-muted/50 transition-colors group"
                               >
-                                {entry.type === "purchase_payment"
-                                  ? "Payment"
-                                  : "Return"}
-                              </Badge>
-                            </td>
-                            <td className="p-4">
-                              <p className="text-sm font-medium text-foreground max-w-[250px] leading-relaxed">
-                                {entry.description}
-                              </p>
-                            </td>
-                            <td className="p-4 text-right">
-                              <span className="text-sm font-bold tabular-nums">
-                                {entry.quantity || "—"}
-                              </span>
-                            </td>
-                            <td className="p-4 text-right">
-                              <span
-                                className={`font-black tabular-nums text-sm ${
-                                  entry.type === "purchase_payment"
-                                    ? "text-red-600 dark:text-red-400"
-                                    : "text-green-600 dark:text-green-400"
-                                }`}
-                              >
-                                {entry.type === "purchase_payment" ? "-" : "+"}
-                                {formatCurrency(entry.amount)}
-                              </span>
-                            </td>
-                            <td className="p-4 text-center">
-                              {entry.type !== "purchase" && (
-                                <div className="flex items-center justify-center gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-muted"
-                                    onClick={() => handleEditTransaction(entry)}
-                                    disabled={
-                                      isUpdatingTransaction === entry.id
-                                    }
+                                <td className="p-4">
+                                  <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                                    {formatDate(entry.date)}
+                                  </div>
+                                </td>
+                                <td className="p-4">
+                                  <Badge
+                                    className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                                      entry.type === "purchase_payment"
+                                        ? "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 border-rose-200 dark:border-rose-800"
+                                        : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
+                                    }`}
                                   >
-                                    {isUpdatingTransaction === entry.id ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <Edit2 className="h-4 w-4" />
-                                    )}
-                                  </Button>
-                                  <AlertDialog>
-                                    <AlertDialogTrigger asChild>
+                                    {entry.type === "purchase_payment"
+                                      ? "Payment"
+                                      : "Return"}
+                                  </Badge>
+                                </td>
+                                <td className="p-4">
+                                  <p className="text-sm font-medium text-foreground max-w-[250px] leading-relaxed">
+                                    {entry.description}
+                                  </p>
+                                </td>
+                                <td className="p-4 text-right">
+                                  <span className="text-sm font-bold tabular-nums">
+                                    {entry.quantity || "—"}
+                                  </span>
+                                </td>
+                                <td className="p-4 text-right">
+                                  <span
+                                    className={`font-black tabular-nums text-sm ${
+                                      entry.type === "purchase_payment"
+                                        ? "text-red-600 dark:text-red-400"
+                                        : "text-green-600 dark:text-green-400"
+                                    }`}
+                                  >
+                                    {entry.type === "purchase_payment"
+                                      ? "-"
+                                      : "+"}
+                                    {formatCurrency(entry.amount)}
+                                  </span>
+                                </td>
+                                <td className="p-4 text-center">
+                                  {entry.type !== "purchase" && (
+                                    <div className="flex items-center justify-center gap-1">
                                       <Button
                                         variant="ghost"
                                         size="sm"
-                                        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                        className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-muted"
+                                        onClick={() =>
+                                          handleEditTransaction(entry)
+                                        }
                                         disabled={
                                           isUpdatingTransaction === entry.id
                                         }
@@ -5013,121 +4589,140 @@ function PurchaseBills() {
                                         {isUpdatingTransaction === entry.id ? (
                                           <Loader2 className="h-4 w-4 animate-spin" />
                                         ) : (
-                                          <Trash2 className="h-4 w-4" />
+                                          <Edit2 className="h-4 w-4" />
                                         )}
                                       </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent className="rounded-2xl">
-                                      <AlertDialogHeader>
-                                        <AlertDialogTitle className="text-xl font-bold">
-                                          Delete Transaction?
-                                        </AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                          This will permanently remove this{" "}
-                                          {entry.type} entry and update the bill
-                                          balance.
-                                        </AlertDialogDescription>
-                                      </AlertDialogHeader>
-                                      <AlertDialogFooter>
-                                        <AlertDialogCancel
-                                          className="rounded-xl"
-                                          disabled={
-                                            isUpdatingTransaction === entry.id
-                                          }
-                                        >
-                                          Cancel
-                                        </AlertDialogCancel>
-                                        <AlertDialogAction
-                                          onClick={() =>
-                                            handleDeleteTransaction(entry)
-                                          }
-                                          className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                          disabled={
-                                            isUpdatingTransaction === entry.id
-                                          }
-                                        >
-                                          {isUpdatingTransaction ===
-                                          entry.id ? (
-                                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                          ) : null}
-                                          Delete Forever
-                                        </AlertDialogAction>
-                                      </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                  </AlertDialog>
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-                        ),
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                                      <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                            disabled={
+                                              isUpdatingTransaction === entry.id
+                                            }
+                                          >
+                                            {isUpdatingTransaction ===
+                                            entry.id ? (
+                                              <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                              <Trash2 className="h-4 w-4" />
+                                            )}
+                                          </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent className="rounded-2xl">
+                                          <AlertDialogHeader>
+                                            <AlertDialogTitle className="text-xl font-bold">
+                                              Delete Transaction?
+                                            </AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                              This will permanently remove this{" "}
+                                              {entry.type} entry and update the
+                                              bill balance.
+                                            </AlertDialogDescription>
+                                          </AlertDialogHeader>
+                                          <AlertDialogFooter>
+                                            <AlertDialogCancel
+                                              className="rounded-xl"
+                                              disabled={
+                                                isUpdatingTransaction ===
+                                                entry.id
+                                              }
+                                            >
+                                              Cancel
+                                            </AlertDialogCancel>
+                                            <AlertDialogAction
+                                              onClick={() =>
+                                                handleDeleteTransaction(entry)
+                                              }
+                                              className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                              disabled={
+                                                isUpdatingTransaction ===
+                                                entry.id
+                                              }
+                                            >
+                                              {isUpdatingTransaction ===
+                                              entry.id ? (
+                                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                              ) : null}
+                                              Delete Forever
+                                            </AlertDialogAction>
+                                          </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                      </AlertDialog>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            ),
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          {/* Inline Edit Section */}
-          {editingTransaction && (
-            <div className="p-6 border-t bg-muted shrink-0">
-              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 max-w-2xl mx-auto">
-                <div className="space-y-2 flex-1">
-                  <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                    Update Amount
-                  </Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">
-                      ₹
-                    </span>
-                    <Input
-                      type="number"
-                      value={transactionAmount}
-                      onChange={(e) => setTransactionAmount(e.target.value)}
-                      className="pl-8 h-12 rounded-xl text-lg font-bold"
-                      autoFocus
-                    />
+              {/* Inline Edit Section */}
+              {editingTransaction && (
+                <div className="p-6 border-t bg-muted shrink-0">
+                  <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 max-w-2xl mx-auto">
+                    <div className="space-y-2 flex-1">
+                      <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                        Update Amount
+                      </Label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">
+                          ₹
+                        </span>
+                        <Input
+                          type="number"
+                          value={transactionAmount}
+                          onChange={(e) => setTransactionAmount(e.target.value)}
+                          className="pl-8 h-12 rounded-xl text-lg font-bold"
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => setEditingTransaction(null)}
+                        className="h-12 px-6 rounded-xl"
+                        disabled={!!isUpdatingTransaction}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={saveEditedTransaction}
+                        className="h-12 px-8 rounded-xl font-bold"
+                        disabled={!!isUpdatingTransaction}
+                      >
+                        {isUpdatingTransaction ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : null}
+                        Save Changes
+                      </Button>
+                    </div>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setEditingTransaction(null)}
-                    className="h-12 px-6 rounded-xl"
-                    disabled={!!isUpdatingTransaction}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={saveEditedTransaction}
-                    className="h-12 px-8 rounded-xl font-bold"
-                    disabled={!!isUpdatingTransaction}
-                  >
-                    {isUpdatingTransaction ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : null}
-                    Save Changes
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
+              )}
 
-          <div className="p-6 border-t bg-white shrink-0 flex justify-between items-center">
-            <div className="text-xs text-muted-foreground italic">
-              * Click edit icon to modify individual payments
-            </div>
-            <Button
-              variant="secondary"
-              onClick={() => setHistoryDialogOpen(false)}
-              className="px-8 rounded-xl font-bold"
-            >
-              Close History
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-      </div>
+              <div className="p-6 border-t bg-white shrink-0 flex justify-between items-center">
+                <div className="text-xs text-muted-foreground italic">
+                  * Click edit icon to modify individual payments
+                </div>
+                <Button
+                  variant="secondary"
+                  onClick={() => setHistoryDialogOpen(false)}
+                  className="px-8 rounded-xl font-bold"
+                >
+                  Close History
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
     </div>
   );

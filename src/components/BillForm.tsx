@@ -15,14 +15,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "./ui/command";
-import {
-  Bill,
-  BillItem,
-  Client,
-  CompanyProfile,
-  InventoryUnit,
-  Product,
-} from "@/types";
+import { Bill, BillItem, Client, CompanyProfile, Product } from "@/types";
 import { getCurrentUser } from "@/pages/Auth";
 import {
   getClients,
@@ -30,14 +23,12 @@ import {
   saveBill,
   saveClient,
   saveProduct,
-  saveBankAccount,
   getBillCounter,
   incrementBillCounter,
   getCompanyProfile,
   validateBillStock,
   getCreators,
   getBankAccounts,
-  getInventoryUnits,
 } from "@/lib/storage";
 import {
   calculateBillTotals,
@@ -57,12 +48,9 @@ import {
   UserPlus,
   PlusCircle,
   CreditCard,
-  Search,
-  Smartphone,
   ScanLine,
-  Trash2,
 } from "lucide-react";
-import { cn, generateId } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -129,7 +117,6 @@ export function BillForm({
 
   const [clients, setClients] = useState<Client[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [inventoryUnits, setInventoryUnits] = useState<InventoryUnit[]>([]);
   const [availableCreators, setAvailableCreators] = useState<BillCreator[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -157,9 +144,6 @@ export function BillForm({
   const [productComboOpenIndex, setProductComboOpenIndex] = useState<
     number | null
   >(null);
-  const [imeiComboOpenIndex, setImeiComboOpenIndex] = useState<number | null>(
-    null,
-  );
   const [productSearch, setProductSearch] = useState("");
   const [barcodeScannerOpen, setBarcodeScannerOpen] = useState(false);
   const [barcodeInput, setBarcodeInput] = useState("");
@@ -168,26 +152,17 @@ export function BillForm({
   const [scannerLoading, setScannerLoading] = useState(false);
   const [scannerError, setScannerError] = useState("");
   const [lastDecodedValue, setLastDecodedValue] = useState("");
-  const [imeiLookup, setImeiLookup] = useState("");
   const [createProductOpen, setCreateProductOpen] = useState(false);
   const [createProductForIndex, setCreateProductForIndex] = useState<
     number | null
   >(null);
-  const [createBankOpen, setCreateBankOpen] = useState(false);
-  const [savingBank, setSavingBank] = useState(false);
-  const [bankFormData, setBankFormData] = useState<Partial<BankAccount>>({
-    bankName: "",
-    accountHolder: "",
-    accountNumber: "",
-    branchAndIFSC: "",
-    upiId: "",
-    isDefault: false,
-  });
   const scannerInstanceRef = useRef<QuaggaLike | null>(null);
   const scannerDetectedHandlerRef = useRef<
     ((result: QuaggaDetectedResult) => void) | null
   >(null);
-  const scannerRegionIdRef = useRef(generateId("bill-barcode-scanner-"));
+  const scannerRegionIdRef = useRef(
+    `bill-barcode-scanner-${crypto.randomUUID()}`,
+  );
   const barcodeQuantityRef = useRef(1);
   const lastScannedRef = useRef<{ code: string; ts: number }>({
     code: "",
@@ -244,27 +219,19 @@ export function BillForm({
 
   useEffect(() => {
     const loadData = async () => {
-      const [
-        clientsData,
-        productsData,
-        companyData,
-        creatorsData,
-        banksData,
-        inventoryUnitsData,
-      ] = await Promise.all([
-        getClients(),
-        getProducts(),
-        getCompanyProfile(),
-        getCreators(),
-        getBankAccounts(),
-        getInventoryUnits(),
-      ]);
+      const [clientsData, productsData, companyData, creatorsData, banksData] =
+        await Promise.all([
+          getClients(),
+          getProducts(),
+          getCompanyProfile(),
+          getCreators(),
+          getBankAccounts(),
+        ]);
       setClients(clientsData);
       setProducts(productsData);
       setCompanyProfile(companyData);
       setAvailableCreators(creatorsData);
       setBankAccounts(banksData);
-      setInventoryUnits(inventoryUnitsData);
 
       if (initialGstEnabled === undefined) {
         setGstEnabled(companyData?.gstEnabled ?? true);
@@ -343,90 +310,20 @@ export function BillForm({
       return;
     }
 
-    const isSerializedProduct = (productId: string) => {
-      const product = products.find((p) => p.id === productId);
-      return (product?.trackingType || "standard") === "serialized";
-    };
-
-    const serializedValidationError = billItems.find((item) => {
-      if (!isSerializedProduct(item.productId)) return false;
-      const hasImei = Boolean(normalizeImei(item.imeiNumber || ""));
-      return !hasImei || item.quantity !== 1;
-    });
-    if (serializedValidationError) {
-      toast.error(
-        `Serialized item "${serializedValidationError.productName}" requires one IMEI and quantity 1.`,
-      );
-      return;
-    }
-
-    const standardWithImei = billItems.find(
-      (item) =>
-        !isSerializedProduct(item.productId) &&
-        Boolean(normalizeImei(item.imeiNumber || "")),
-    );
-    if (standardWithImei) {
-      toast.error(
-        `Standard item "${standardWithImei.productName}" should not include IMEI.`,
-      );
-      return;
-    }
-
-    const imeiList = billItems
-      .map((item) => (item.imeiNumber || "").replace(/\s+/g, "").trim())
-      .filter(Boolean);
-    const duplicateImei = imeiList.find(
-      (imei, idx) => imeiList.indexOf(imei) !== idx,
-    );
-    if (duplicateImei) {
-      toast.error(`Duplicate IMEI in bill items: ${duplicateImei}`);
-      return;
-    }
-
-    let imeiValidationError = "";
-    const finalBillItems: BillItem[] = billItems.map((item) => {
-      const normalizedImei = normalizeImei(item.imeiNumber || "");
-      const next = { ...item };
-      if (!normalizedImei) return next;
-      if (next.quantity !== 1) {
-        imeiValidationError = `IMEI item "${next.productName}" must have quantity 1.`;
-        return next;
-      }
-      const matchedUnit = findSelectableUnitByImei(
-        normalizedImei,
-        next.productId,
-      );
-      if (!matchedUnit && !next.inventoryUnitId) {
-        imeiValidationError = `IMEI ${next.imeiNumber} is not available in inventory.`;
-        return next;
-      }
-      next.inventoryUnitId = matchedUnit?.id || next.inventoryUnitId;
-      next.unit = "pcs";
-      return next;
-    });
-    if (imeiValidationError) {
-      toast.error(imeiValidationError);
-      return;
-    }
-
-    const zeroQuantityItems = finalBillItems.filter(
-      (item) => item.quantity <= 0,
-    );
+    const zeroQuantityItems = billItems.filter((item) => item.quantity <= 0);
     if (zeroQuantityItems.length > 0) {
       toast.error("All items must have quantity greater than 0");
       return;
     }
 
-    const zeroRateItems = finalBillItems.filter(
-      (item) => item.ratePerUnit <= 0,
-    );
+    const zeroRateItems = billItems.filter((item) => item.ratePerUnit <= 0);
     if (zeroRateItems.length > 0) {
       toast.error("All items must have a valid rate");
       return;
     }
 
     if (isEdit) {
-      const invalidQuantities = finalBillItems.filter((item) => {
+      const invalidQuantities = billItems.filter((item) => {
         const originalQty = getOriginalQuantity(item.productId);
         return originalQty > 0 && item.quantity < originalQty;
       });
@@ -463,7 +360,7 @@ export function BillForm({
       let stockValidationItems;
 
       if (isEdit) {
-        stockValidationItems = finalBillItems
+        stockValidationItems = billItems
           .map((item) => {
             const originalQty = getOriginalQuantity(item.productId);
             const additionalQty = item.quantity - originalQty;
@@ -475,7 +372,7 @@ export function BillForm({
           })
           .filter((item) => item.quantity > 0);
       } else {
-        stockValidationItems = finalBillItems.map((item) => ({
+        stockValidationItems = billItems.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
         }));
@@ -505,7 +402,7 @@ export function BillForm({
       const discountNum =
         discountValue === "" ? 0 : parseFloat(discountValue) || 0;
       const totals = calculateBillTotals(
-        finalBillItems,
+        billItems,
         companyProfile,
         otherChargesNum,
         discountNum,
@@ -539,7 +436,7 @@ export function BillForm({
         bankAccounts[0];
 
       const newBill: Bill = {
-        id: bill?.id || generateId(),
+        id: bill?.id || crypto.randomUUID(),
         billNumber:
           bill?.billNumber ||
           generateBillNumber(
@@ -551,7 +448,7 @@ export function BillForm({
         date: formData.date,
         clientId: selectedClient.id,
         client: selectedClient,
-        items: finalBillItems,
+        items: billItems,
         subtotal: totals.subtotal,
         totalTax: totals.totalTax,
         discount: discountNum > 0 ? totals.discount : 0,
@@ -606,63 +503,6 @@ export function BillForm({
       toast.error("Failed to save bill");
     } finally {
       setSaving(false);
-    }
-  };
-
-  const openCreateBankDialog = () => {
-    setBankFormData({
-      bankName: "",
-      accountHolder: "",
-      accountNumber: "",
-      branchAndIFSC: "",
-      upiId: "",
-      isDefault: bankAccounts.length === 0,
-    });
-    setCreateBankOpen(true);
-  };
-
-  const handleCreateBank = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSavingBank(true);
-    try {
-      const newBank: BankAccount = {
-        id: Math.random().toString(36).substr(2, 9),
-        bankName: (bankFormData.bankName || "").trim(),
-        accountHolder: (bankFormData.accountHolder || "").trim(),
-        accountNumber: (bankFormData.accountNumber || "").trim(),
-        branchAndIFSC: (bankFormData.branchAndIFSC || "").trim(),
-        upiId: (bankFormData.upiId || "").trim(),
-        isDefault: !!bankFormData.isDefault,
-      };
-
-      if (
-        !newBank.bankName ||
-        !newBank.accountHolder ||
-        !newBank.accountNumber ||
-        !newBank.branchAndIFSC
-      ) {
-        toast.error("Please fill all required bank fields");
-        return;
-      }
-
-      if (newBank.isDefault) {
-        for (const account of bankAccounts) {
-          if (account.isDefault && account.id !== newBank.id) {
-            await saveBankAccount({ ...account, isDefault: false });
-          }
-        }
-      }
-
-      await saveBankAccount(newBank);
-      const refreshedBanks = await getBankAccounts();
-      setBankAccounts(refreshedBanks);
-      setFormData((prev) => ({ ...prev, bankAccountId: newBank.id }));
-      setCreateBankOpen(false);
-      toast.success("Bank account added");
-    } catch (error) {
-      toast.error("Failed to save bank account");
-    } finally {
-      setSavingBank(false);
     }
   };
 
@@ -729,7 +569,7 @@ export function BillForm({
           gstRate: product.gstRate,
           quantity: qty,
           unit: product.unit,
-          ratePerUnit: getDefaultSellingRateForProduct(product),
+          ratePerUnit: product.sellingPrice || product.price || 0,
           amount: 0,
           cgst: 0,
           sgst: 0,
@@ -948,16 +788,21 @@ export function BillForm({
   const handleCreateClient = async () => {
     const name = clientFormData.name.trim();
     const billingAddress = clientFormData.billingAddress.trim();
-    const gstin = clientFormData.gstin.trim().toUpperCase();
+    const gstin = clientFormData.gstin.trim();
     const state = clientFormData.state.trim();
     const stateCode = clientFormData.stateCode.trim();
 
     if (!name) return toast.error("Client name is required");
+    if (!billingAddress) return toast.error("Billing address is required");
+    if (!gstin)
+      return toast.error("GSTIN is required (use N.A. if not applicable)");
+    if (!state) return toast.error("State is required");
+    if (!stateCode) return toast.error("State code is required");
 
     setCreatingClient(true);
     try {
       const newClient: Client = {
-        id: generateId(),
+        id: crypto.randomUUID(),
         name,
         billingAddress,
         shippingAddress: clientFormData.shippingAddress.trim() || undefined,
@@ -990,30 +835,10 @@ export function BillForm({
     const item = { ...updated[index] };
     item.productId = product.id;
     item.productName = product.name;
-    item.itemNo = product.itemNo || "";
-    item.model = product.model || "";
-    item.imeiNumber = "";
-    item.inventoryUnitId = undefined;
-    item.storage = product.storage || "";
-    item.color = product.color || "";
-    item.vendorId = product.vendorId || "";
-    item.vendorName = product.whereToBuy || "";
-    item.purchasePrice = product.purchasePrice || 0;
     item.hsnCode = product.hsnCode;
     item.gstRate = product.gstRate;
     item.unit = product.unit;
-    item.ratePerUnit = getDefaultSellingRateForProduct(product);
-    if (isSerializedProductId(product.id)) {
-      const selectableUnits = getSelectableUnitsForProduct(product.id);
-      const unit = selectableUnits.length === 1 ? selectableUnits[0] : null;
-      if (unit) {
-        item.inventoryUnitId = unit.id;
-        item.imeiNumber = unit.imeiNumber;
-        item.purchasePrice = unit.purchasePrice ?? item.purchasePrice;
-      }
-      item.quantity = 1;
-      item.unit = "pcs";
-    }
+    item.ratePerUnit = product.sellingPrice || product.price || 0;
     item.amount = roundToTwoDecimals(item.quantity * item.ratePerUnit);
     if (!gstEnabled) {
       item.cgst = 0;
@@ -1032,173 +857,16 @@ export function BillForm({
     setBillItems(updated);
   };
 
-  const normalizeLookupText = (value: string) =>
-    value.replace(/\s+/g, "").trim().toLowerCase();
-  const normalizeImei = (value: string) => normalizeLookupText(value);
-  const getDefaultSellingRateForProduct = (product: Product): number => {
-    void product;
-    return 0;
-  };
-
-  const isUnitSelectable = (unit: InventoryUnit) =>
-    unit.status === "in_stock" || (isEdit && unit.soldBillId === bill?.id);
-
-  const isSerializedProductId = (productId: string) =>
-    (products.find((p) => p.id === productId)?.trackingType || "standard") ===
-    "serialized";
-
-  const getSelectableUnitsForProduct = (productId: string) =>
-    inventoryUnits.filter(
-      (u) =>
-        u.productId === productId &&
-        isUnitSelectable(u) &&
-        Boolean(normalizeImei(u.imeiNormalized || u.imeiNumber)),
-    );
-
-  const getSelectableUnitsForLine = (index: number, productId?: string) => {
-    if (!productId) return [] as InventoryUnit[];
-    const usedImeis = new Set(
-      billItems
-        .filter((_, i) => i !== index)
-        .map((row) => normalizeImei(row.imeiNumber || ""))
-        .filter(Boolean),
-    );
-    return getSelectableUnitsForProduct(productId).filter((u) => {
-      const normalized = normalizeImei(u.imeiNormalized || u.imeiNumber);
-      const currentRowImei = normalizeImei(billItems[index]?.imeiNumber || "");
-      return normalized === currentRowImei || !usedImeis.has(normalized);
-    });
-  };
-
-  const findSelectableUnitByImei = (imei: string, productId?: string) => {
-    const normalized = normalizeImei(imei);
-    if (!normalized) return null;
-    return (
-      inventoryUnits.find(
-        (u) =>
-          normalizeImei(u.imeiNormalized || u.imeiNumber) === normalized &&
-          (!productId || u.productId === productId) &&
-          isUnitSelectable(u),
-      ) || null
-    );
-  };
-
-  const buildBillItemFromProduct = (product: Product): BillItem => {
-    const quantity = 1;
-    const ratePerUnit = getDefaultSellingRateForProduct(product);
-    const amount = roundToTwoDecimals(quantity * ratePerUnit);
-
-    let cgst = 0;
-    let sgst = 0;
-    let igst = 0;
-    if (gstEnabled) {
-      if (isIGST) {
-        igst = roundToTwoDecimals((amount * product.gstRate) / 100);
-      } else {
-        cgst = roundToTwoDecimals((amount * product.gstRate) / 200);
-        sgst = roundToTwoDecimals((amount * product.gstRate) / 200);
-      }
-    }
-
-    return {
-      productId: product.id,
-      inventoryUnitId: undefined,
-      productName: product.name,
-      itemNo: product.itemNo || "",
-      model: product.model || "",
-      imeiNumber: "",
-      storage: product.storage || "",
-      color: product.color || "",
-      vendorId: product.vendorId || "",
-      vendorName: product.whereToBuy || "",
-      purchasePrice: product.purchasePrice || 0,
-      hsnCode: product.hsnCode,
-      gstRate: product.gstRate,
-      quantity,
-      unit: product.unit || "pcs",
-      ratePerUnit,
-      amount,
-      cgst,
-      sgst,
-      igst,
-    };
-  };
-
-  const buildBillItemFromInventoryUnit = (
-    unit: InventoryUnit,
-    product: Product,
-  ): BillItem => {
-    const base = buildBillItemFromProduct(product);
-    base.inventoryUnitId = unit.id;
-    base.imeiNumber = unit.imeiNumber;
-    base.itemNo = unit.itemNo || base.itemNo;
-    base.model = unit.model || base.model;
-    base.storage = unit.storage || base.storage;
-    base.color = unit.color || base.color;
-    base.purchasePrice = unit.purchasePrice ?? base.purchasePrice;
-    base.quantity = 1;
-    base.unit = "pcs";
-    base.amount = roundToTwoDecimals(base.quantity * base.ratePerUnit);
-    if (!gstEnabled) {
-      base.cgst = 0;
-      base.sgst = 0;
-      base.igst = 0;
-    } else if (isIGST) {
-      base.igst = roundToTwoDecimals((base.amount * base.gstRate) / 100);
-      base.cgst = 0;
-      base.sgst = 0;
-    } else {
-      base.cgst = roundToTwoDecimals((base.amount * base.gstRate) / 200);
-      base.sgst = roundToTwoDecimals((base.amount * base.gstRate) / 200);
-      base.igst = 0;
-    }
-    return base;
-  };
-
-  const addProductByLookup = (unit: InventoryUnit) => {
-    const productImei = normalizeLookupText(unit.imeiNumber || "");
-    if (
-      productImei &&
-      billItems.some(
-        (item) => normalizeLookupText(item.imeiNumber || "") === productImei,
-      )
-    ) {
-      toast.error("This IMEI is already present in bill items");
-      return;
-    }
-
-    const product = products.find((p) => p.id === unit.productId);
-    if (!product) {
-      toast.error("Product not found for selected IMEI unit");
-      return;
-    }
-
-    setBillItems((prev) => [
-      ...prev,
-      buildBillItemFromInventoryUnit(unit, product),
-    ]);
-    setImeiLookup("");
-    toast.success(`Added ${product.model || product.name}`);
-  };
-
   const addItem = () => {
     setBillItems([
       ...billItems,
       {
         productId: "",
         productName: "",
-        itemNo: "",
-        model: "",
-        imeiNumber: "",
-        storage: "",
-        color: "",
-        vendorId: "",
-        vendorName: "",
-        purchasePrice: 0,
         hsnCode: "",
         gstRate: 0,
         quantity: 1,
-        unit: "pcs",
+        unit: "kg",
         ratePerUnit: 0,
         amount: 0,
         cgst: 0,
@@ -1221,30 +889,10 @@ export function BillForm({
       if (product) {
         item.productId = product.id;
         item.productName = product.name;
-        item.itemNo = product.itemNo || "";
-        item.model = product.model || "";
-        item.imeiNumber = "";
-        item.inventoryUnitId = undefined;
-        item.storage = product.storage || "";
-        item.color = product.color || "";
-        item.vendorId = product.vendorId || "";
-        item.vendorName = product.whereToBuy || "";
-        item.purchasePrice = product.purchasePrice || 0;
         item.hsnCode = product.hsnCode;
         item.gstRate = product.gstRate;
         item.unit = product.unit;
-        item.ratePerUnit = getDefaultSellingRateForProduct(product);
-        if (isSerializedProductId(product.id)) {
-          const selectableUnits = getSelectableUnitsForProduct(product.id);
-          const unit = selectableUnits.length === 1 ? selectableUnits[0] : null;
-          if (unit) {
-            item.inventoryUnitId = unit.id;
-            item.imeiNumber = unit.imeiNumber;
-            item.purchasePrice = unit.purchasePrice ?? item.purchasePrice;
-          }
-          item.quantity = 1;
-          item.unit = "pcs";
-        }
+        item.ratePerUnit = product.sellingPrice || product.price || 0;
       }
     } else if (
       field === "quantity" ||
@@ -1256,26 +904,6 @@ export function BillForm({
       item[field] = numericValue as never;
     } else {
       item[field as keyof BillItem] = String(value) as never;
-      if (field === "imeiNumber") {
-        const unit = findSelectableUnitByImei(String(value), item.productId);
-        item.inventoryUnitId = unit?.id;
-        if (unit) {
-          item.itemNo = unit.itemNo || item.itemNo;
-          item.model = unit.model || item.model;
-          item.storage = unit.storage || item.storage;
-          item.color = unit.color || item.color;
-          item.purchasePrice = unit.purchasePrice ?? item.purchasePrice;
-        }
-        item.quantity = normalizeImei(String(value)) ? 1 : item.quantity;
-        if (normalizeImei(String(value))) {
-          item.unit = "pcs";
-        }
-      }
-    }
-
-    if (normalizeImei(item.imeiNumber || "")) {
-      item.quantity = 1;
-      item.unit = "pcs";
     }
 
     item.amount = roundToTwoDecimals(item.quantity * item.ratePerUnit);
@@ -1339,38 +967,8 @@ export function BillForm({
     if (!product) return 0;
 
     const originalQty = getOriginalQuantity(productId);
-    const baseStock =
-      (product.trackingType || "standard") === "serialized"
-        ? getSelectableUnitsForProduct(productId).length
-        : product.stock;
-    return baseStock + originalQty;
+    return product.stock + originalQty;
   };
-
-  const lookupTerm = normalizeLookupText(imeiLookup);
-  const imeiMatches =
-    lookupTerm.length < 3
-      ? []
-      : inventoryUnits
-          .filter((unit) => {
-            if (!isUnitSelectable(unit)) return false;
-            const product = products.find((p) => p.id === unit.productId);
-            const searchBlob = [
-              unit.imeiNumber || "",
-              product?.model || "",
-              product?.itemNo || "",
-              product?.name || unit.productName || "",
-            ]
-              .join(" ")
-              .toLowerCase()
-              .replace(/\s+/g, "");
-            if (!searchBlob.includes(lookupTerm)) return false;
-            return !billItems.some(
-              (item) =>
-                normalizeImei(item.imeiNumber || "") ===
-                normalizeImei(unit.imeiNormalized || unit.imeiNumber),
-            );
-          })
-          .slice(0, 12);
 
   const otherChargesNum = parseFloat(formData.otherCharges || "0") || 0;
   const discountValue = formData.discount?.trim() || "";
@@ -1384,7 +982,7 @@ export function BillForm({
   );
 
   return (
-    <div className="w-full max-w-full space-y-4 overflow-x-hidden pb-3 sm:space-y-5 sm:pb-6">
+    <div className="space-y-4 pb-24 sm:space-y-5 sm:pb-8">
       <Card className="rounded-2xl border-border/70 shadow-sm">
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold sm:text-lg">
@@ -1400,46 +998,22 @@ export function BillForm({
               <Label>Bank Account (Optional)</Label>
               <Select
                 value={formData.bankAccountId}
-                onValueChange={(value) => {
-                  if (value === "__add_new_bank__") {
-                    openCreateBankDialog();
-                    return;
-                  }
-                  setFormData({ ...formData, bankAccountId: value });
-                }}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, bankAccountId: value })
+                }
               >
                 <SelectTrigger>
-                  <SelectValue
-                    placeholder={
-                      bankAccounts.length > 0
-                        ? "Select bank account for bill"
-                        : "No bank accounts added"
-                    }
-                  />
+                  <SelectValue placeholder="Select bank account for bill" />
                 </SelectTrigger>
                 <SelectContent>
-                  {bankAccounts.length === 0 ? (
-                    <div className="px-2 py-2 text-sm text-muted-foreground">
-                      No bank accounts found.
-                    </div>
-                  ) : (
-                    bankAccounts.map((account) => (
-                      <SelectItem key={account.id} value={account.id}>
-                        {account.bankName} - {account.accountNumber}{" "}
-                        {account.isDefault ? "(Default)" : ""}
-                      </SelectItem>
-                    ))
-                  )}
-                  <SelectItem value="__add_new_bank__">
-                    + Add New Bank Account
-                  </SelectItem>
+                  {bankAccounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.bankName} - {account.accountNumber}{" "}
+                      {account.isDefault ? "(Default)" : ""}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              {bankAccounts.length === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  No banks configured. Use "Add New Bank Account" to create one.
-                </p>
-              )}
             </div>
 
             <div className="space-y-2">
@@ -1458,7 +1032,7 @@ export function BillForm({
                 </PopoverTrigger>
                 <PopoverContent className="w-full p-0" align="start">
                   <Command>
-                    <CommandInput placeholder="Search client by name or mobile..." />
+                    <CommandInput placeholder="Search client..." />
                     <CommandList>
                       <CommandEmpty>
                         <div className="py-6 text-center">
@@ -1495,7 +1069,7 @@ export function BillForm({
                         {clients.map((client) => (
                           <CommandItem
                             key={client.id}
-                            value={[client.name, client.phone || ""].join(" ")}
+                            value={client.name}
                             onSelect={() => {
                               setSelectedClient(client);
                               setClientComboOpen(false);
@@ -1509,14 +1083,7 @@ export function BillForm({
                                   : "opacity-0",
                               )}
                             />
-                            <div className="flex flex-col">
-                              <span>{client.name}</span>
-                              {client.phone && (
-                                <span className="text-xs text-muted-foreground">
-                                  {client.phone}
-                                </span>
-                              )}
-                            </div>
+                            {client.name}
                           </CommandItem>
                         ))}
                       </CommandGroup>
@@ -1828,547 +1395,288 @@ export function BillForm({
         </div>
       )}
 
-      <Card className="border-primary/20 bg-gradient-to-br from-background via-background to-primary/5">
-        <CardHeader className="space-y-4 pb-5">
-          {/* Title + description row */}
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-            <div>
-              <CardTitle className="text-lg font-semibold tracking-tight">
-                Bill Items
-              </CardTitle>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Enter IMEI to fetch mobile quickly, or add items manually.
-              </p>
-            </div>
-
-            {/* Action buttons – stack on mobile, row on larger screens */}
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-3 sm:mt-0">
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1 sm:flex-none min-w-[140px]"
-                onClick={() => setBarcodeScannerOpen(true)}
-              >
-                <ScanLine className="mr-2 h-4 w-4" />
-                Scan Barcode
-              </Button>
-              <Button
-                size="sm"
-                className="flex-1 sm:flex-none min-w-[120px]"
-                onClick={addItem}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Item
-              </Button>
-            </div>
-          </div>
-
-          {/* Lookup + stats – stack on mobile, side-by-side on larger */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="sm:col-span-2 lg:col-span-2">
-              <Label className="flex items-center gap-2 text-sm font-medium">
-                <Search className="h-4 w-4" />
-                Quick IMEI / Model / Item Lookup
-              </Label>
-              <Input
-                value={imeiLookup}
-                onChange={(e) => setImeiLookup(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && imeiMatches.length > 0) {
-                    e.preventDefault();
-                    addProductByLookup(imeiMatches[0]);
-                  }
-                }}
-                placeholder="Type IMEI, model number, item code..."
-                className="mt-1.5"
-              />
-              {imeiLookup.trim().length > 0 && (
-                <div className="mt-2 max-h-60 overflow-y-auto rounded-lg border bg-background shadow-sm">
-                  {lookupTerm.length < 3 ? (
-                    <p className="px-3 py-2 text-xs text-muted-foreground">
-                      Type at least 3 characters to search devices.
-                    </p>
-                  ) : imeiMatches.length === 0 ? (
-                    <p className="px-3 py-2 text-xs text-muted-foreground">
-                      No available device found for this lookup.
-                    </p>
-                  ) : (
-                    <div className="py-1">
-                      {imeiMatches.map((unit) => {
-                        const product = products.find((p) => p.id === unit.productId);
-                        const title =
-                          product?.model || unit.model || product?.name || unit.productName;
-                        const subtitle = [
-                          unit.imeiNumber,
-                          unit.storage || product?.storage,
-                          unit.color || product?.color,
-                          unit.itemNo || product?.itemNo,
-                        ]
-                          .filter(Boolean)
-                          .join(" / ");
-
-                        return (
-                          <button
-                            key={unit.id}
-                            type="button"
-                            className="flex w-full items-start justify-between gap-2 px-3 py-2 text-left hover:bg-muted/50"
-                            onClick={() => addProductByLookup(unit)}
-                          >
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-medium">{title}</p>
-                              <p className="truncate text-xs text-muted-foreground">
-                                {subtitle}
-                              </p>
-                            </div>
-                            <span className="shrink-0 text-[11px] text-primary">
-                              Add
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-lg border bg-muted/40 p-4 text-center sm:text-left">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Items in Bill
-              </p>
-              <p className="mt-1 text-3xl font-bold">{billItems.length}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                IMEI/serial-tracked devices
-              </p>
-            </div>
+      <Card className="rounded-2xl border-border/70 shadow-sm">
+        <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-center sm:justify-between">
+          <CardTitle className="text-base font-semibold sm:text-lg">
+            Bill Items
+          </CardTitle>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setBarcodeScannerOpen(true)}
+            >
+              <ScanLine className="h-4 w-4 mr-2" />
+              Scan Barcode
+            </Button>
+            <Button onClick={addItem} size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Item
+            </Button>
           </div>
         </CardHeader>
         <CardContent className="pt-0">
           <div className="space-y-4">
             {billItems.map((item, index) => {
-              const availableProducts = products;
+              const selectedProductIds = billItems
+                .filter((_, i) => i !== index)
+                .map((bi) => bi.productId)
+                .filter((id) => id);
+
+              const availableProducts = products.filter(
+                (p) =>
+                  !selectedProductIds.includes(p.id) || p.id === item.productId,
+              );
 
               const availableStock = getAvailableStock(item.productId);
               const originalQty = getOriginalQuantity(item.productId);
 
               return (
-                <div
+                <Card
                   key={index}
-                  className="overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-br from-background via-background to-primary/5 p-4 shadow-sm"
+                  className="rounded-2xl border-border/70 bg-background shadow-sm transition-shadow hover:shadow-md"
                 >
-                  <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0 space-y-2">
-                      <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
-                        <Smartphone className="mr-1.5 h-3.5 w-3.5" />
+                  <CardContent className="space-y-4 p-4 sm:p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                         Item {index + 1}
-                      </span>
-                      <p className="truncate text-sm font-semibold">
-                        {item.model || item.productName || "Select mobile"}
                       </p>
-                      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                        {item.imeiNumber && (
-                          <span className="rounded-full bg-muted px-2 py-0.5 font-mono">
-                            IMEI: {item.imeiNumber}
+                      <div className="flex items-center gap-2">
+                        {item.quantity > availableStock && (
+                          <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-medium text-red-600">
+                            Insufficient stock
                           </span>
                         )}
-                        {(item.storage || item.color) && (
-                          <span className="rounded-full bg-muted px-2 py-0.5">
-                            {[item.storage, item.color]
-                              .filter(Boolean)
-                              .join(" / ")}
-                          </span>
-                        )}
-                        {item.itemNo && (
-                          <span className="rounded-full bg-muted px-2 py-0.5">
-                            Item No: {item.itemNo}
-                          </span>
-                        )}
+                        <Button
+                          variant="outline"
+                          className="h-8 rounded-lg border-red-200 px-3 text-xs font-medium text-red-600 hover:bg-red-50 hover:text-red-700"
+                          onClick={() => removeItem(index)}
+                        >
+                          Remove
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end">
-                      <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-right">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          Line Total
-                        </p>
-                        <p className="text-lg font-bold leading-tight text-primary">
-                          Rs {formatToTwoDecimals(item.amount)}
-                        </p>
-                        {gstEnabled && (
-                          <p className="text-[10px] text-muted-foreground">
-                            {isIGST ? "IGST" : "CGST+SGST"}: Rs{" "}
-                            {formatToTwoDecimals(
-                              item.igst || item.cgst + item.sgst,
-                            )}
-                          </p>
-                        )}
-                      </div>
-                      <Button
-                        variant="destructive"
-                        size="icon"
-                        className="h-9 w-9"
-                        onClick={() => removeItem(index)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 gap-4 rounded-xl border border-border/60 bg-background/70 p-3 md:grid-cols-6">
-                    {/* Product Combobox */}
-                    <div
-                      className={cn(
-                        gstEnabled ? "md:col-span-3" : "md:col-span-4",
-                      )}
-                    >
-                      <Label>Product</Label>
-                      <Popover
-                        open={productComboOpenIndex === index}
-                        onOpenChange={(open) =>
-                          setProductComboOpenIndex(open ? index : null)
-                        }
-                      >
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            aria-expanded={productComboOpenIndex === index}
-                            className="w-full justify-between border-border/70 bg-background"
-                          >
-                            {item.productName || "Select product..."}
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-full p-0" align="start">
-                          <Command>
-                            <CommandInput placeholder="Search product..." />
-                            <CommandList>
-                              <CommandEmpty>
-                                <div className="py-6 text-center">
-                                  <p className="text-sm text-muted-foreground mb-4">
-                                    No product found.
-                                  </p>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-12">
+                      {/* Product Combobox */}
+                      <div className="space-y-2 lg:col-span-6">
+                        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Product
+                        </Label>
+                        <Popover
+                          open={productComboOpenIndex === index}
+                          onOpenChange={(open) =>
+                            setProductComboOpenIndex(open ? index : null)
+                          }
+                        >
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={productComboOpenIndex === index}
+                              className="h-11 w-full justify-between rounded-xl"
+                            >
+                              {item.productName || "Select product..."}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-full p-0" align="start">
+                            <Command>
+                              <CommandInput placeholder="Search product..." />
+                              <CommandList>
+                                <CommandEmpty>
+                                  <div className="py-6 text-center">
+                                    <p className="text-sm text-muted-foreground mb-4">
+                                      No product found.
+                                    </p>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setCreateProductForIndex(index);
+                                        setCreateProductOpen(true);
+                                        setProductComboOpenIndex(null);
+                                      }}
+                                    >
+                                      <PlusCircle className="h-4 w-4 mr-2" />
+                                      Create New Product
+                                    </Button>
+                                  </div>
+                                </CommandEmpty>
+                                <CommandGroup>
+                                  <CommandItem
+                                    onSelect={() => {
                                       setCreateProductForIndex(index);
                                       setCreateProductOpen(true);
                                       setProductComboOpenIndex(null);
                                     }}
+                                    className="flex items-center text-primary font-medium"
                                   >
                                     <PlusCircle className="h-4 w-4 mr-2" />
-                                    Create New Product
-                                  </Button>
-                                </div>
-                              </CommandEmpty>
-                              <CommandGroup>
-                                <CommandItem
-                                  onSelect={() => {
-                                    setCreateProductForIndex(index);
-                                    setCreateProductOpen(true);
-                                    setProductComboOpenIndex(null);
-                                  }}
-                                  className="flex items-center text-primary font-medium"
-                                >
-                                  <PlusCircle className="h-4 w-4 mr-2" />
-                                  Add New Product
-                                </CommandItem>
-                                <CommandSeparator />
-                                {availableProducts.map((product) => {
-                                  const availStock = isEdit
-                                    ? product.stock +
-                                      getOriginalQuantity(product.id)
-                                    : product.stock;
-                                  return (
-                                    <CommandItem
-                                      key={product.id}
-                                      value={[
-                                        product.name,
-                                        product.model || "",
-                                        product.itemNo || "",
-                                        product.storage || "",
-                                        product.color || "",
-                                        product.hsnCode || "",
-                                        product.barcode || "",
-                                        product.whereToBuy || "",
-                                        product.trackingType || "",
-                                      ].join(" ")}
-                                      onSelect={() => {
-                                        updateItem(
-                                          index,
-                                          "productId",
-                                          product.id,
-                                        );
-                                        setProductComboOpenIndex(null);
-                                      }}
-                                    >
-                                      <Check
-                                        className={cn(
-                                          "mr-2 h-4 w-4",
-                                          item.productId === product.id
-                                            ? "opacity-100"
-                                            : "opacity-0",
-                                        )}
-                                      />
-                                      <div className="flex flex-col">
-                                        <span className="font-medium">
-                                          {product.model || product.name}
-                                        </span>
-                                        <span className="text-xs text-muted-foreground">
-                                          {[
-                                            product.itemNo,
-                                            product.model,
-                                            product.storage,
-                                            product.color,
-                                            `HSN: ${product.hsnCode || "-"}`,
-                                            `Stock: ${availStock % 1 === 0 ? availStock : availStock.toFixed(2)} ${product.unit}`,
-                                          ]
-                                            .filter(Boolean)
-                                            .join(" / ")}
-                                        </span>
-                                      </div>
-                                    </CommandItem>
-                                  );
-                                })}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
+                                    Add New Product
+                                  </CommandItem>
+                                  <CommandSeparator />
+                                  {availableProducts.map((product) => {
+                                    const availStock = isEdit
+                                      ? product.stock +
+                                        getOriginalQuantity(product.id)
+                                      : product.stock;
+                                    return (
+                                      <CommandItem
+                                        key={product.id}
+                                        value={product.name}
+                                        onSelect={() => {
+                                          updateItem(
+                                            index,
+                                            "productId",
+                                            product.id,
+                                          );
+                                          setProductComboOpenIndex(null);
+                                        }}
+                                      >
+                                        <Check
+                                          className={cn(
+                                            "mr-2 h-4 w-4",
+                                            item.productId === product.id
+                                              ? "opacity-100"
+                                              : "opacity-0",
+                                          )}
+                                        />
+                                        <div className="flex flex-col">
+                                          <span>{product.name}</span>
+                                          <span className="text-xs text-muted-foreground">
+                                            Stock:{" "}
+                                            {availStock % 1 === 0
+                                              ? availStock
+                                              : availStock.toFixed(2)}{" "}
+                                            {product.unit}
+                                          </span>
+                                        </div>
+                                      </CommandItem>
+                                    );
+                                  })}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
 
-                    <div className="space-y-2 lg:col-span-2">
-                      <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Quantity
-                      </Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min={isEdit && originalQty > 0 ? originalQty : 0}
-                        value={item.quantity}
-                        disabled={Boolean(normalizeImei(item.imeiNumber || ""))}
-                        onChange={(e) => {
-                          const value = parseFloat(e.target.value) || 0;
-                          const roundedValue = Math.round(value * 100) / 100;
-
-                          if (
-                            isEdit &&
-                            originalQty > 0 &&
-                            roundedValue < originalQty
-                          ) {
-                            updateItem(index, "quantity", originalQty);
-                          } else {
-                            updateItem(index, "quantity", roundedValue);
-                          }
-                        }}
-                        className={
-                          item.quantity > availableStock
-                            ? "h-11 rounded-xl border-red-500"
-                            : "h-11 rounded-xl"
-                        }
-                      />
-                      {item.productId && (
-                        <p className="text-xs text-muted-foreground">
-                          Available:{" "}
-                          {availableStock % 1 === 0
-                            ? availableStock
-                            : availableStock.toFixed(2)}{" "}
-                          {products.find((p) => p.id === item.productId)
-                            ?.unit || ""}
-                          {isEdit && originalQty > 0 && (
-                            <span className="text-blue-600 ml-2">
-                              (Min:{" "}
-                              {originalQty % 1 === 0
-                                ? originalQty
-                                : originalQty.toFixed(2)}
-                              )
-                            </span>
-                          )}
-                          {item.quantity > availableStock && (
-                            <span className="text-red-500 ml-2">
-                              Insufficient stock
-                            </span>
-                          )}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="space-y-2 lg:col-span-2">
-                      <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Rate
-                      </Label>
-                      <Input
-                        type="number"
-                        value={item.ratePerUnit}
-                        onChange={(e) =>
-                          updateItem(
-                            index,
-                            "ratePerUnit",
-                            parseFloat(e.target.value) || 0,
-                          )
-                        }
-                        className="h-11 rounded-xl"
-                      />
-                    </div>
-
-                    {gstEnabled && (
                       <div className="space-y-2 lg:col-span-2">
                         <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          GST %
+                          Quantity
                         </Label>
                         <Input
                           type="number"
-                          value={item.gstRate}
+                          step="0.01"
+                          min={isEdit && originalQty > 0 ? originalQty : 0}
+                          value={item.quantity}
+                          onChange={(e) => {
+                            const value = parseFloat(e.target.value) || 0;
+                            const roundedValue = Math.round(value * 100) / 100;
+
+                            if (
+                              isEdit &&
+                              originalQty > 0 &&
+                              roundedValue < originalQty
+                            ) {
+                              updateItem(index, "quantity", originalQty);
+                            } else {
+                              updateItem(index, "quantity", roundedValue);
+                            }
+                          }}
+                          className={
+                            item.quantity > availableStock
+                              ? "h-11 rounded-xl border-red-500"
+                              : "h-11 rounded-xl"
+                          }
+                        />
+                        {item.productId && (
+                          <p className="text-xs text-muted-foreground">
+                            Available:{" "}
+                            {availableStock % 1 === 0
+                              ? availableStock
+                              : availableStock.toFixed(2)}{" "}
+                            {products.find((p) => p.id === item.productId)
+                              ?.unit || ""}
+                            {isEdit && originalQty > 0 && (
+                              <span className="text-blue-600 ml-2">
+                                (Min:{" "}
+                                {originalQty % 1 === 0
+                                  ? originalQty
+                                  : originalQty.toFixed(2)}
+                                )
+                              </span>
+                            )}
+                            {item.quantity > availableStock && (
+                              <span className="ml-2 font-medium text-red-600">
+                                Warning: Insufficient stock
+                              </span>
+                            )}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2 lg:col-span-2">
+                        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Rate
+                        </Label>
+                        <Input
+                          type="number"
+                          value={item.ratePerUnit}
                           onChange={(e) =>
                             updateItem(
                               index,
-                              "gstRate",
+                              "ratePerUnit",
                               parseFloat(e.target.value) || 0,
                             )
                           }
                           className="h-11 rounded-xl"
                         />
                       </div>
-                    )}
-                  </div>
-                  <div className="mt-3 grid grid-cols-1 gap-3 rounded-xl border border-border/60 bg-muted/20 p-3 md:grid-cols-5">
-                    <div>
-                      <Label>Item No</Label>
-                      <Input
-                        value={item.itemNo || ""}
-                        onChange={(e) =>
-                          updateItem(index, "itemNo", e.target.value)
-                        }
-                        placeholder="D648"
-                      />
+
+                      {gstEnabled && (
+                        <div className="space-y-2 lg:col-span-2">
+                          <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            GST %
+                          </Label>
+                          <Input
+                            type="number"
+                            value={item.gstRate}
+                            onChange={(e) =>
+                              updateItem(
+                                index,
+                                "gstRate",
+                                parseFloat(e.target.value) || 0,
+                              )
+                            }
+                            className="h-11 rounded-xl"
+                          />
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <Label>Model</Label>
-                      <Input
-                        value={item.model || ""}
-                        onChange={(e) =>
-                          updateItem(index, "model", e.target.value)
-                        }
-                        placeholder="16 Pro Max"
-                      />
+                    <div className="rounded-xl border border-border/70 bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground sm:px-4">
+                      <span className="font-semibold text-foreground">
+                        Amount: ₹{formatToTwoDecimals(item.amount)}
+                      </span>
+                      {gstEnabled && (
+                        <span className="ml-2">
+                          + {isIGST ? "IGST" : "CGST+SGST"}: ₹
+                          {formatToTwoDecimals(
+                            item.igst || item.cgst + item.sgst,
+                          )}
+                          {isIGST && (
+                            <span className="ml-1 text-xs text-orange-600">
+                              (Inter-State)
+                            </span>
+                          )}
+                        </span>
+                      )}
                     </div>
-                    <div>
-                      <Label>IMEI / Serial</Label>
-                      <Popover
-                        open={imeiComboOpenIndex === index}
-                        onOpenChange={(open) =>
-                          setImeiComboOpenIndex(open ? index : null)
-                        }
-                      >
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            aria-expanded={imeiComboOpenIndex === index}
-                            className="w-full justify-between"
-                            disabled={!item.productId}
-                          >
-                            {item.imeiNumber || "Select or type IMEI..."}
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent
-                          className="w-[min(360px,calc(100vw-2rem))] p-0"
-                          align="start"
-                        >
-                          <Command>
-                            <CommandInput
-                              placeholder="Search IMEI..."
-                              value={item.imeiNumber || ""}
-                              onValueChange={(value) =>
-                                updateItem(index, "imeiNumber", value)
-                              }
-                            />
-                            <CommandList>
-                              <CommandEmpty>
-                                No IMEI found for this product.
-                              </CommandEmpty>
-                              <CommandGroup>
-                                {getSelectableUnitsForLine(
-                                  index,
-                                  item.productId,
-                                ).map((unit) => (
-                                  <CommandItem
-                                    key={unit.id}
-                                    value={[
-                                      unit.imeiNumber,
-                                      unit.model || "",
-                                      unit.storage || "",
-                                      unit.color || "",
-                                      unit.itemNo || "",
-                                    ].join(" ")}
-                                    onSelect={() => {
-                                      updateItem(
-                                        index,
-                                        "imeiNumber",
-                                        unit.imeiNumber,
-                                      );
-                                      setImeiComboOpenIndex(null);
-                                    }}
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-4 w-4",
-                                        normalizeImei(item.imeiNumber || "") ===
-                                          normalizeImei(
-                                            unit.imeiNormalized ||
-                                              unit.imeiNumber,
-                                          )
-                                          ? "opacity-100"
-                                          : "opacity-0",
-                                      )}
-                                    />
-                                    <div className="flex flex-col">
-                                      <span className="font-mono text-xs">
-                                        {unit.imeiNumber}
-                                      </span>
-                                      <span className="text-xs text-muted-foreground">
-                                        {[
-                                          unit.model,
-                                          unit.storage,
-                                          unit.color,
-                                          unit.itemNo,
-                                        ]
-                                          .filter(Boolean)
-                                          .join(" / ")}
-                                      </span>
-                                    </div>
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    <div>
-                      <Label>Storage</Label>
-                      <Input
-                        value={item.storage || ""}
-                        onChange={(e) =>
-                          updateItem(index, "storage", e.target.value)
-                        }
-                        placeholder="256 GB"
-                      />
-                    </div>
-                    <div>
-                      <Label>Color</Label>
-                      <Input
-                        value={item.color || ""}
-                        onChange={(e) =>
-                          updateItem(index, "color", e.target.value)
-                        }
-                        placeholder="Natural"
-                      />
-                    </div>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               );
             })}
           </div>
@@ -2512,11 +1820,11 @@ export function BillForm({
         </CardContent>
       </Card>
 
-      <div className="flex flex-col-reverse gap-3 rounded-xl border border-border/70 bg-background/95 p-3 backdrop-blur sm:mt-2 sm:sticky sm:bottom-0 sm:z-20 sm:flex-row sm:gap-4">
+      <div className="sticky bottom-0 z-20 flex flex-col-reverse gap-3 rounded-xl border border-border/70 bg-background/95 p-3 backdrop-blur sm:static sm:flex-row sm:gap-4 sm:border-0 sm:bg-transparent sm:p-0">
         <Button
           onClick={handleSubmit}
           size="lg"
-          className="h-11 sm:w-auto"
+          className="h-11 flex-1"
           loading={saving}
         >
           <Save className="h-5 w-5 mr-2" />
@@ -2672,123 +1980,6 @@ export function BillForm({
           }
         }}
       />
-      <Dialog open={createBankOpen} onOpenChange={setCreateBankOpen}>
-        <DialogContent className="dialog-form-content sm:max-w-[500px]">
-          <form onSubmit={handleCreateBank} className="dialog-form-body">
-            <DialogHeader className="dialog-form-header">
-              <DialogTitle>Add Bank Account</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-1 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="bill-bank-name">Bank Name *</Label>
-                  <Input
-                    id="bill-bank-name"
-                    required
-                    value={bankFormData.bankName || ""}
-                    onChange={(e) =>
-                      setBankFormData((prev) => ({
-                        ...prev,
-                        bankName: e.target.value,
-                      }))
-                    }
-                    placeholder="e.g. HDFC Bank"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="bill-bank-holder">
-                    Account Holder Name *
-                  </Label>
-                  <Input
-                    id="bill-bank-holder"
-                    required
-                    value={bankFormData.accountHolder || ""}
-                    onChange={(e) =>
-                      setBankFormData((prev) => ({
-                        ...prev,
-                        accountHolder: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="bill-bank-number">Account Number *</Label>
-                  <Input
-                    id="bill-bank-number"
-                    required
-                    value={bankFormData.accountNumber || ""}
-                    onChange={(e) =>
-                      setBankFormData((prev) => ({
-                        ...prev,
-                        accountNumber: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="bill-bank-ifsc">Branch & IFSC *</Label>
-                  <Input
-                    id="bill-bank-ifsc"
-                    required
-                    value={bankFormData.branchAndIFSC || ""}
-                    onChange={(e) =>
-                      setBankFormData((prev) => ({
-                        ...prev,
-                        branchAndIFSC: e.target.value,
-                      }))
-                    }
-                    placeholder="e.g. Mumbai & HDFC0001234"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="bill-bank-upi">UPI ID (Optional)</Label>
-                <Input
-                  id="bill-bank-upi"
-                  value={bankFormData.upiId || ""}
-                  onChange={(e) =>
-                    setBankFormData((prev) => ({
-                      ...prev,
-                      upiId: e.target.value,
-                    }))
-                  }
-                  placeholder="e.g. name@bank"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="bill-bank-default"
-                  checked={!!bankFormData.isDefault}
-                  onCheckedChange={(checked) =>
-                    setBankFormData((prev) => ({ ...prev, isDefault: checked }))
-                  }
-                />
-                <Label htmlFor="bill-bank-default">
-                  Set as default account
-                </Label>
-              </div>
-            </div>
-            <DialogFooter className="dialog-form-footer">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setCreateBankOpen(false)}
-                disabled={savingBank}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={savingBank}>
-                {savingBank && (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                )}
-                Save Bank Account
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

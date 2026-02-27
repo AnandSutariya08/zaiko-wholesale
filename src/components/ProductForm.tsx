@@ -4,15 +4,33 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { Upload, X, Package, IndianRupee } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import { Checkbox } from "./ui/checkbox";
+import {
+  Loader2,
+  Upload,
+  X,
+  Eye,
+  Package,
+  IndianRupee,
+  Store,
+} from "lucide-react";
 import { toast } from "sonner";
-import { CompanyProfile, Product } from "@/types";
+import { Product, Vendor } from "@/types";
 import {
   saveProduct,
   getCompanyProfile,
+  addStockToProduct,
   uploadProductImage,
-  getProducts,
+  getVendors,
 } from "@/lib/storage";
+import { calculateSellingPriceFromCommission } from "@/lib/billUtils";
 
 interface ProductFormProps {
   open: boolean;
@@ -27,65 +45,80 @@ export function ProductForm({
   onSuccess,
   product: editingProduct,
 }: ProductFormProps) {
-  const buildVariantKey = (input: {
-    name?: string;
-    model?: string;
-  }) =>
-    [
-      input.name || "",
-      input.model || "",
-    ]
-      .map((v) => (v || "").toString().trim().toLowerCase())
-      .join("|");
-
   const [saving, setSaving] = useState(false);
-  const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
+  const [companyProfile, setCompanyProfile] = useState<any>(null);
+  const [addInitialStock, setAddInitialStock] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [existingProducts, setExistingProducts] = useState<Product[]>([]);
-  const [productType, setProductType] = useState<"serialized" | "standard">(
-    "serialized",
-  );
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [viewingVendor, setViewingVendor] = useState<Vendor | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
-    hsnCode: "MOBILE",
-    model: "",
-    gstRate: "0",
-    unit: "pcs",
+    hsnCode: "",
+    barcode: "",
+    gstRate: "",
+    unit: "kg",
+    purchasePrice: "",
+    sellingPrice: "",
+    whereToBuy: "",
+    vendorId: "",
+    weight: "",
+    weightUnit: "g",
+  });
+
+  const [initialStock, setInitialStock] = useState({
+    quantity: "",
     purchasePrice: "",
   });
 
   useEffect(() => {
     if (editingProduct) {
-      const hasImei = Boolean((editingProduct.imeiNumber || "").trim());
-      setProductType(
-        editingProduct.trackingType ||
-          (hasImei ? "serialized" : "standard"),
-      );
       setFormData({
         name: editingProduct.name,
-        hsnCode: editingProduct.hsnCode || "MOBILE",
-        model: editingProduct.model || "",
-        gstRate: String(editingProduct.gstRate || 0),
+        hsnCode: editingProduct.hsnCode,
+        barcode: editingProduct.barcode || "",
+        gstRate: String(editingProduct.gstRate),
         unit: editingProduct.unit,
-        purchasePrice: String(editingProduct.purchasePrice || ""),
+        purchasePrice: String(editingProduct.purchasePrice),
+        sellingPrice: String(editingProduct.sellingPrice),
+        whereToBuy: editingProduct.whereToBuy || "",
+        vendorId: editingProduct.vendorId || "",
+        weight: editingProduct.weight ? String(editingProduct.weight) : "",
+        weightUnit: editingProduct.weightUnit || "g",
       });
       setImagePreview(editingProduct.imageUrl || null);
     } else {
       resetForm();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingProduct]);
 
   useEffect(() => {
+    if (!vendors.length) return;
+    if (!formData.vendorId && formData.whereToBuy) {
+      const matched = vendors.find(
+        (v) =>
+          v.name.toLowerCase().trim() ===
+          formData.whereToBuy.toLowerCase().trim(),
+      );
+      if (matched) {
+        setFormData((prev) => ({
+          ...prev,
+          vendorId: matched.id,
+          whereToBuy: matched.name,
+        }));
+      }
+    }
+  }, [vendors, formData.vendorId, formData.whereToBuy]);
+
+  useEffect(() => {
     const loadData = async () => {
-      const [profile, productsData] = await Promise.all([
+      const [profile, vendorsData] = await Promise.all([
         getCompanyProfile(),
-        getProducts(),
+        getVendors(),
       ]);
       setCompanyProfile(profile);
-      setExistingProducts(productsData);
+      setVendors(vendorsData);
       if (profile?.defaultUnit && !editingProduct) {
         setFormData((prev) => ({
           ...prev,
@@ -97,17 +130,23 @@ export function ProductForm({
   }, [editingProduct]);
 
   const resetForm = () => {
-    setProductType("serialized");
+    setAddInitialStock(false);
     setImageFile(null);
     setImagePreview(null);
     setFormData({
       name: "",
-      hsnCode: "MOBILE",
-      model: "",
-      gstRate: "0",
-      unit: companyProfile?.defaultUnit || "pcs",
+      hsnCode: "",
+      barcode: "",
+      gstRate: "",
+      unit: companyProfile?.defaultUnit || "kg",
       purchasePrice: "",
+      sellingPrice: "",
+      whereToBuy: "",
+      vendorId: "",
+      weight: "",
+      weightUnit: "g",
     });
+    setInitialStock({ quantity: "", purchasePrice: "" });
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -127,31 +166,13 @@ export function ProductForm({
     setSaving(true);
 
     try {
-      if (!formData.name.trim()) {
-        toast.error("Product name is required");
-        return;
-      }
-      if (!formData.model.trim()) {
-        toast.error("Model is required");
-        return;
-      }
-      const computedVariantKey = buildVariantKey({
-        name: formData.name,
-        model: formData.model,
-      });
-      const masterDuplicate = existingProducts.find(
-        (p) =>
-          p.id !== editingProduct?.id &&
-          buildVariantKey({ name: p.name, model: p.model }) ===
-            computedVariantKey,
-      );
-      if (masterDuplicate) {
-        toast.error(
-          `Product master already exists as ${masterDuplicate.name} (${masterDuplicate.model || "N/A"}).`,
-        );
+      if (!formData.vendorId) {
+        toast.error("Please select a vendor");
         return;
       }
 
+      const purchasePriceNum = parseFloat(formData.purchasePrice) || 0;
+      const sellingPriceNum = parseFloat(formData.sellingPrice) || 0;
       const productId = editingProduct?.id || crypto.randomUUID();
 
       let imageUrl = editingProduct?.imageUrl || "";
@@ -159,42 +180,37 @@ export function ProductForm({
         imageUrl = await uploadProductImage(productId, imageFile);
       }
 
-      const isStandardType = productType === "standard";
-      const purchasePriceNum = isStandardType
-        ? parseFloat(formData.purchasePrice) || 0
-        : editingProduct?.purchasePrice || 0;
-      if (isStandardType && purchasePriceNum <= 0) {
-        toast.error("Standard product requires purchase price");
-        return;
-      }
-
       const product: Product = {
         id: productId,
-        name: formData.name.trim(),
-        variantKey: computedVariantKey,
-        trackingType: productType === "serialized" ? "serialized" : "standard",
-        hsnCode: formData.hsnCode.trim() || "MOBILE",
-        model: formData.model.trim(),
-        itemNo: "",
-        imeiNumber: "",
-        storage: "",
-        color: "",
-        barcode: "",
+        name: formData.name,
+        hsnCode: formData.hsnCode.trim(),
+        barcode: formData.barcode.trim(),
         gstRate: parseFloat(formData.gstRate) || 0,
-        unit: formData.unit || "pcs",
-        price: 0,
+        unit: formData.unit,
+        price: sellingPriceNum,
         purchasePrice: purchasePriceNum,
-        sellingPrice: 0,
+        sellingPrice: sellingPriceNum,
         stock: editingProduct?.stock || 0,
-        whereToBuy: editingProduct?.whereToBuy || "",
-        vendorId: editingProduct?.vendorId || "",
-        weight: editingProduct?.weight || 0,
-        weightUnit: editingProduct?.weightUnit || "g",
+        whereToBuy:
+          vendors.find((v) => v.id === formData.vendorId)?.name ||
+          formData.whereToBuy,
+        vendorId: formData.vendorId,
+        weight: parseFloat(formData.weight) || 0,
+        weightUnit: formData.weightUnit,
         createdAt: editingProduct?.createdAt || new Date().toISOString(),
         imageUrl: imageUrl,
       };
 
       await saveProduct(product);
+
+      if (addInitialStock && !editingProduct) {
+        const qty = parseFloat(initialStock.quantity) || 0;
+        const price = parseFloat(initialStock.purchasePrice) || 0;
+
+        if (qty > 0 && price > 0) {
+          await addStockToProduct(product.id, qty, price);
+        }
+      }
 
       toast.success(
         editingProduct
@@ -211,6 +227,11 @@ export function ProductForm({
       setSaving(false);
     }
   };
+
+  const unitOptions =
+    companyProfile?.unitOptions?.length > 0
+      ? companyProfile.unitOptions
+      : ["kg", "pcs", "box"];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -232,39 +253,6 @@ export function ProductForm({
                 <CardTitle className="text-base">Basic Details</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {!editingProduct && (
-                  <div className="grid grid-cols-1 gap-3 rounded-xl border border-border/70 bg-muted/20 p-3 sm:grid-cols-2">
-                    <button
-                      type="button"
-                      onClick={() => setProductType("serialized")}
-                      className={`rounded-lg border px-3 py-2 text-left transition ${
-                        productType === "serialized"
-                          ? "border-primary bg-primary/10"
-                          : "border-border/70 bg-background"
-                      }`}
-                    >
-                      <p className="text-sm font-semibold">Serialized (IMEI)</p>
-                      <p className="text-xs text-muted-foreground">
-                        One device per IMEI
-                      </p>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setProductType("standard")}
-                      className={`rounded-lg border px-3 py-2 text-left transition ${
-                        productType === "standard"
-                          ? "border-primary bg-primary/10"
-                          : "border-border/70 bg-background"
-                      }`}
-                    >
-                      <p className="text-sm font-semibold">Standard</p>
-                      <p className="text-xs text-muted-foreground">
-                        Quantity-based inventory
-                      </p>
-                    </button>
-                  </div>
-                )}
-
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>Product Image</Label>
@@ -301,7 +289,6 @@ export function ProductForm({
                       )}
                     </div>
                   </div>
-
                   <div className="lg:col-span-2 space-y-4">
                     <div className="space-y-2">
                       <Label>Product Name *</Label>
@@ -313,17 +300,32 @@ export function ProductForm({
                         }
                       />
                     </div>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>Model *</Label>
+                        <Label>HSN Code *</Label>
                         <Input
                           required
-                          value={formData.model}
+                          value={formData.hsnCode}
                           onChange={(e) =>
-                            setFormData({ ...formData, model: e.target.value })
+                            setFormData({
+                              ...formData,
+                              hsnCode: e.target.value,
+                            })
                           }
-                          placeholder="16 Pro Max"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Barcode (Scan or Type)</Label>
+                        <Input
+                          value={formData.barcode}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              barcode: e.target.value,
+                            })
+                          }
+                          placeholder="Scan barcode"
                         />
                       </div>
                     </div>
@@ -334,25 +336,19 @@ export function ProductForm({
 
             <Card className="border-border/80">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Tax & Classification</CardTitle>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <IndianRupee className="h-4 w-4 text-primary" />
+                  Pricing
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>HSN Code</Label>
+                    <Label>GST Rate (%) *</Label>
                     <Input
-                      value={formData.hsnCode}
-                      onChange={(e) =>
-                        setFormData({ ...formData, hsnCode: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>GST %</Label>
-                    <Input
+                      required
                       type="number"
                       step="0.01"
-                      min="0"
                       value={formData.gstRate}
                       onChange={(e) =>
                         setFormData({ ...formData, gstRate: e.target.value })
@@ -360,56 +356,194 @@ export function ProductForm({
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Unit</Label>
-                    <Input
+                    <Label>Unit *</Label>
+                    <Select
                       value={formData.unit}
-                      onChange={(e) =>
-                        setFormData({ ...formData, unit: e.target.value || "pcs" })
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, unit: value })
                       }
-                      placeholder="pcs"
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select unit" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {unitOptions.map((unit: string) => (
+                          <SelectItem key={unit} value={unit}>
+                            {unit}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Purchase Price *</Label>
+                    <Input
+                      required
+                      type="number"
+                      step="0.01"
+                      value={formData.purchasePrice}
+                      onChange={(e) => {
+                        const price = parseFloat(e.target.value) || 0;
+                        const selling = calculateSellingPriceFromCommission(
+                          price,
+                          companyProfile?.commissionSettings,
+                        );
+                        setFormData({
+                          ...formData,
+                          purchasePrice: e.target.value,
+                          sellingPrice: price ? String(selling) : "",
+                        });
+                      }}
                     />
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Stock, IMEI, and pricing are handled through Purchase Bills.
-                </p>
+
+                <div className="space-y-2">
+                  <Label>Selling Price (with Commission) *</Label>
+                  <Input
+                    required
+                    type="number"
+                    step="0.01"
+                    value={formData.sellingPrice}
+                    onChange={(e) =>
+                      setFormData({ ...formData, sellingPrice: e.target.value })
+                    }
+                  />
+                </div>
               </CardContent>
             </Card>
 
-            {(productType === "standard" ||
-              (editingProduct && editingProduct.trackingType === "standard")) && (
-              <Card className="border-border/80">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <IndianRupee className="h-4 w-4 text-primary" />
-                    Standard Cost
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Purchase Price *</Label>
+            <Card className="border-border/80">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Store className="h-4 w-4 text-primary" />
+                  Vendor & Stock
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Weight</Label>
+                    <div className="flex gap-2">
                       <Input
                         type="number"
                         step="0.01"
-                        min="0"
-                        value={formData.purchasePrice}
+                        className="flex-1"
+                        value={formData.weight}
                         onChange={(e) =>
-                          setFormData({ ...formData, purchasePrice: e.target.value })
+                          setFormData({ ...formData, weight: e.target.value })
+                        }
+                      />
+                      <Select
+                        value={formData.weightUnit}
+                        onValueChange={(value) =>
+                          setFormData({ ...formData, weightUnit: value })
+                        }
+                      >
+                        <SelectTrigger className="w-[80px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="g">g</SelectItem>
+                          <SelectItem value="kg">kg</SelectItem>
+                          <SelectItem value="mg">mg</SelectItem>
+                          <SelectItem value="ct">ct</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Vendor *</Label>
+                    <div className="flex gap-2">
+                      <Select
+                        value={formData.vendorId}
+                        onValueChange={(value) => {
+                          const selectedVendor = vendors.find(
+                            (v) => v.id === value,
+                          );
+                          setFormData({
+                            ...formData,
+                            vendorId: value,
+                            whereToBuy: selectedVendor?.name || "",
+                          });
+                        }}
+                        required
+                      >
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Select vendor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {vendors.map((vendor) => (
+                            <SelectItem key={vendor.id} value={vendor.id}>
+                              {vendor.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {formData.vendorId && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => {
+                            const v = vendors.find(
+                              (v) => v.id === formData.vendorId,
+                            );
+                            if (v) setViewingVendor(v);
+                          }}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={addInitialStock}
+                      onCheckedChange={(v) => setAddInitialStock(!!v)}
+                    />
+                    <Label>Add initial stock?</Label>
+                  </div>
+
+                  {addInitialStock && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <Input
+                        type="number"
+                        placeholder="Quantity"
+                        value={initialStock.quantity}
+                        onChange={(e) =>
+                          setInitialStock({
+                            ...initialStock,
+                            quantity: e.target.value,
+                          })
+                        }
+                      />
+                      <Input
+                        type="number"
+                        placeholder="Purchase Price"
+                        value={initialStock.purchasePrice}
+                        onChange={(e) =>
+                          setInitialStock({
+                            ...initialStock,
+                            purchasePrice: e.target.value,
+                          })
                         }
                       />
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                  )}
+                </div> */}
+              </CardContent>
+            </Card>
           </div>
-
           <div className="shrink-0 border-t bg-background px-6 py-3 shadow-[0_-10px_25px_-18px_rgba(0,0,0,0.45)] sticky bottom-0 z-20">
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs text-muted-foreground hidden sm:block">
-                Required fields: Name, Model
-                {productType === "standard" ? ", Purchase Price" : ""}
+                Required fields: Product Name, HSN, GST, Unit, Purchase Price,
+                Vendor
               </p>
               <div className="ml-auto flex justify-end gap-2">
                 <Button
@@ -427,6 +561,42 @@ export function ProductForm({
           </div>
         </form>
 
+        {viewingVendor && (
+          <Dialog
+            open={!!viewingVendor}
+            onOpenChange={(open) => !open && setViewingVendor(null)}
+          >
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Vendor Details</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-muted-foreground">Name</Label>
+                  <p className="font-medium text-lg">{viewingVendor.name}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">GSTIN</Label>
+                  <p>{viewingVendor.gstin || "N/A"}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Address</Label>
+                  <p>{viewingVendor.address || "N/A"}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-muted-foreground">Phone</Label>
+                    <p>{viewingVendor.phone || "N/A"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Email</Label>
+                    <p>{viewingVendor.email || "N/A"}</p>
+                  </div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </DialogContent>
     </Dialog>
   );
