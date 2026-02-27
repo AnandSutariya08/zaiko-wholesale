@@ -135,11 +135,17 @@ const P = StyleSheet.create({
   tableRow: { flexDirection: "row" },
   tableRowAlt: { flexDirection: "row", backgroundColor: "#f3f4f6" },
   tableCell: { padding: 4, fontSize: 7.5 },
+  centerItems: { alignItems: "center", justifyContent: "center" },
   sigBox: {
     height: 40,
     borderBottomWidth: 1,
     borderBottomStyle: "dashed",
     borderBottomColor: "#9ca3af",
+  },
+  sigImage: {
+    width: 120,
+    height: 32,
+    objectFit: "contain",
   },
   sigBoxSolid: { height: 40 },
 });
@@ -182,6 +188,9 @@ export const BillPDF = ({
       : "INVOICE";
 
   const themeColor = company.themeColor || "#1e40af";
+  const signatureSrc = company?.signature
+    ? ({ uri: String(company.signature) } as any)
+    : null;
 
   const slW = 22;
   const hsnW = 46;
@@ -640,21 +649,29 @@ export const BillPDF = ({
                   "N.A."}
               </Text>
               {!!qrDataURL && (
-                <View style={[P.row, P.mt2, { alignItems: "center" }]}>
+                <View style={[P.mt2, { alignItems: "center", width: 50 }]}>
                   <Image src={qrDataURL} style={{ width: 50, height: 50 }} />
-                  <Text style={[P.sm, P.gray, { marginLeft: 6 }]}>
-                    Scan & Pay (UPI)
+                  <Text style={[P.sm, P.gray, P.textCenter, P.mt1]}>
+                    Scan & Pay
                   </Text>
                 </View>
               )}
             </View>
-            <View style={[P.w50, P.textRight]}>
-              <Text style={P.sm}>Signature & Date: {fmtDate(new Date())}</Text>
-              <Text style={[P.bold, P.mt1]}>
+            <View style={[P.w50, P.centerItems]}>
+              <Text style={[P.sm, P.textCenter]}>
+                Signature & Date: {fmtDate(new Date())}
+              </Text>
+              <Text style={[P.bold, P.mt1, P.textCenter]}>
                 FOR {String(company.name || "").toUpperCase()}
               </Text>
-              <View style={{ height: 40 }} />
-              <Text style={P.sm}>Proprietor</Text>
+              {signatureSrc ? (
+                <View style={[P.mt1, P.centerItems]}>
+                  <Image src={signatureSrc} style={P.sigImage} />
+                </View>
+              ) : (
+                <View style={{ height: 40 }} />
+              )}
+              <Text style={[P.sm, P.textCenter]}>Proprietor</Text>
             </View>
           </View>
         </Page>
@@ -1253,10 +1270,21 @@ export const BillPDF = ({
                       },
                     ]}
                   >
-                    <Text style={[P.sm, { color: "#374151" }]}>
+                    <Text
+                      style={[
+                        P.sm,
+                        { color: "#374151", flex: 1, paddingRight: 6 },
+                      ]}
+                    >
                       {payment.method} ({fmtDate(payment.date)})
                     </Text>
-                    <Text style={[P.sm, P.bold]}>
+                    <Text
+                      style={[
+                        P.sm,
+                        P.bold,
+                        { minWidth: 68, textAlign: "right" },
+                      ]}
+                    >
                       {formatCurrency(payment.amount)}
                     </Text>
                   </View>
@@ -1662,10 +1690,10 @@ export const BillPDF = ({
                 "N.A."}
             </Text>
             {qrDataURL && (
-              <View style={[P.row, P.mt2, { alignItems: "center" }]}>
+              <View style={[P.mt2, { alignItems: "center", width: 45 }]}>
                 <Image src={qrDataURL} style={{ width: 45, height: 45 }} />
-                <Text style={[P.sm, P.gray, { marginLeft: 6 }]}>
-                  Scan & Pay{"\n"}(UPI)
+                <Text style={[P.sm, P.gray, P.textCenter, P.mt1]}>
+                  Scan & Pay
                 </Text>
               </View>
             )}
@@ -1703,22 +1731,21 @@ export const BillPDF = ({
             </Text>
           </View>
           <View style={[P.flex1, P.p3]}>
-            {bill.createdBy && (
-              <View style={P.mb2}>
-                <Text style={[P.sm, P.gray]}>
-                  Created by:{" "}
-                  <Text style={[P.bold, { color: "#374151" }]}>
-                    {bill.createdBy}
-                  </Text>
-                </Text>
+            <View>
+              <Text style={[P.bold, P.sm, P.mb1, P.textRight]}>
+                Company Seal and Signature
+              </Text>
+              <View style={[P.sigBox, P.centerItems]}>
+                {signatureSrc ? (
+                  <Image src={signatureSrc} style={P.sigImage} />
+                ) : null}
               </View>
-            )}
-            <View style={P.textRight}>
-              <Text style={[P.bold, P.sm, P.mb1]}>for {company.name}</Text>
-              <View style={P.sigBoxSolid} />
-              <View style={[P.borderTop, P.pt1, { alignSelf: "flex-end" }]}>
-                <Text style={P.sm}>Authorised Signatory</Text>
-              </View>
+              <Text style={[P.sm, P.textCenter, P.mt1, P.gray]}>
+                {company.name}
+              </Text>
+              <Text style={[P.sm, P.textCenter, P.mt1]}>
+                Authorised Signatory
+              </Text>
             </View>
           </View>
         </View>
@@ -1869,11 +1896,11 @@ export function BillView({ bill }: BillViewProps) {
     let signatureUrl = signature.trim();
     if (!signatureUrl) return null;
 
-    // Already a data URL → return as-is
-    if (signatureUrl.startsWith("data:")) return signatureUrl;
-
-    // Firebase Storage path (legacy case) → resolve public URL
-    if (!/^https?:\/\//i.test(signatureUrl)) {
+    // Firebase Storage path (legacy case) -> resolve public URL
+    if (
+      !signatureUrl.startsWith("data:") &&
+      !/^https?:\/\//i.test(signatureUrl)
+    ) {
       try {
         signatureUrl = await getDownloadURL(ref(storage, signatureUrl));
       } catch (err) {
@@ -1882,21 +1909,46 @@ export function BillView({ bill }: BillViewProps) {
       }
     }
 
-    // Optional: convert to data URL for better PDF embedding reliability
-    // (you can comment this block out if you prefer direct https URLs)
+    // Rasterize to PNG before passing to PDF renderer to prevent tiling/repeat artifacts.
     try {
       const response = await fetch(signatureUrl, { mode: "cors" });
       if (!response.ok) return signatureUrl;
       const blob = await response.blob();
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(String(reader.result || ""));
-        reader.onerror = () => reject(new Error("Failed to read signature"));
-        reader.readAsDataURL(blob);
-      });
-      return dataUrl || signatureUrl;
+      const objectUrl = URL.createObjectURL(blob);
+
+      try {
+        const pngDataUrl = await new Promise<string>((resolve, reject) => {
+          const img = new window.Image();
+          img.onload = () => {
+            try {
+              const width = Math.max(1, img.naturalWidth || 0);
+              const height = Math.max(1, img.naturalHeight || 0);
+              const canvas = document.createElement("canvas");
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext("2d");
+              if (!ctx) {
+                reject(new Error("Failed to create canvas context"));
+                return;
+              }
+              ctx.clearRect(0, 0, width, height);
+              ctx.drawImage(img, 0, 0, width, height);
+              resolve(canvas.toDataURL("image/png"));
+            } catch (drawErr) {
+              reject(drawErr);
+            }
+          };
+          img.onerror = () =>
+            reject(new Error("Failed to load signature image"));
+          img.src = objectUrl;
+        });
+
+        return pngDataUrl || signatureUrl;
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
     } catch (err) {
-      console.warn("Failed to convert signature to data URL", err);
+      console.warn("Failed to convert signature image to PNG data URL", err);
       return signatureUrl;
     }
   };
@@ -2391,14 +2443,14 @@ export function BillView({ bill }: BillViewProps) {
                         </p>
                       </div>
                       {qrDataURL && (
-                        <div className="mt-2 flex items-center gap-2">
+                        <div className="mt-2 flex flex-col items-center w-[55px]">
                           <img
                             src={qrDataURL}
                             alt="Scan & Pay QR"
                             className="w-[55px] h-[55px]"
                           />
-                          <p className="text-[10px] text-gray-700">
-                            Scan & Pay (UPI)
+                          <p className="text-[10px] text-gray-700 text-center mt-1">
+                            Scan & Pay
                           </p>
                         </div>
                       )}
@@ -2791,7 +2843,15 @@ export function BillView({ bill }: BillViewProps) {
                     company.defaultNote ||
                     (bill.payments && bill.payments.length > 0)) && (
                     <div className="border border-black p-2.5 mb-3">
-                      <div className="grid grid-cols-2 gap-4">
+                      <div
+                        className={`grid gap-4 ${
+                          (bill.notes || company.defaultNote) &&
+                          bill.payments &&
+                          bill.payments.length > 0
+                            ? "grid-cols-1 md:grid-cols-2"
+                            : "grid-cols-1"
+                        }`}
+                      >
                         {(bill.notes || company.defaultNote) && (
                           <div>
                             <h3
@@ -2806,7 +2866,7 @@ export function BillView({ bill }: BillViewProps) {
                           </div>
                         )}
                         {bill.payments && bill.payments.length > 0 && (
-                          <div className="print:hidden">
+                          <div>
                             <h3
                               className="font-bold text-[10px] mb-1"
                               style={{ color: company.themeColor }}
@@ -2817,17 +2877,26 @@ export function BillView({ bill }: BillViewProps) {
                               {bill.payments.map((payment, index) => (
                                 <div
                                   key={payment.id || index}
-                                  className="flex justify-between text-[9px] border-b border-gray-100 pb-0.5 last:border-0"
+                                  className="flex items-start justify-between gap-2 text-[9px] border-b border-gray-100 pb-0.5 last:border-0"
                                 >
-                                  <span>
+                                  <span className="flex-1 pr-2 break-words">
                                     {payment.method} ({formatDate(payment.date)}
                                     )
                                   </span>
-                                  <span className="font-semibold">
+                                  <span className="font-semibold shrink-0 min-w-[72px] text-right">
                                     {formatCurrency(payment.amount)}
                                   </span>
                                 </div>
                               ))}
+                            </div>
+                            <div className="mt-1.5 pt-1 border-t border-gray-300 flex items-center justify-between text-[9px]">
+                              <span className="font-semibold">Total Paid</span>
+                              <span
+                                className="font-bold"
+                                style={{ color: company.themeColor }}
+                              >
+                                {formatCurrency(bill.paidAmount)}
+                              </span>
                             </div>
                           </div>
                         )}
@@ -3039,16 +3108,14 @@ export function BillView({ bill }: BillViewProps) {
                           </p>
                         </div>
                         {qrDataURL && (
-                          <div className="mt-2 flex items-center gap-2">
+                          <div className="mt-2 flex flex-col items-center w-[50px]">
                             <img
                               src={qrDataURL}
                               alt="Scan & Pay QR"
                               className="w-[50px] h-[50px]"
                             />
-                            <p className="text-[9px] text-gray-600 break-words">
+                            <p className="text-[9px] text-gray-600 text-center mt-1">
                               Scan & Pay
-                              <br />
-                              (UPI)
                             </p>
                           </div>
                         )}
@@ -3080,17 +3147,9 @@ export function BillView({ bill }: BillViewProps) {
                         </p>
                       </div>
                       <div className="p-3">
-                        {bill.createdBy && (
-                          <p className="text-[9px] text-gray-500 mb-2">
-                            Created by:{" "}
-                            <span className="font-semibold text-gray-700">
-                              {bill.createdBy}
-                            </span>
-                          </p>
-                        )}
-                        <div className="text-right">
-                          <p className="text-[10px] font-bold mb-1">
-                            for {company.name}
+                        <div>
+                          <p className="text-[10px] font-bold mb-1 text-right">
+                            Company Seal and Signature
                           </p>
                           <div className="h-12 border-b border-dashed border-gray-400 flex items-center justify-center">
                             {company.signature ? (
@@ -3101,10 +3160,21 @@ export function BillView({ bill }: BillViewProps) {
                               />
                             ) : null}
                           </div>
-                          <p className="text-[9px] border-t border-black pt-1 inline-block">
+                          <p className="text-[9px] text-center mt-1 text-gray-600">
+                            {company.name}
+                          </p>
+                          <p className="text-[9px] text-center mt-1">
                             Authorised Signatory
                           </p>
                         </div>
+                        {bill.createdBy && (
+                          <p className="text-[9px] text-gray-500 mt-2 text-right">
+                            Created by:{" "}
+                            <span className="font-semibold text-gray-700">
+                              {bill.createdBy}
+                            </span>
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
