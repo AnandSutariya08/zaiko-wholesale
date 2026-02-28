@@ -752,7 +752,10 @@ export default function Dashboard() {
       const profit = roundToTwoDecimals(
         grossProfit - deadstockLoss - totalExpenses,
       );
-      const expectedProfit = roundToTwoDecimals(profit + unrealizedPendingProfit);
+      const profitBeforeExpenses = roundToTwoDecimals(profit + totalExpenses);
+      const expectedProfit = roundToTwoDecimals(
+        profitBeforeExpenses + unrealizedPendingProfit,
+      );
 
       const gstCollected = roundToTwoDecimals(
         filteredBillsInRange.reduce((sum, bill) => {
@@ -1606,26 +1609,6 @@ export default function Dashboard() {
 
               {/* Financial Overview */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 w-full max-w-full">
-                <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20 w-full">
-                  <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6">
-                    <CardTitle className="text-[10px] sm:text-xs md:text-sm font-medium text-blue-600 dark:text-blue-400 truncate pr-2">
-                      Pending Collection
-                    </CardTitle>
-                    <Clock className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-blue-500 flex-shrink-0" />
-                  </CardHeader>
-                  <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
-                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400 break-words">
-                      {formatCurrency(stats.pendingCollection)}
-                    </div>
-                    <div className="flex items-center gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
-                      <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500 flex-shrink-0" />
-                      <span className="text-[10px] sm:text-xs md:text-sm text-muted-foreground break-words">
-                        Unpaid receivables (incl. GST)
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-
                 <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border-emerald-500/20 w-full">
                   <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6">
                     <CardTitle className="text-[10px] sm:text-xs md:text-sm font-medium text-emerald-600 dark:text-emerald-400 truncate pr-2">
@@ -1641,6 +1624,26 @@ export default function Dashboard() {
                       <ArrowUpRight className="h-3 w-3 sm:h-4 sm:w-4 text-emerald-500 flex-shrink-0" />
                       <span className="text-[10px] sm:text-xs md:text-sm text-muted-foreground break-words">
                         Paid invoices (excl. GST)
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border-orange-500/20 w-full">
+                  <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6">
+                    <CardTitle className="text-[10px] sm:text-xs md:text-sm font-medium text-orange-600 dark:text-orange-400 truncate pr-2">
+                      Total Purchases
+                    </CardTitle>
+                    <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-orange-500 flex-shrink-0" />
+                  </CardHeader>
+                  <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
+                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-orange-600 dark:text-orange-400 break-words">
+                      {formatCurrency(stats.totalPurchases)}
+                    </div>
+                    <div className="flex items-center gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
+                      <ArrowDownRight className="h-3 w-3 sm:h-4 sm:w-4 text-orange-500 flex-shrink-0" />
+                      <span className="text-[10px] sm:text-xs md:text-sm text-muted-foreground">
+                        {stats.totalPurchaseBills} bills
                       </span>
                     </div>
                   </CardContent>
@@ -1666,21 +1669,21 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
 
-                <Card className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border-orange-500/20 w-full">
+                <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20 w-full">
                   <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6">
-                    <CardTitle className="text-[10px] sm:text-xs md:text-sm font-medium text-orange-600 dark:text-orange-400 truncate pr-2">
-                      Total Purchases
+                    <CardTitle className="text-[10px] sm:text-xs md:text-sm font-medium text-blue-600 dark:text-blue-400 truncate pr-2">
+                      Pending Collection
                     </CardTitle>
-                    <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-orange-500 flex-shrink-0" />
+                    <Clock className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-blue-500 flex-shrink-0" />
                   </CardHeader>
                   <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
-                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-orange-600 dark:text-orange-400 break-words">
-                      {formatCurrency(stats.totalPurchases)}
+                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400 break-words">
+                      {formatCurrency(stats.pendingCollection)}
                     </div>
                     <div className="flex items-center gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
-                      <ArrowDownRight className="h-3 w-3 sm:h-4 sm:w-4 text-orange-500 flex-shrink-0" />
-                      <span className="text-[10px] sm:text-xs md:text-sm text-muted-foreground">
-                        {stats.totalPurchaseBills} bills
+                      <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500 flex-shrink-0" />
+                      <span className="text-[10px] sm:text-xs md:text-sm text-muted-foreground break-words">
+                        Unpaid receivables (incl. GST)
                       </span>
                     </div>
                   </CardContent>
@@ -1739,7 +1742,7 @@ export default function Dashboard() {
                     <div className="flex items-center gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
                       <Calculator className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
                       <span className="text-[10px] sm:text-xs md:text-sm text-muted-foreground break-words">
-                        Realized profit + pending receivable profit (excl. GST)
+                        Profit (excl. expenses) + pending receivable profit (excl. GST)
                       </span>
                     </div>
                   </CardContent>
