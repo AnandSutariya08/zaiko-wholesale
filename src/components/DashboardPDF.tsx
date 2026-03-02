@@ -3,7 +3,6 @@ import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 const styles = StyleSheet.create({
   page: {
     padding: 40,
-    paddingBottom: 64,
     fontSize: 10,
     fontFamily: "Helvetica",
     backgroundColor: "#ffffff",
@@ -221,7 +220,7 @@ export const DashboardPDF = ({
       </View>
 
       {/* Financial Overview */}
-      <View style={styles.section} wrap={false}>
+      <View style={styles.section}>
         <Text style={styles.sectionHeader}>FINANCIAL OVERVIEW</Text>
         <View style={styles.table}>
           <View style={styles.tableRow}>
@@ -252,12 +251,6 @@ export const DashboardPDF = ({
                   (stats.totalPurchases || 0) - (stats.pendingPurchases || 0),
                 ),
               )}
-            </Text>
-          </View>
-          <View style={styles.tableRow}>
-            <Text style={styles.tableCellLabel}>Current Inventory Value</Text>
-            <Text style={styles.tableCellValue}>
-              {formatCurrency(stats.inventoryValue || 0)}
             </Text>
           </View>
           <View style={styles.tableRow}>
@@ -318,20 +311,20 @@ export const DashboardPDF = ({
       </View>
 
       {/* Purchase & Sales Settlement Overview */}
-      <View style={styles.section} wrap={false}>
+      <View style={styles.section}>
         <Text style={styles.sectionHeader}>
           PURCHASE & SALES SETTLEMENT OVERVIEW
         </Text>
         <View style={styles.table}>
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Total Purchase</Text>
-            <Text style={styles.tableCellValue}>
+            <Text style={[styles.tableCellValue, { textAlign: "left" }]}>
               {formatCurrency(stats.totalPurchases || 0)}
             </Text>
           </View>
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Purchase Paid Amount</Text>
-            <Text style={styles.tableCellValue}>
+            <Text style={[styles.tableCellValue, { textAlign: "left" }]}>
               {formatCurrency(
                 Math.max(
                   0,
@@ -348,7 +341,7 @@ export const DashboardPDF = ({
           </View>
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Total Sell</Text>
-            <Text style={styles.tableCellValue}>
+            <Text style={[styles.tableCellValue, { textAlign: "left" }]}>
               {formatCurrency(
                 (stats.totalRevenue || 0) + (stats.pendingAmount || 0),
               )}
@@ -356,7 +349,7 @@ export const DashboardPDF = ({
           </View>
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Sells Collected Amount</Text>
-            <Text style={styles.tableCellValue}>
+            <Text style={[styles.tableCellValue, { textAlign: "left" }]}>
               {formatCurrency(stats.totalRevenue || 0)}
             </Text>
           </View>
@@ -369,8 +362,68 @@ export const DashboardPDF = ({
         </View>
       </View>
 
-      {/* Cost Breakdown */}
-      <View style={styles.section} wrap={false}>
+      <Text style={styles.footer}>
+        {company?.name || "Invoice Mitra"} | Page 1 of 5
+      </Text>
+    </Page>
+
+    {/* PAGE 2: FINANCIAL DETAILS */}
+    <Page size="A4" style={styles.page}>
+      <View style={styles.header}>
+        <Text style={styles.companyName}>
+          {company?.name || "Invoice Mitra"}
+        </Text>
+        <Text style={styles.reportTitle}>Financial Details</Text>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionHeader}>CURRENT INVENTORY VALUE</Text>
+        <View style={styles.table}>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableCellLabel}>Current Inventory Value</Text>
+            <Text style={styles.tableCellValue}>
+              {formatCurrency(stats.inventoryValue || 0)}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionHeader}>GST ANALYSIS</Text>
+        <View style={styles.table}>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableCellLabel}>
+              GST Collected (Output Tax)
+            </Text>
+            <Text style={[styles.tableCellValue, { textAlign: "left" }]}>
+              {formatCurrency(stats.gstCollected)}
+            </Text>
+          </View>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableCellLabel}>
+              GST Paid (Input Tax Credit)
+            </Text>
+            <Text style={[styles.tableCellValue, { textAlign: "left" }]}>
+              {formatCurrency(stats.gstPaid)}
+            </Text>
+          </View>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableCellLabel}>
+              Net GST Payable/Refundable
+            </Text>
+            <Text
+              style={[
+                styles.tableCellValue,
+                stats.netGst >= 0 ? styles.loss : styles.profit,
+              ]}
+            >
+              {formatCurrency(stats.netGst)}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.section}>
         <Text style={styles.sectionHeader}>COST BREAKDOWN</Text>
         <View style={styles.table}>
           <View style={styles.tableRow}>
@@ -402,8 +455,7 @@ export const DashboardPDF = ({
         </View>
       </View>
 
-      {/* Key Metrics */}
-      <View style={styles.summaryBox} wrap={false}>
+      <View style={styles.summaryBox}>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Profit Margin</Text>
           <Text style={styles.summaryValue}>
@@ -424,48 +476,12 @@ export const DashboardPDF = ({
         </View>
       </View>
 
-      {/* GST Analysis */}
-      <View style={styles.section} wrap={false}>
-        <Text style={styles.sectionHeader}>GST ANALYSIS</Text>
-        <View style={styles.table}>
-          <View style={styles.tableRow}>
-            <Text style={styles.tableCellLabel}>
-              GST Collected (Output Tax)
-            </Text>
-            <Text style={styles.tableCellValue}>
-              {formatCurrency(stats.gstCollected)}
-            </Text>
-          </View>
-          <View style={styles.tableRow}>
-            <Text style={styles.tableCellLabel}>
-              GST Paid (Input Tax Credit)
-            </Text>
-            <Text style={styles.tableCellValue}>
-              {formatCurrency(stats.gstPaid)}
-            </Text>
-          </View>
-          <View style={styles.tableRow}>
-            <Text style={styles.tableCellLabel}>
-              Net GST Payable/Refundable
-            </Text>
-            <Text
-              style={[
-                styles.tableCellValue,
-                stats.netGst >= 0 ? styles.loss : styles.profit,
-              ]}
-            >
-              {formatCurrency(stats.netGst)}
-            </Text>
-          </View>
-        </View>
-      </View>
-
       <Text style={styles.footer}>
-        {company?.name || "Invoice Mitra"} | Page 1 of 4
+        {company?.name || "Invoice Mitra"} | Page 2 of 5
       </Text>
     </Page>
 
-    {/* PAGE 2: PAYMENT STATUS & INVENTORY */}
+    {/* PAGE 3: PAYMENT STATUS & INVENTORY */}
     <Page size="A4" style={styles.page}>
       <View style={styles.header}>
         <Text style={styles.companyName}>
@@ -628,11 +644,11 @@ export const DashboardPDF = ({
       </View>
 
       <Text style={styles.footer}>
-        {company?.name || "Invoice Mitra"} | Page 2 of 4
+        {company?.name || "Invoice Mitra"} | Page 3 of 5
       </Text>
     </Page>
 
-    {/* PAGE 3: PRODUCT PERFORMANCE */}
+    {/* PAGE 4: PRODUCT PERFORMANCE */}
     <Page size="A4" style={styles.page}>
       <View style={styles.header}>
         <Text style={styles.companyName}>
@@ -745,11 +761,11 @@ export const DashboardPDF = ({
       )}
 
       <Text style={styles.footer}>
-        {company?.name || "Invoice Mitra"} | Page 3 of 4
+        {company?.name || "Invoice Mitra"} | Page 4 of 5
       </Text>
     </Page>
 
-    {/* PAGE 4: CLIENT ANALYSIS */}
+    {/* PAGE 5: CLIENT ANALYSIS */}
     <Page size="A4" style={styles.page}>
       <View style={styles.header}>
         <Text style={styles.companyName}>
@@ -859,7 +875,7 @@ export const DashboardPDF = ({
       )}
 
       <Text style={styles.footer}>
-        {company?.name || "Invoice Mitra"} | Page 4 of 4 | Report generated on{" "}
+        {company?.name || "Invoice Mitra"} | Page 5 of 5 | Report generated on{" "}
         {new Date().toLocaleDateString("en-IN")}
       </Text>
     </Page>

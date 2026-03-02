@@ -622,8 +622,6 @@ export default function Dashboard() {
         { label: string; sales: number; purchases: number; profit: number }
       > = {};
 
-      let totalCOGS = 0;
-      let unrealizedPendingProfit = 0;
       filteredBillsInRange.forEach((bill) => {
         const { key, label } = getBucketKeyLabel(bill.date);
         if (!buckets[key])
@@ -634,27 +632,7 @@ export default function Dashboard() {
           financials.netSubtotalAfterDiscount * financials.paymentRatio,
         );
 
-        let billCogs = 0;
-        bill.items.forEach((item) => {
-          const product = productById[item.productId];
-          const costPrice = product
-            ? getHistoricalAverageCost(product.id, bill.date)
-            : 0;
-          billCogs += roundToTwoDecimals(item.quantity * costPrice);
-        });
-
-        const recognizedCogs = roundToTwoDecimals(
-          billCogs * financials.paymentRatio,
-        );
-        const pendingProfit = roundToTwoDecimals(
-          (financials.netSubtotalAfterDiscount - billCogs) *
-            (1 - financials.paymentRatio),
-        );
-        totalCOGS += recognizedCogs;
-        unrealizedPendingProfit += pendingProfit;
-
         buckets[key].sales += sales;
-        buckets[key].profit += roundToTwoDecimals(sales - recognizedCogs);
       });
 
       purchaseBillsInRange.forEach((pb) => {
@@ -668,12 +646,21 @@ export default function Dashboard() {
             (rSum, r) => rSum + (r.totalReturnValue || 0),
             0,
           ) || 0;
+        const adjustedTotal = Math.max(0, pb.total - returns);
+        const returnRatio =
+          pb.total > 0 ? Math.min(1, Math.max(0, returns / pb.total)) : 0;
+        const adjustedGst = (pb.totalTax || 0) * (1 - returnRatio);
         buckets[key].purchases += roundToTwoDecimals(
-          Math.max(0, pb.total - returns),
+          Math.max(0, adjustedTotal - adjustedGst),
         );
       });
 
       const bucketKeys = Object.keys(buckets).sort();
+      bucketKeys.forEach((k) => {
+        buckets[k].profit = roundToTwoDecimals(
+          buckets[k].sales - buckets[k].purchases,
+        );
+      });
       const monthlySpendVsSales = bucketKeys.map((k) => ({
         period: buckets[k].label,
         sales: roundToTwoDecimals(buckets[k].sales),
@@ -733,31 +720,6 @@ export default function Dashboard() {
         { name: "Overdue", value: totalOverdue },
       ].filter((item) => item.value > 0);
 
-      const deadstockLoss = roundToTwoDecimals(
-        deadstock.reduce(
-          (sum, item) => sum + item.costPrice * item.quantity,
-          0,
-        ),
-      );
-
-      const expensesInRange = allExpenses.filter((e) =>
-        filterByYearMonth(e.date),
-      );
-      const totalExpenses = roundToTwoDecimals(
-        expensesInRange.reduce((sum, expense) => sum + expense.amount, 0),
-      );
-
-      const grossProfit = roundToTwoDecimals(
-        bucketKeys.reduce((sum, k) => sum + buckets[k].profit, 0),
-      );
-      const profit = roundToTwoDecimals(
-        grossProfit - deadstockLoss - totalExpenses,
-      );
-      const expectedProfit = roundToTwoDecimals(unrealizedPendingProfit);
-      const expectedTotalNetProfit = roundToTwoDecimals(
-        profit + expectedProfit,
-      );
-
       const gstCollected = roundToTwoDecimals(
         filteredBillsInRange.reduce((sum, bill) => {
           const financials = getBillFinancials(bill);
@@ -778,6 +740,33 @@ export default function Dashboard() {
         }, 0),
       );
       const netGst = roundToTwoDecimals(gstCollected - gstPaid);
+
+      const deadstockLoss = roundToTwoDecimals(
+        deadstock.reduce(
+          (sum, item) => sum + item.costPrice * item.quantity,
+          0,
+        ),
+      );
+
+      const expensesInRange = allExpenses.filter((e) =>
+        filterByYearMonth(e.date),
+      );
+      const totalExpenses = roundToTwoDecimals(
+        expensesInRange.reduce((sum, expense) => sum + expense.amount, 0),
+      );
+
+      const totalCOGS = roundToTwoDecimals(totalPurchases);
+      const grossProfit = roundToTwoDecimals(totalRevenue - totalCOGS);
+      const profit = roundToTwoDecimals(
+        grossProfit - deadstockLoss - totalExpenses,
+      );
+      const grossMarginRatio = totalRevenue > 0 ? grossProfit / totalRevenue : 0;
+      const expectedProfit = roundToTwoDecimals(
+        pendingAmount * grossMarginRatio,
+      );
+      const expectedTotalNetProfit = roundToTwoDecimals(
+        profit + expectedProfit,
+      );
 
       const totalDiscount = roundToTwoDecimals(
         filteredBillsInRange.reduce(
@@ -1620,12 +1609,12 @@ export default function Dashboard() {
                   </CardHeader>
                   <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
                     <div className="text-lg sm:text-xl md:text-2xl font-bold text-emerald-600 dark:text-emerald-400 break-words">
-                      {formatCurrency(stats.totalRevenue - stats.gstCollected)}
+                      {formatCurrency(stats.totalRevenue)}
                     </div>
                     <div className="flex items-center gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
                       <ArrowUpRight className="h-3 w-3 sm:h-4 sm:w-4 text-emerald-500 flex-shrink-0" />
                       <span className="text-[10px] sm:text-xs md:text-sm text-muted-foreground break-words">
-                        Paid invoices (excl. GST)
+                        Paid invoices (incl. GST)
                       </span>
                     </div>
                   </CardContent>
@@ -1874,10 +1863,10 @@ export default function Dashboard() {
                         </span>
                       </div>
                       <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-orange-600 break-words">
-                        {formatCurrency(stats.totalPurchases)}
+                        {formatCurrency(stats.totalCOGS)}
                       </p>
                       <p className="text-[10px] sm:text-xs text-muted-foreground break-words">
-                        Purchase costs
+                        Cost of goods sold
                       </p>
                     </div>
 
