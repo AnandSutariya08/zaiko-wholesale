@@ -15,6 +15,11 @@ export const exportDashboardToExcel = (
 
     // Helper function to format currency
     const formatCurrency = (amount: number) => `₹${amount.toFixed(2)}`;
+    const purchasePaidAmount = Math.max(
+        0,
+        (stats.totalPurchases || 0) - (stats.pendingPurchases || 0),
+    );
+    const totalSellAmount = (stats.totalRevenue || 0) + (stats.pendingAmount || 0);
 
     // ========== SHEET 1: EXECUTIVE SUMMARY ==========
     const summaryData = [
@@ -29,10 +34,23 @@ export const exportDashboardToExcel = (
         ['Total Revenue (excl. GST)', formatCurrency(stats.totalRevenue - stats.gstCollected), 'Revenue without GST'],
         ['Total Discount Given', formatCurrency(stats.totalDiscount), 'Total discount amount'],
         ['Total Purchases', formatCurrency(stats.totalPurchases), 'Money spent on buying inventory'],
+        ['Current Inventory Value', formatCurrency(stats.inventoryValue || 0), 'Current value of available inventory stock'],
         ['Gross Profit', formatCurrency(stats.grossProfit), 'Revenue - COGS'],
-        ['Net Profit', formatCurrency(stats.profit), 'Revenue - COGS - Expenses - Losses'],
+        ['Expenses', formatCurrency(stats.totalExpenses), 'Operational expenses in selected period'],
+        ['Current Net Profit (After All Deductions)', formatCurrency(stats.profit), 'Revenue - COGS - Expenses - Losses'],
+        ['Expected Net Profit', formatCurrency(stats.expectedProfit || 0), 'Net expected profit from pending collection (excl. GST)'],
+        ['Total Net Profit', formatCurrency(stats.expectedTotalNetProfit || 0), 'Current net profit + expected net profit'],
         ['Profit Margin', `${stats.totalCOGS > 0 ? ((stats.grossProfit / stats.totalCOGS) * 100).toFixed(2) : '0.00'}%`, 'Gross Profit / COGS'],
         ['ROI', `${stats.totalPurchases > 0 ? ((stats.profit / stats.totalPurchases) * 100).toFixed(2) : 'N/A'}%`, 'Net Profit / Total Purchases'],
+        [],
+        ['PURCHASE & SALES SETTLEMENT OVERVIEW'],
+        ['Metric', 'Value', 'Notes'],
+        ['Total Purchase', formatCurrency(stats.totalPurchases || 0), 'Total purchase value after returns'],
+        ['Purchase Paid Amount', formatCurrency(purchasePaidAmount), 'Total purchases already paid'],
+        ['Purchase Pending Amount', formatCurrency(stats.pendingPurchases || 0), 'Pending purchases payable to vendors'],
+        ['Total Sell', formatCurrency(totalSellAmount), 'Collected + pending sales amount'],
+        ['Sells Collected Amount', formatCurrency(stats.totalRevenue || 0), 'Total collected from sales'],
+        ['Sells Pending Amount', formatCurrency(stats.pendingAmount || 0), 'Pending receivable from sales'],
         [],
         ['COST BREAKDOWN'],
         ['Category', 'Amount'],

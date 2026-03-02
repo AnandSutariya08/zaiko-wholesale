@@ -1,32 +1,33 @@
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 
 const styles = StyleSheet.create({
   page: {
     padding: 40,
+    paddingBottom: 64,
     fontSize: 10,
-    fontFamily: 'Helvetica',
-    backgroundColor: '#ffffff',
+    fontFamily: "Helvetica",
+    backgroundColor: "#ffffff",
   },
   header: {
     marginBottom: 20,
     borderBottomWidth: 2,
-    borderBottomColor: '#111827',
+    borderBottomColor: "#111827",
     paddingBottom: 15,
   },
   companyName: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#111827',
+    fontWeight: "bold",
+    color: "#111827",
   },
   reportTitle: {
     fontSize: 14,
     marginTop: 5,
-    color: '#374151',
+    color: "#374151",
   },
   period: {
     fontSize: 9,
     marginTop: 5,
-    color: '#6b7280',
+    color: "#6b7280",
   },
   section: {
     marginTop: 15,
@@ -34,126 +35,126 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     fontSize: 11,
-    fontWeight: 'bold',
-    backgroundColor: '#f3f4f6',
+    fontWeight: "bold",
+    backgroundColor: "#f3f4f6",
     padding: 6,
     borderLeftWidth: 3,
-    borderLeftColor: '#111827',
-    color: '#111827',
+    borderLeftColor: "#111827",
+    color: "#111827",
     marginBottom: 8,
   },
   subsectionHeader: {
     fontSize: 10,
-    fontWeight: 'bold',
-    color: '#374151',
+    fontWeight: "bold",
+    color: "#374151",
     marginTop: 10,
     marginBottom: 5,
   },
   table: {
-    width: 'auto',
+    width: "auto",
   },
   tableRow: {
-    flexDirection: 'row',
-    borderBottomColor: '#e5e7eb',
+    flexDirection: "row",
+    borderBottomColor: "#e5e7eb",
     borderBottomWidth: 1,
     paddingVertical: 6,
     paddingHorizontal: 4,
   },
   tableRowHeader: {
-    flexDirection: 'row',
-    backgroundColor: '#f9fafb',
-    borderBottomColor: '#d1d5db',
+    flexDirection: "row",
+    backgroundColor: "#f9fafb",
+    borderBottomColor: "#d1d5db",
     borderBottomWidth: 1,
     paddingVertical: 6,
     paddingHorizontal: 4,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   tableCellLabel: {
     flex: 2,
-    textAlign: 'left',
-    color: '#4b5563',
+    textAlign: "left",
+    color: "#4b5563",
     fontSize: 9,
   },
   tableCellValue: {
     flex: 1,
-    textAlign: 'right',
-    fontWeight: 'bold',
-    color: '#111827',
+    textAlign: "right",
+    fontWeight: "bold",
+    color: "#111827",
     fontSize: 9,
   },
   tableCell: {
     flex: 1,
-    textAlign: 'left',
+    textAlign: "left",
     fontSize: 8,
-    color: '#374151',
+    color: "#374151",
   },
   tableCellRight: {
     flex: 1,
-    textAlign: 'right',
+    textAlign: "right",
     fontSize: 8,
-    color: '#374151',
+    color: "#374151",
   },
   summaryBox: {
     marginTop: 15,
     padding: 12,
-    backgroundColor: '#f9fafb',
+    backgroundColor: "#f9fafb",
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: "#e5e7eb",
   },
   summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     paddingVertical: 4,
   },
   summaryLabel: {
     fontSize: 10,
-    fontWeight: 'bold',
-    color: '#374151',
+    fontWeight: "bold",
+    color: "#374151",
   },
   summaryValue: {
     fontSize: 10,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   profit: {
-    color: '#059669',
+    color: "#059669",
   },
   loss: {
-    color: '#dc2626',
+    color: "#dc2626",
   },
   footer: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 20,
     left: 40,
     right: 40,
-    textAlign: 'center',
-    color: '#9ca3af',
+    textAlign: "center",
+    color: "#9ca3af",
     fontSize: 7,
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+    borderTopColor: "#e5e7eb",
     paddingTop: 8,
   },
   divider: {
     marginTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+    borderTopColor: "#e5e7eb",
     paddingTop: 8,
   },
   rankBadge: {
     width: 20,
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: 8,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   productName: {
     flex: 3,
     fontSize: 8,
-    color: '#374151',
+    color: "#374151",
   },
   metric: {
     flex: 1,
-    textAlign: 'right',
+    textAlign: "right",
     fontSize: 8,
-    color: '#374151',
+    color: "#374151",
   },
 });
 
@@ -169,137 +170,290 @@ interface DashboardPDFProps {
 }
 
 const formatCurrency = (amount: number) => {
-  const formatted = new Intl.NumberFormat('en-IN', {
+  const formatted = new Intl.NumberFormat("en-IN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(Math.abs(amount));
-  return `${amount < 0 ? '-' : ''}Rs. ${formatted}`;
+  return `${amount < 0 ? "-" : ""}Rs. ${formatted}`;
 };
 
 const formatDate = (date: string) => {
-  if (!date) return 'N/A';
-  return new Date(date).toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
+  if (!date) return "N/A";
+  return new Date(date).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
   });
 };
 
-export const DashboardPDF = ({ 
-  stats, 
-  chartData, 
-  productAnalytics, 
-  clientAnalytics, 
-  bills, 
-  purchaseBills, 
-  company, 
-  dateRange 
+export const DashboardPDF = ({
+  stats,
+  chartData,
+  productAnalytics,
+  clientAnalytics,
+  bills,
+  purchaseBills,
+  company,
+  dateRange,
 }: DashboardPDFProps) => (
   <Document>
     {/* PAGE 1: EXECUTIVE SUMMARY */}
     <Page size="A4" style={styles.page}>
       <View style={styles.header}>
-        <Text style={styles.companyName}>{company?.name || 'Invoice Mitra'}</Text>
+        <Text style={styles.companyName}>
+          {company?.name || "Invoice Mitra"}
+        </Text>
         <Text style={styles.reportTitle}>Dashboard Executive Summary</Text>
         <Text style={styles.period}>
-          Period: {dateRange.start ? formatDate(dateRange.start) : 'All Time'} - {dateRange.end ? formatDate(dateRange.end) : 'Present'}
+          Period: {dateRange.start ? formatDate(dateRange.start) : "All Time"} -{" "}
+          {dateRange.end ? formatDate(dateRange.end) : "Present"}
         </Text>
         <Text style={styles.period}>
-          Generated: {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          Generated:{" "}
+          {new Date().toLocaleDateString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
         </Text>
       </View>
 
       {/* Financial Overview */}
-      <View style={styles.section}>
+      <View style={styles.section} wrap={false}>
         <Text style={styles.sectionHeader}>FINANCIAL OVERVIEW</Text>
         <View style={styles.table}>
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Total Revenue (Received)</Text>
-            <Text style={styles.tableCellValue}>{formatCurrency(stats.totalRevenue)}</Text>
+            <Text style={styles.tableCellValue}>
+              {formatCurrency(stats.totalRevenue)}
+            </Text>
           </View>
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Total Revenue (excl. GST)</Text>
-            <Text style={styles.tableCellValue}>{formatCurrency(stats.totalRevenue - stats.gstCollected)}</Text>
+            <Text style={styles.tableCellValue}>
+              {formatCurrency(stats.totalRevenue - stats.gstCollected)}
+            </Text>
           </View>
+
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Total Discount Given</Text>
-            <Text style={styles.tableCellValue}>{formatCurrency(stats.totalDiscount)}</Text>
+            <Text style={styles.tableCellValue}>
+              {formatCurrency(stats.totalDiscount)}
+            </Text>
           </View>
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Total Purchases</Text>
-            <Text style={styles.tableCellValue}>{formatCurrency(stats.totalPurchases)}</Text>
+            <Text style={styles.tableCellValue}>
+              {formatCurrency(
+                Math.max(
+                  0,
+                  (stats.totalPurchases || 0) - (stats.pendingPurchases || 0),
+                ),
+              )}
+            </Text>
+          </View>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableCellLabel}>Current Inventory Value</Text>
+            <Text style={styles.tableCellValue}>
+              {formatCurrency(stats.inventoryValue || 0)}
+            </Text>
           </View>
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Gross Profit</Text>
-            <Text style={[styles.tableCellValue, stats.grossProfit >= 0 ? styles.profit : styles.loss]}>
+            <Text
+              style={[
+                styles.tableCellValue,
+                stats.grossProfit >= 0 ? styles.profit : styles.loss,
+              ]}
+            >
               {formatCurrency(stats.grossProfit)}
             </Text>
           </View>
           <View style={styles.tableRow}>
-            <Text style={styles.tableCellLabel}>Net Profit (After All Deductions)</Text>
-            <Text style={[styles.tableCellValue, stats.profit >= 0 ? styles.profit : styles.loss]}>
+            <Text style={styles.tableCellLabel}>Expenses</Text>
+            <Text style={styles.tableCellValue}>
+              {formatCurrency(stats.totalExpenses)}
+            </Text>
+          </View>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableCellLabel}>
+              Current Net Profit (After All Deductions)
+            </Text>
+            <Text
+              style={[
+                styles.tableCellValue,
+                stats.profit >= 0 ? styles.profit : styles.loss,
+              ]}
+            >
               {formatCurrency(stats.profit)}
+            </Text>
+          </View>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableCellLabel}>Expected Net Profit</Text>
+            <Text
+              style={[
+                styles.tableCellValue,
+                (stats.expectedProfit || 0) >= 0 ? styles.profit : styles.loss,
+              ]}
+            >
+              {formatCurrency(stats.expectedProfit || 0)}
+            </Text>
+          </View>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableCellLabel}>Total Net Profit</Text>
+            <Text
+              style={[
+                styles.tableCellValue,
+                (stats.expectedTotalNetProfit || 0) >= 0
+                  ? styles.profit
+                  : styles.loss,
+              ]}
+            >
+              {formatCurrency(stats.expectedTotalNetProfit || 0)}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Purchase & Sales Settlement Overview */}
+      <View style={styles.section} wrap={false}>
+        <Text style={styles.sectionHeader}>
+          PURCHASE & SALES SETTLEMENT OVERVIEW
+        </Text>
+        <View style={styles.table}>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableCellLabel}>Total Purchase</Text>
+            <Text style={styles.tableCellValue}>
+              {formatCurrency(stats.totalPurchases || 0)}
+            </Text>
+          </View>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableCellLabel}>Purchase Paid Amount</Text>
+            <Text style={styles.tableCellValue}>
+              {formatCurrency(
+                Math.max(
+                  0,
+                  (stats.totalPurchases || 0) - (stats.pendingPurchases || 0),
+                ),
+              )}
+            </Text>
+          </View>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableCellLabel}>Purchase Pending Amount</Text>
+            <Text style={styles.tableCellValue}>
+              {formatCurrency(stats.pendingPurchases || 0)}
+            </Text>
+          </View>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableCellLabel}>Total Sell</Text>
+            <Text style={styles.tableCellValue}>
+              {formatCurrency(
+                (stats.totalRevenue || 0) + (stats.pendingAmount || 0),
+              )}
+            </Text>
+          </View>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableCellLabel}>Sells Collected Amount</Text>
+            <Text style={styles.tableCellValue}>
+              {formatCurrency(stats.totalRevenue || 0)}
+            </Text>
+          </View>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableCellLabel}>Sells Pending Amount</Text>
+            <Text style={styles.tableCellValue}>
+              {formatCurrency(stats.pendingAmount || 0)}
             </Text>
           </View>
         </View>
       </View>
 
       {/* Cost Breakdown */}
-      <View style={styles.section}>
+      <View style={styles.section} wrap={false}>
         <Text style={styles.sectionHeader}>COST BREAKDOWN</Text>
         <View style={styles.table}>
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Cost of Goods Sold (COGS)</Text>
-            <Text style={styles.tableCellValue}>{formatCurrency(stats.totalCOGS)}</Text>
+            <Text style={styles.tableCellValue}>
+              {formatCurrency(stats.totalCOGS)}
+            </Text>
           </View>
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Operational Expenses</Text>
-            <Text style={styles.tableCellValue}>{formatCurrency(stats.totalExpenses)}</Text>
+            <Text style={styles.tableCellValue}>
+              {formatCurrency(stats.totalExpenses)}
+            </Text>
           </View>
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Deadstock Loss</Text>
-            <Text style={styles.tableCellValue}>{formatCurrency(stats.deadstockLoss)}</Text>
+            <Text style={styles.tableCellValue}>
+              {formatCurrency(stats.deadstockLoss)}
+            </Text>
           </View>
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Total Costs</Text>
             <Text style={styles.tableCellValue}>
-              {formatCurrency(stats.totalCOGS + stats.totalExpenses + stats.deadstockLoss)}
+              {formatCurrency(
+                stats.totalCOGS + stats.totalExpenses + stats.deadstockLoss,
+              )}
             </Text>
           </View>
         </View>
       </View>
 
       {/* Key Metrics */}
-      <View style={styles.summaryBox}>
+      <View style={styles.summaryBox} wrap={false}>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Profit Margin</Text>
           <Text style={styles.summaryValue}>
-            {stats.totalCOGS > 0 ? ((stats.grossProfit / stats.totalCOGS) * 100).toFixed(2) : '0.00'}%
+            {stats.totalCOGS > 0
+              ? ((stats.grossProfit / stats.totalCOGS) * 100).toFixed(2)
+              : "0.00"}
+            %
           </Text>
         </View>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>ROI (Return on Investment)</Text>
           <Text style={styles.summaryValue}>
-            {stats.totalPurchases > 0 ? ((stats.profit / stats.totalPurchases) * 100).toFixed(2) : 'N/A'}%
+            {stats.totalPurchases > 0
+              ? ((stats.profit / stats.totalPurchases) * 100).toFixed(2)
+              : "N/A"}
+            %
           </Text>
         </View>
       </View>
 
       {/* GST Analysis */}
-      <View style={styles.section}>
+      <View style={styles.section} wrap={false}>
         <Text style={styles.sectionHeader}>GST ANALYSIS</Text>
         <View style={styles.table}>
           <View style={styles.tableRow}>
-            <Text style={styles.tableCellLabel}>GST Collected (Output Tax)</Text>
-            <Text style={styles.tableCellValue}>{formatCurrency(stats.gstCollected)}</Text>
+            <Text style={styles.tableCellLabel}>
+              GST Collected (Output Tax)
+            </Text>
+            <Text style={styles.tableCellValue}>
+              {formatCurrency(stats.gstCollected)}
+            </Text>
           </View>
           <View style={styles.tableRow}>
-            <Text style={styles.tableCellLabel}>GST Paid (Input Tax Credit)</Text>
-            <Text style={styles.tableCellValue}>{formatCurrency(stats.gstPaid)}</Text>
+            <Text style={styles.tableCellLabel}>
+              GST Paid (Input Tax Credit)
+            </Text>
+            <Text style={styles.tableCellValue}>
+              {formatCurrency(stats.gstPaid)}
+            </Text>
           </View>
           <View style={styles.tableRow}>
-            <Text style={styles.tableCellLabel}>Net GST Payable/Refundable</Text>
-            <Text style={[styles.tableCellValue, stats.netGst >= 0 ? styles.loss : styles.profit]}>
+            <Text style={styles.tableCellLabel}>
+              Net GST Payable/Refundable
+            </Text>
+            <Text
+              style={[
+                styles.tableCellValue,
+                stats.netGst >= 0 ? styles.loss : styles.profit,
+              ]}
+            >
               {formatCurrency(stats.netGst)}
             </Text>
           </View>
@@ -307,15 +461,19 @@ export const DashboardPDF = ({
       </View>
 
       <Text style={styles.footer}>
-        {company?.name || 'Invoice Mitra'} | Page 1 of 4
+        {company?.name || "Invoice Mitra"} | Page 1 of 4
       </Text>
     </Page>
 
     {/* PAGE 2: PAYMENT STATUS & INVENTORY */}
     <Page size="A4" style={styles.page}>
       <View style={styles.header}>
-        <Text style={styles.companyName}>{company?.name || 'Invoice Mitra'}</Text>
-        <Text style={styles.reportTitle}>Payment Status & Inventory Analysis</Text>
+        <Text style={styles.companyName}>
+          {company?.name || "Invoice Mitra"}
+        </Text>
+        <Text style={styles.reportTitle}>
+          Payment Status & Inventory Analysis
+        </Text>
       </View>
 
       {/* Payment Status */}
@@ -329,26 +487,44 @@ export const DashboardPDF = ({
           </View>
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Paid</Text>
-            <Text style={styles.tableCellValue}>{formatCurrency(stats.totalRevenue)}</Text>
-            <Text style={styles.tableCellValue}>{formatCurrency(stats.paidSubtotal)}</Text>
+            <Text style={styles.tableCellValue}>
+              {formatCurrency(stats.totalRevenue)}
+            </Text>
+            <Text style={styles.tableCellValue}>
+              {formatCurrency(stats.paidSubtotal)}
+            </Text>
           </View>
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Pending</Text>
             <Text style={styles.tableCellValue}>
-              {formatCurrency(chartData.paymentBreakdown.find((p: any) => p.name === 'Pending')?.value || 0)}
+              {formatCurrency(
+                chartData.paymentBreakdown.find(
+                  (p: any) => p.name === "Pending",
+                )?.value || 0,
+              )}
             </Text>
-            <Text style={styles.tableCellValue}>{formatCurrency(stats.pendingSubtotal)}</Text>
+            <Text style={styles.tableCellValue}>
+              {formatCurrency(stats.pendingSubtotal)}
+            </Text>
           </View>
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Overdue</Text>
             <Text style={styles.tableCellValue}>
-              {formatCurrency(chartData.paymentBreakdown.find((p: any) => p.name === 'Overdue')?.value || 0)}
+              {formatCurrency(
+                chartData.paymentBreakdown.find(
+                  (p: any) => p.name === "Overdue",
+                )?.value || 0,
+              )}
             </Text>
-            <Text style={styles.tableCellValue}>{formatCurrency(stats.overdueSubtotal)}</Text>
+            <Text style={styles.tableCellValue}>
+              {formatCurrency(stats.overdueSubtotal)}
+            </Text>
           </View>
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Total Pending Receivable</Text>
-            <Text style={styles.tableCellValue}>{formatCurrency(stats.pendingAmount)}</Text>
+            <Text style={styles.tableCellValue}>
+              {formatCurrency(stats.pendingAmount)}
+            </Text>
             <Text style={styles.tableCellValue}>-</Text>
           </View>
         </View>
@@ -360,7 +536,9 @@ export const DashboardPDF = ({
         <View style={styles.table}>
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Current Inventory Value</Text>
-            <Text style={styles.tableCellValue}>{formatCurrency(stats.inventoryValue)}</Text>
+            <Text style={styles.tableCellValue}>
+              {formatCurrency(stats.inventoryValue)}
+            </Text>
           </View>
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Total Products in Stock</Text>
@@ -372,7 +550,9 @@ export const DashboardPDF = ({
           </View>
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Deadstock Loss</Text>
-            <Text style={styles.tableCellValue}>{formatCurrency(stats.deadstockLoss)}</Text>
+            <Text style={styles.tableCellValue}>
+              {formatCurrency(stats.deadstockLoss)}
+            </Text>
           </View>
         </View>
       </View>
@@ -387,7 +567,9 @@ export const DashboardPDF = ({
           </View>
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Total Purchase Bills</Text>
-            <Text style={styles.tableCellValue}>{stats.totalPurchaseBills}</Text>
+            <Text style={styles.tableCellValue}>
+              {stats.totalPurchaseBills}
+            </Text>
           </View>
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Total Clients</Text>
@@ -399,7 +581,9 @@ export const DashboardPDF = ({
           </View>
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Pending Purchases Payable</Text>
-            <Text style={styles.tableCellValue}>{formatCurrency(stats.pendingPurchases)}</Text>
+            <Text style={styles.tableCellValue}>
+              {formatCurrency(stats.pendingPurchases)}
+            </Text>
           </View>
         </View>
       </View>
@@ -415,13 +599,26 @@ export const DashboardPDF = ({
             <Text style={styles.tableCellRight}>Profit</Text>
           </View>
           {chartData.monthlySpendVsSales.slice(0, 8).map((row: any) => {
-            const profitRow = chartData.monthlyProfit.find((p: any) => p.period === row.period);
+            const profitRow = chartData.monthlyProfit.find(
+              (p: any) => p.period === row.period,
+            );
             return (
               <View key={row.period} style={styles.tableRow}>
-                <Text style={[styles.tableCell, { flex: 2 }]}>{row.period}</Text>
-                <Text style={styles.tableCellRight}>{formatCurrency(row.sales)}</Text>
-                <Text style={styles.tableCellRight}>{formatCurrency(row.purchases)}</Text>
-                <Text style={[styles.tableCellRight, (profitRow?.profit || 0) >= 0 ? styles.profit : styles.loss]}>
+                <Text style={[styles.tableCell, { flex: 2 }]}>
+                  {row.period}
+                </Text>
+                <Text style={styles.tableCellRight}>
+                  {formatCurrency(row.sales)}
+                </Text>
+                <Text style={styles.tableCellRight}>
+                  {formatCurrency(row.purchases)}
+                </Text>
+                <Text
+                  style={[
+                    styles.tableCellRight,
+                    (profitRow?.profit || 0) >= 0 ? styles.profit : styles.loss,
+                  ]}
+                >
                   {formatCurrency(profitRow?.profit || 0)}
                 </Text>
               </View>
@@ -431,14 +628,16 @@ export const DashboardPDF = ({
       </View>
 
       <Text style={styles.footer}>
-        {company?.name || 'Invoice Mitra'} | Page 2 of 4
+        {company?.name || "Invoice Mitra"} | Page 2 of 4
       </Text>
     </Page>
 
     {/* PAGE 3: PRODUCT PERFORMANCE */}
     <Page size="A4" style={styles.page}>
       <View style={styles.header}>
-        <Text style={styles.companyName}>{company?.name || 'Invoice Mitra'}</Text>
+        <Text style={styles.companyName}>
+          {company?.name || "Invoice Mitra"}
+        </Text>
         <Text style={styles.reportTitle}>Product Performance Analysis</Text>
       </View>
 
@@ -454,18 +653,27 @@ export const DashboardPDF = ({
             <Text style={styles.metric}>Profit</Text>
             <Text style={styles.metric}>Margin</Text>
           </View>
-          {productAnalytics.topProductsByRevenue.slice(0, 10).map((product: any, index: number) => (
-            <View key={product.productId} style={styles.tableRow}>
-              <Text style={styles.rankBadge}>{index + 1}</Text>
-              <Text style={styles.productName}>{product.name}</Text>
-              <Text style={styles.metric}>{formatCurrency(product.revenue)}</Text>
-              <Text style={styles.metric}>{product.quantity.toFixed(2)}</Text>
-              <Text style={[styles.metric, product.profit >= 0 ? styles.profit : styles.loss]}>
-                {formatCurrency(product.profit)}
-              </Text>
-              <Text style={styles.metric}>{product.margin.toFixed(1)}%</Text>
-            </View>
-          ))}
+          {productAnalytics.topProductsByRevenue
+            .slice(0, 10)
+            .map((product: any, index: number) => (
+              <View key={product.productId} style={styles.tableRow}>
+                <Text style={styles.rankBadge}>{index + 1}</Text>
+                <Text style={styles.productName}>{product.name}</Text>
+                <Text style={styles.metric}>
+                  {formatCurrency(product.revenue)}
+                </Text>
+                <Text style={styles.metric}>{product.quantity.toFixed(2)}</Text>
+                <Text
+                  style={[
+                    styles.metric,
+                    product.profit >= 0 ? styles.profit : styles.loss,
+                  ]}
+                >
+                  {formatCurrency(product.profit)}
+                </Text>
+                <Text style={styles.metric}>{product.margin.toFixed(1)}%</Text>
+              </View>
+            ))}
         </View>
       </View>
 
@@ -480,17 +688,26 @@ export const DashboardPDF = ({
             <Text style={styles.metric}>Profit</Text>
             <Text style={styles.metric}>Revenue</Text>
           </View>
-          {productAnalytics.topProductsByProfit.slice(0, 8).map((product: any, index: number) => (
-            <View key={product.productId} style={styles.tableRow}>
-              <Text style={styles.rankBadge}>{index + 1}</Text>
-              <Text style={styles.productName}>{product.name}</Text>
-              <Text style={styles.metric}>{product.margin.toFixed(1)}%</Text>
-              <Text style={[styles.metric, product.profit >= 0 ? styles.profit : styles.loss]}>
-                {formatCurrency(product.profit)}
-              </Text>
-              <Text style={styles.metric}>{formatCurrency(product.revenue)}</Text>
-            </View>
-          ))}
+          {productAnalytics.topProductsByProfit
+            .slice(0, 8)
+            .map((product: any, index: number) => (
+              <View key={product.productId} style={styles.tableRow}>
+                <Text style={styles.rankBadge}>{index + 1}</Text>
+                <Text style={styles.productName}>{product.name}</Text>
+                <Text style={styles.metric}>{product.margin.toFixed(1)}%</Text>
+                <Text
+                  style={[
+                    styles.metric,
+                    product.profit >= 0 ? styles.profit : styles.loss,
+                  ]}
+                >
+                  {formatCurrency(product.profit)}
+                </Text>
+                <Text style={styles.metric}>
+                  {formatCurrency(product.revenue)}
+                </Text>
+              </View>
+            ))}
         </View>
       </View>
 
@@ -506,28 +723,38 @@ export const DashboardPDF = ({
               <Text style={styles.metric}>Rate</Text>
               <Text style={styles.metric}>Value</Text>
             </View>
-            {productAnalytics.mostReturnedProducts.slice(0, 8).map((product: any, index: number) => (
-              <View key={product.productId} style={styles.tableRow}>
-                <Text style={styles.rankBadge}>{index + 1}</Text>
-                <Text style={styles.productName}>{product.name}</Text>
-                <Text style={styles.metric}>{product.returnQuantity.toFixed(2)}</Text>
-                <Text style={[styles.metric, styles.loss]}>{product.returnRate.toFixed(1)}%</Text>
-                <Text style={[styles.metric, styles.loss]}>{formatCurrency(product.returnValue)}</Text>
-              </View>
-            ))}
+            {productAnalytics.mostReturnedProducts
+              .slice(0, 8)
+              .map((product: any, index: number) => (
+                <View key={product.productId} style={styles.tableRow}>
+                  <Text style={styles.rankBadge}>{index + 1}</Text>
+                  <Text style={styles.productName}>{product.name}</Text>
+                  <Text style={styles.metric}>
+                    {product.returnQuantity.toFixed(2)}
+                  </Text>
+                  <Text style={[styles.metric, styles.loss]}>
+                    {product.returnRate.toFixed(1)}%
+                  </Text>
+                  <Text style={[styles.metric, styles.loss]}>
+                    {formatCurrency(product.returnValue)}
+                  </Text>
+                </View>
+              ))}
           </View>
         </View>
       )}
 
       <Text style={styles.footer}>
-        {company?.name || 'Invoice Mitra'} | Page 3 of 4
+        {company?.name || "Invoice Mitra"} | Page 3 of 4
       </Text>
     </Page>
 
     {/* PAGE 4: CLIENT ANALYSIS */}
     <Page size="A4" style={styles.page}>
       <View style={styles.header}>
-        <Text style={styles.companyName}>{company?.name || 'Invoice Mitra'}</Text>
+        <Text style={styles.companyName}>
+          {company?.name || "Invoice Mitra"}
+        </Text>
         <Text style={styles.reportTitle}>Client Performance Analysis</Text>
       </View>
 
@@ -543,24 +770,37 @@ export const DashboardPDF = ({
             <Text style={styles.metric}>Avg Bill</Text>
             <Text style={styles.metric}>Pending</Text>
           </View>
-          {clientAnalytics.topClientsByRevenue.slice(0, 10).map((client: any, index: number) => (
-            <View key={client.clientId} style={styles.tableRow}>
-              <Text style={styles.rankBadge}>{index + 1}</Text>
-              <Text style={styles.productName}>{client.name}</Text>
-              <Text style={[styles.metric, styles.profit]}>{formatCurrency(client.revenue)}</Text>
-              <Text style={styles.metric}>{client.billCount}</Text>
-              <Text style={styles.metric}>{formatCurrency(client.avgBillValue)}</Text>
-              <Text style={[styles.metric, client.pendingAmount > 0 ? styles.loss : {}]}>
-                {formatCurrency(client.pendingAmount)}
-              </Text>
-            </View>
-          ))}
+          {clientAnalytics.topClientsByRevenue
+            .slice(0, 10)
+            .map((client: any, index: number) => (
+              <View key={client.clientId} style={styles.tableRow}>
+                <Text style={styles.rankBadge}>{index + 1}</Text>
+                <Text style={styles.productName}>{client.name}</Text>
+                <Text style={[styles.metric, styles.profit]}>
+                  {formatCurrency(client.revenue)}
+                </Text>
+                <Text style={styles.metric}>{client.billCount}</Text>
+                <Text style={styles.metric}>
+                  {formatCurrency(client.avgBillValue)}
+                </Text>
+                <Text
+                  style={[
+                    styles.metric,
+                    client.pendingAmount > 0 ? styles.loss : {},
+                  ]}
+                >
+                  {formatCurrency(client.pendingAmount)}
+                </Text>
+              </View>
+            ))}
         </View>
       </View>
 
       {/* Most Active Clients */}
       <View style={styles.section}>
-        <Text style={styles.sectionHeader}>MOST ACTIVE CLIENTS (BY ORDERS)</Text>
+        <Text style={styles.sectionHeader}>
+          MOST ACTIVE CLIENTS (BY ORDERS)
+        </Text>
         <View style={styles.table}>
           <View style={styles.tableRowHeader}>
             <Text style={styles.rankBadge}>#</Text>
@@ -569,15 +809,21 @@ export const DashboardPDF = ({
             <Text style={styles.metric}>Revenue</Text>
             <Text style={styles.metric}>Avg Bill</Text>
           </View>
-          {clientAnalytics.topClientsByOrders.slice(0, 8).map((client: any, index: number) => (
-            <View key={client.clientId} style={styles.tableRow}>
-              <Text style={styles.rankBadge}>{index + 1}</Text>
-              <Text style={styles.productName}>{client.name}</Text>
-              <Text style={styles.metric}>{client.billCount}</Text>
-              <Text style={styles.metric}>{formatCurrency(client.revenue)}</Text>
-              <Text style={styles.metric}>{formatCurrency(client.avgBillValue)}</Text>
-            </View>
-          ))}
+          {clientAnalytics.topClientsByOrders
+            .slice(0, 8)
+            .map((client: any, index: number) => (
+              <View key={client.clientId} style={styles.tableRow}>
+                <Text style={styles.rankBadge}>{index + 1}</Text>
+                <Text style={styles.productName}>{client.name}</Text>
+                <Text style={styles.metric}>{client.billCount}</Text>
+                <Text style={styles.metric}>
+                  {formatCurrency(client.revenue)}
+                </Text>
+                <Text style={styles.metric}>
+                  {formatCurrency(client.avgBillValue)}
+                </Text>
+              </View>
+            ))}
         </View>
       </View>
 
@@ -593,21 +839,28 @@ export const DashboardPDF = ({
               <Text style={styles.metric}>Rate</Text>
               <Text style={styles.metric}>Value</Text>
             </View>
-            {clientAnalytics.clientReturnStats.slice(0, 8).map((client: any, index: number) => (
-              <View key={client.clientId} style={styles.tableRow}>
-                <Text style={styles.rankBadge}>{index + 1}</Text>
-                <Text style={styles.productName}>{client.name}</Text>
-                <Text style={styles.metric}>{client.returnCount}</Text>
-                <Text style={[styles.metric, styles.loss]}>{client.returnRate.toFixed(1)}%</Text>
-                <Text style={[styles.metric, styles.loss]}>{formatCurrency(client.returnValue)}</Text>
-              </View>
-            ))}
+            {clientAnalytics.clientReturnStats
+              .slice(0, 8)
+              .map((client: any, index: number) => (
+                <View key={client.clientId} style={styles.tableRow}>
+                  <Text style={styles.rankBadge}>{index + 1}</Text>
+                  <Text style={styles.productName}>{client.name}</Text>
+                  <Text style={styles.metric}>{client.returnCount}</Text>
+                  <Text style={[styles.metric, styles.loss]}>
+                    {client.returnRate.toFixed(1)}%
+                  </Text>
+                  <Text style={[styles.metric, styles.loss]}>
+                    {formatCurrency(client.returnValue)}
+                  </Text>
+                </View>
+              ))}
           </View>
         </View>
       )}
 
       <Text style={styles.footer}>
-        {company?.name || 'Invoice Mitra'} | Page 4 of 4 | Report generated on {new Date().toLocaleDateString('en-IN')}
+        {company?.name || "Invoice Mitra"} | Page 4 of 4 | Report generated on{" "}
+        {new Date().toLocaleDateString("en-IN")}
       </Text>
     </Page>
   </Document>

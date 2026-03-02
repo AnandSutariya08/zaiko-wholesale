@@ -141,6 +141,7 @@ export default function Dashboard() {
     totalDiscount: 0,
     pendingCollection: 0,
     expectedProfit: 0,
+    expectedTotalNetProfit: 0,
   });
   const [chartData, setChartData] = useState({
     monthlySpendVsSales: [] as {
@@ -752,9 +753,9 @@ export default function Dashboard() {
       const profit = roundToTwoDecimals(
         grossProfit - deadstockLoss - totalExpenses,
       );
-      const profitBeforeExpenses = roundToTwoDecimals(profit + totalExpenses);
-      const expectedProfit = roundToTwoDecimals(
-        profitBeforeExpenses + unrealizedPendingProfit,
+      const expectedProfit = roundToTwoDecimals(unrealizedPendingProfit);
+      const expectedTotalNetProfit = roundToTwoDecimals(
+        profit + expectedProfit,
       );
 
       const gstCollected = roundToTwoDecimals(
@@ -811,6 +812,7 @@ export default function Dashboard() {
         totalDiscount,
         pendingCollection: pendingAmount,
         expectedProfit,
+        expectedTotalNetProfit,
       });
 
       setChartData({
@@ -1741,9 +1743,16 @@ export default function Dashboard() {
                     </div>
                     <div className="flex items-center gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
                       <Calculator className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
-                      <span className="text-[10px] sm:text-xs md:text-sm text-muted-foreground break-words">
-                        Profit (excl. expenses) + pending receivable profit (excl. GST)
-                      </span>
+                      <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground break-words">
+                        Net expected profit from pending collection (excl. GST)
+                        <br />
+                        {`Expected total Net Profit: ${stats.expectedTotalNetProfit < 0 ? "-" : ""}Rs. ${Math.abs(
+                          stats.expectedTotalNetProfit,
+                        ).toLocaleString("en-IN", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}`}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
