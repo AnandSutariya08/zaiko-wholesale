@@ -1158,11 +1158,19 @@ function PurchaseBills() {
     // Use commission settings from company profile to calculate default selling price
     const products = await getProducts();
     const items = bill.items.map((item) => {
-      const existingProduct = products.find(
-        (p) =>
-          p.name.toLowerCase() === item.description.toLowerCase() ||
-          p.hsnCode === item.hsnCode,
-      );
+      const normalizedName = (item.description || "").trim().toLowerCase();
+      const normalizedHsn = (item.hsnCode || "").trim().toLowerCase();
+      const exactMatch = products.find((p) => {
+        const pName = (p.name || "").trim().toLowerCase();
+        const pHsn = (p.hsnCode || "").trim().toLowerCase();
+        if (normalizedName && normalizedHsn) {
+          return pName === normalizedName && pHsn === normalizedHsn;
+        }
+        if (normalizedName && !normalizedHsn) {
+          return pName === normalizedName;
+        }
+        return false;
+      });
 
       return {
         description: item.description,
@@ -1180,8 +1188,8 @@ function PurchaseBills() {
         weight: (item as any).weight || 0,
         weightUnit: (item as any).weightUnit || "g",
         vendorId: bill.vendorId || "",
-        productId: existingProduct?.id,
-        isNewProduct: !existingProduct,
+        productId: exactMatch?.id,
+        isNewProduct: !exactMatch,
       };
     });
 
@@ -1204,9 +1212,7 @@ function PurchaseBills() {
     }
   };
 
-  const confirmAddToInventory = async (
-    conflictResolutions?: Map<string, string>,
-  ) => {
+  const confirmAddToInventory = async (conflictResolutions?: Map<string, string>) => {
     if (!inventoryDialogBill) return;
 
     setLoadingInventory(inventoryDialogBill.id);
@@ -1452,17 +1458,40 @@ function PurchaseBills() {
       };
 
       await updatePurchaseBill(updatedBill);
-      await loadBills();
+      const refreshedBills = await getPurchaseBills();
+      setBills(refreshedBills);
+      const latestBill =
+        refreshedBills.find((b) => b.id === updatedBill.id) || updatedBill;
+
       if (selectedBill && selectedBill.id === updatedBill.id) {
-        setSelectedBill(updatedBill);
+        setSelectedBill(latestBill);
       }
       setIsEditing(false);
       setEditedBill(null);
 
-      toast({
-        title: "Saved",
-        description: "Bill updated successfully",
-      });
+      const totalReturns =
+        latestBill.returns?.reduce((sum, r) => sum + r.totalReturnValue, 0) || 0;
+      const netTotal = latestBill.total - totalReturns;
+      const paidAmount = latestBill.paidAmount || 0;
+      const pendingAmount = Math.max(0, netTotal - paidAmount);
+      const overpaidAmount = Math.max(0, paidAmount - netTotal);
+
+      if (pendingAmount > 0.009 || overpaidAmount > 0.009) {
+        setSelectedBillForPayment(latestBill);
+        setPaymentDialogOpen(true);
+        toast({
+          title: "Bill Updated",
+          description:
+            pendingAmount > 0
+              ? `Remaining payment: ${formatCurrency(pendingAmount)}`
+              : `Overpaid: ${formatCurrency(overpaidAmount)}. Record collection.`,
+        });
+      } else {
+        toast({
+          title: "Saved",
+          description: "Bill updated successfully",
+        });
+      }
     } catch (error) {
       console.error("Error saving edited bill:", error);
       toast({
@@ -4030,25 +4059,36 @@ function PurchaseBills() {
                     )}
                     <Button
                       size="default"
-                      variant={
-                        selectedBill.paymentStatus === "paid"
+                      variant={(() => {
+                        const totalReturns = (
+                          selectedBill.returns || []
+                        ).reduce((sum, r) => sum + r.totalReturnValue, 0);
+                        const netTotal = selectedBill.total - totalReturns;
+                        const isOverpaid = (selectedBill.paidAmount || 0) > netTotal;
+                        return selectedBill.paymentStatus === "paid" && !isOverpaid
                           ? "secondary"
-                          : "default"
-                      }
-                      onClick={() => {
-                        handleTogglePayment(selectedBill);
-                        setSelectedBill({
-                          ...selectedBill,
-                          paymentStatus:
-                            selectedBill.paymentStatus === "paid"
-                              ? "pending"
-                              : "paid",
-                        });
-                      }}
+                          : "default";
+                      })()}
+                      onClick={() => handleTogglePayment(selectedBill)}
+                      disabled={(() => {
+                        const totalReturns = (
+                          selectedBill.returns || []
+                        ).reduce((sum, r) => sum + r.totalReturnValue, 0);
+                        const netTotal = selectedBill.total - totalReturns;
+                        const isOverpaid = (selectedBill.paidAmount || 0) > netTotal;
+                        return selectedBill.paymentStatus === "paid" && !isOverpaid;
+                      })()}
                     >
-                      {selectedBill.paymentStatus === "paid"
-                        ? "Mark as Pending"
-                        : "Mark as Paid"}
+                      {(() => {
+                        const totalReturns = (
+                          selectedBill.returns || []
+                        ).reduce((sum, r) => sum + r.totalReturnValue, 0);
+                        const netTotal = selectedBill.total - totalReturns;
+                        const isOverpaid = (selectedBill.paidAmount || 0) > netTotal;
+                        if (isOverpaid) return "Collect Overpaid";
+                        if (selectedBill.paymentStatus === "paid") return "Payment Settled";
+                        return "Pay Remaining";
+                      })()}
                     </Button>
                   </div>
                 </div>

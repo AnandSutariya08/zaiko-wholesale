@@ -31,14 +31,19 @@ export function ConflictResolutionDialog({
   );
 
   const { toast } = useToast();
-  const handleResolution = (hsnCode: string, chosenName: string) => {
-    setResolutions((prev) => new Map(prev).set(hsnCode, chosenName));
+  const getConflictKey = (conflict: ProductConflict, index: number) =>
+    conflict.conflictKey ||
+    conflict.item.conflictKey ||
+    `${conflict.item.hsnCode || "no-hsn"}::${index}`;
+
+  const handleResolution = (conflictKey: string, selectedProductId: string) => {
+    setResolutions((prev) => new Map(prev).set(conflictKey, selectedProductId));
   };
 
   const handleConfirm = () => {
     // Check if all conflicts are resolved
-    const allResolved = conflicts.every((conflict) =>
-      resolutions.has(conflict.item.hsnCode)
+    const allResolved = conflicts.every((conflict, index) =>
+      resolutions.has(getConflictKey(conflict, index))
     );
 
     if (!allResolved) {
@@ -71,7 +76,7 @@ export function ConflictResolutionDialog({
 
           {conflicts.map((conflict, index) => (
             <div
-              key={index}
+              key={getConflictKey(conflict, index)}
               className="border rounded-lg p-4 bg-amber-50 dark:bg-amber-950/20"
             >
               <div className="space-y-3">
@@ -91,35 +96,38 @@ export function ConflictResolutionDialog({
                 </div>
 
                 <RadioGroup
-                  value={resolutions.get(conflict.item.hsnCode) || ""}
+                  value={resolutions.get(getConflictKey(conflict, index)) || ""}
                   onValueChange={(value) =>
-                    handleResolution(conflict.item.hsnCode, value)
+                    handleResolution(getConflictKey(conflict, index), value)
                   }
                   className="space-y-3 mt-4"
                 >
-                  <div className="flex items-start space-x-3 rounded-lg border-2 border-primary/20 p-3 hover:border-primary/40 transition-colors">
-                    <RadioGroupItem
-                      value={conflict.existingProduct.name}
-                      id={`existing-${index}`}
-                      className="mt-1"
-                    />
-                    <Label
-                      htmlFor={`existing-${index}`}
-                      className="flex-1 cursor-pointer"
+                  {(conflict.existingProducts || []).map((product, pIndex) => (
+                    <div
+                      key={product.id}
+                      className="flex items-start space-x-3 rounded-lg border-2 border-primary/20 p-3 hover:border-primary/40 transition-colors"
                     >
-                      <div className="font-medium">
-                        {conflict.existingProduct.name}
-                      </div>
-                      <div className="text-sm text-muted-foreground mt-1">
-                        Existing product (Current stock:{" "}
-                        {conflict.existingProduct.stock})
-                      </div>
-                    </Label>
-                  </div>
+                      <RadioGroupItem
+                        value={product.id}
+                        id={`existing-${index}-${pIndex}`}
+                        className="mt-1"
+                      />
+                      <Label
+                        htmlFor={`existing-${index}-${pIndex}`}
+                        className="flex-1 cursor-pointer"
+                      >
+                        <div className="font-medium">{product.name}</div>
+                        <div className="text-sm text-muted-foreground mt-1">
+                          Existing product (HSN: {product.hsnCode || "N/A"}, Stock:{" "}
+                          {product.stock})
+                        </div>
+                      </Label>
+                    </div>
+                  ))}
 
                   <div className="flex items-start space-x-3 rounded-lg border-2 border-primary/20 p-3 hover:border-primary/40 transition-colors">
                     <RadioGroupItem
-                      value={conflict.item.description}
+                      value="__create_new__"
                       id={`new-${index}`}
                       className="mt-1"
                     />

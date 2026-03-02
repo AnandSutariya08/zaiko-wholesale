@@ -15,10 +15,7 @@ export const exportDashboardToExcel = (
 
     // Helper function to format currency
     const formatCurrency = (amount: number) => `₹${amount.toFixed(2)}`;
-    const purchasePaidAmount = Math.max(
-        0,
-        (stats.totalPurchases || 0) - (stats.pendingPurchases || 0),
-    );
+    const purchasePaidAmount = Math.max(0, stats.totalPurchases || 0);
     const totalSellAmount = (stats.totalRevenue || 0) + (stats.pendingAmount || 0);
 
     // ========== SHEET 1: EXECUTIVE SUMMARY ==========
@@ -33,7 +30,7 @@ export const exportDashboardToExcel = (
         ['Total Revenue (Received)', formatCurrency(stats.totalRevenue), 'Actual money received including partial payments'],
         ['Total Revenue (excl. GST)', formatCurrency(stats.totalRevenue - stats.gstCollected), 'Revenue without GST'],
         ['Total Discount Given', formatCurrency(stats.totalDiscount), 'Total discount amount'],
-        ['Total Purchases', formatCurrency(stats.totalPurchases), 'Money spent on buying inventory'],
+        ['Total Purchases', formatCurrency(stats.totalPurchases), 'Paid purchases only (unpaid purchases are excluded)'],
         ['Current Inventory Value', formatCurrency(stats.inventoryValue || 0), 'Current value of available inventory stock'],
         ['Gross Profit', formatCurrency(stats.grossProfit), 'Revenue - COGS'],
         ['Expenses', formatCurrency(stats.totalExpenses), 'Operational expenses in selected period'],
@@ -45,8 +42,8 @@ export const exportDashboardToExcel = (
         [],
         ['PURCHASE & SALES SETTLEMENT OVERVIEW'],
         ['Metric', 'Value', 'Notes'],
-        ['Total Purchase', formatCurrency(stats.totalPurchases || 0), 'Total purchase value after returns'],
-        ['Purchase Paid Amount', formatCurrency(purchasePaidAmount), 'Total purchases already paid'],
+        ['Total Purchase', formatCurrency(stats.totalPurchases || 0), 'Paid purchase value after returns'],
+        ['Purchase Paid Amount', formatCurrency(purchasePaidAmount), 'Total purchases already paid (same as Total Purchase)'],
         ['Purchase Pending Amount', formatCurrency(stats.pendingPurchases || 0), 'Pending purchases payable to vendors'],
         ['Total Sell', formatCurrency(totalSellAmount), 'Collected + pending sales amount'],
         ['Sells Collected Amount', formatCurrency(stats.totalRevenue || 0), 'Total collected from sales'],

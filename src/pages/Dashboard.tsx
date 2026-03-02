@@ -385,6 +385,18 @@ export default function Dashboard() {
         ),
       );
 
+      const getPurchaseBillFinancials = (bill: PurchaseBill) => {
+        const totalReturns =
+          bill.returns?.reduce((rSum, r) => rSum + (r.totalReturnValue || 0), 0) ||
+          0;
+        const netTotal = roundToTwoDecimals(Math.max(0, bill.total - totalReturns));
+        const recognizedPaid = roundToTwoDecimals(
+          Math.min(Math.max(0, bill.paidAmount || 0), netTotal),
+        );
+        const pending = roundToTwoDecimals(Math.max(0, netTotal - recognizedPaid));
+        return { netTotal, recognizedPaid, pending };
+      };
+
       const pendingAmount = roundToTwoDecimals(
         filteredBillsInRange.reduce(
           (sum, bill) => sum + getBillFinancials(bill).pending,
@@ -396,22 +408,16 @@ export default function Dashboard() {
       ).length;
 
       const totalPurchases = roundToTwoDecimals(
-        purchaseBillsInRange.reduce((sum, bill) => {
-          const returns =
-            bill.returns?.reduce((rSum, r) => rSum + r.totalReturnValue, 0) ||
-            0;
-          return sum + (bill.total - returns);
-        }, 0),
+        purchaseBillsInRange.reduce(
+          (sum, bill) => sum + getPurchaseBillFinancials(bill).recognizedPaid,
+          0,
+        ),
       );
       const pendingPurchases = roundToTwoDecimals(
-        purchaseBillsInRange
-          .filter((b) => b.paymentStatus !== "paid")
-          .reduce((sum, bill) => {
-            const returns =
-              bill.returns?.reduce((rSum, r) => rSum + r.totalReturnValue, 0) ||
-              0;
-            return sum + (bill.total - returns - (bill.paidAmount || 0));
-          }, 0),
+        purchaseBillsInRange.reduce(
+          (sum, bill) => sum + getPurchaseBillFinancials(bill).pending,
+          0,
+        ),
       );
 
       const monthNames = [
@@ -641,17 +647,25 @@ export default function Dashboard() {
         );
         if (!buckets[key])
           buckets[key] = { label, sales: 0, purchases: 0, profit: 0 };
-        const returns =
-          pb.returns?.reduce(
-            (rSum, r) => rSum + (r.totalReturnValue || 0),
-            0,
-          ) || 0;
-        const adjustedTotal = Math.max(0, pb.total - returns);
+        const purchaseFinancials = getPurchaseBillFinancials(pb);
         const returnRatio =
-          pb.total > 0 ? Math.min(1, Math.max(0, returns / pb.total)) : 0;
+          pb.total > 0
+            ? Math.min(
+                1,
+                Math.max(0, 1 - purchaseFinancials.netTotal / (pb.total || 1)),
+              )
+            : 0;
         const adjustedGst = (pb.totalTax || 0) * (1 - returnRatio);
+        const adjustedSubtotal = Math.max(
+          0,
+          purchaseFinancials.netTotal - adjustedGst,
+        );
+        const paymentRatio =
+          purchaseFinancials.netTotal > 0
+            ? purchaseFinancials.recognizedPaid / purchaseFinancials.netTotal
+            : 0;
         buckets[key].purchases += roundToTwoDecimals(
-          Math.max(0, adjustedTotal - adjustedGst),
+          adjustedSubtotal * paymentRatio,
         );
       });
 
@@ -1635,6 +1649,12 @@ export default function Dashboard() {
                       <ArrowDownRight className="h-3 w-3 sm:h-4 sm:w-4 text-orange-500 flex-shrink-0" />
                       <span className="text-[10px] sm:text-xs md:text-sm text-muted-foreground">
                         {stats.totalPurchaseBills} bills
+                      </span>
+                    </div>
+                    <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground mt-1 break-words">
+                      Pending purchase payment:{" "}
+                      <span className="font-medium text-orange-700 dark:text-orange-300">
+                        {formatCurrency(stats.pendingPurchases)}
                       </span>
                     </div>
                   </CardContent>

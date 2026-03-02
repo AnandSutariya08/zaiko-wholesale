@@ -2,16 +2,16 @@ import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 
 const styles = StyleSheet.create({
   page: {
-    padding: 40,
-    fontSize: 10,
+    padding: 28,
+    fontSize: 9,
     fontFamily: "Helvetica",
     backgroundColor: "#ffffff",
   },
   header: {
-    marginBottom: 20,
+    marginBottom: 10,
     borderBottomWidth: 2,
     borderBottomColor: "#111827",
-    paddingBottom: 15,
+    paddingBottom: 8,
   },
   companyName: {
     fontSize: 20,
@@ -19,28 +19,29 @@ const styles = StyleSheet.create({
     color: "#111827",
   },
   reportTitle: {
-    fontSize: 14,
-    marginTop: 5,
+    fontSize: 12,
+    marginTop: 3,
     color: "#374151",
   },
   period: {
-    fontSize: 9,
-    marginTop: 5,
+    fontSize: 8,
+    marginTop: 2,
     color: "#6b7280",
   },
   section: {
-    marginTop: 15,
-    marginBottom: 10,
+    marginTop: 8,
+    marginBottom: 4,
   },
   sectionHeader: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "bold",
     backgroundColor: "#f3f4f6",
-    padding: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
     borderLeftWidth: 3,
     borderLeftColor: "#111827",
     color: "#111827",
-    marginBottom: 8,
+    marginBottom: 4,
   },
   subsectionHeader: {
     fontSize: 10,
@@ -56,7 +57,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     borderBottomColor: "#e5e7eb",
     borderBottomWidth: 1,
-    paddingVertical: 6,
+    paddingVertical: 3,
     paddingHorizontal: 4,
   },
   tableRowHeader: {
@@ -64,7 +65,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f9fafb",
     borderBottomColor: "#d1d5db",
     borderBottomWidth: 1,
-    paddingVertical: 6,
+    paddingVertical: 4,
     paddingHorizontal: 4,
     fontWeight: "bold",
   },
@@ -94,8 +95,8 @@ const styles = StyleSheet.create({
     color: "#374151",
   },
   summaryBox: {
-    marginTop: 15,
-    padding: 12,
+    marginTop: 8,
+    padding: 8,
     backgroundColor: "#f9fafb",
     borderWidth: 1,
     borderColor: "#e5e7eb",
@@ -245,12 +246,7 @@ export const DashboardPDF = ({
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Total Purchases</Text>
             <Text style={styles.tableCellValue}>
-              {formatCurrency(
-                Math.max(
-                  0,
-                  (stats.totalPurchases || 0) - (stats.pendingPurchases || 0),
-                ),
-              )}
+              {formatCurrency(stats.totalPurchases || 0)}
             </Text>
           </View>
           <View style={styles.tableRow}>
@@ -325,12 +321,7 @@ export const DashboardPDF = ({
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Purchase Paid Amount</Text>
             <Text style={[styles.tableCellValue, { textAlign: "left" }]}>
-              {formatCurrency(
-                Math.max(
-                  0,
-                  (stats.totalPurchases || 0) - (stats.pendingPurchases || 0),
-                ),
-              )}
+              {formatCurrency(stats.totalPurchases || 0)}
             </Text>
           </View>
           <View style={styles.tableRow}>
@@ -360,20 +351,6 @@ export const DashboardPDF = ({
             </Text>
           </View>
         </View>
-      </View>
-
-      <Text style={styles.footer}>
-        {company?.name || "Invoice Mitra"} | Page 1 of 5
-      </Text>
-    </Page>
-
-    {/* PAGE 2: FINANCIAL DETAILS */}
-    <Page size="A4" style={styles.page}>
-      <View style={styles.header}>
-        <Text style={styles.companyName}>
-          {company?.name || "Invoice Mitra"}
-        </Text>
-        <Text style={styles.reportTitle}>Financial Details</Text>
       </View>
 
       <View style={styles.section}>
@@ -422,7 +399,6 @@ export const DashboardPDF = ({
           </View>
         </View>
       </View>
-
       <View style={styles.section}>
         <Text style={styles.sectionHeader}>COST BREAKDOWN</Text>
         <View style={styles.table}>
@@ -475,10 +451,13 @@ export const DashboardPDF = ({
           </Text>
         </View>
       </View>
-
-      <Text style={styles.footer}>
-        {company?.name || "Invoice Mitra"} | Page 2 of 5
-      </Text>
+      <Text
+        style={styles.footer}
+        fixed
+        render={({ pageNumber, totalPages }) =>
+          `${company?.name || "Invoice Mitra"} Report generated on ${new Date().toLocaleDateString("en-IN")} | Page ${pageNumber} of ${totalPages}`
+        }
+      />
     </Page>
 
     {/* PAGE 3: PAYMENT STATUS & INVENTORY */}
@@ -642,10 +621,13 @@ export const DashboardPDF = ({
           })}
         </View>
       </View>
-
-      <Text style={styles.footer}>
-        {company?.name || "Invoice Mitra"} | Page 3 of 5
-      </Text>
+      <Text
+        style={styles.footer}
+        fixed
+        render={({ pageNumber, totalPages }) =>
+          `${company?.name || "Invoice Mitra"} Report generated on ${new Date().toLocaleDateString("en-IN")} | Page ${pageNumber} of ${totalPages}`
+        }
+      />
     </Page>
 
     {/* PAGE 4: PRODUCT PERFORMANCE */}
@@ -759,10 +741,13 @@ export const DashboardPDF = ({
           </View>
         </View>
       )}
-
-      <Text style={styles.footer}>
-        {company?.name || "Invoice Mitra"} | Page 4 of 5
-      </Text>
+      <Text
+        style={styles.footer}
+        fixed
+        render={({ pageNumber, totalPages }) =>
+          `${company?.name || "Invoice Mitra"} Report generated on ${new Date().toLocaleDateString("en-IN")} | Page ${pageNumber} of ${totalPages}`
+        }
+      />
     </Page>
 
     {/* PAGE 5: CLIENT ANALYSIS */}
@@ -874,10 +859,13 @@ export const DashboardPDF = ({
         </View>
       )}
 
-      <Text style={styles.footer}>
-        {company?.name || "Invoice Mitra"} | Page 5 of 5 | Report generated on{" "}
-        {new Date().toLocaleDateString("en-IN")}
-      </Text>
+      <Text
+        style={styles.footer}
+        fixed
+        render={({ pageNumber, totalPages }) =>
+          `${company?.name || "Invoice Mitra"} Report generated on ${new Date().toLocaleDateString("en-IN")} | Page ${pageNumber} of ${totalPages}`
+        }
+      />
     </Page>
   </Document>
 );

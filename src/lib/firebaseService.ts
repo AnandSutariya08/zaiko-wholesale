@@ -67,7 +67,21 @@ const COLLECTIONS = {
   BANK_ACCOUNTS: "bankAccounts",
   VENDORS: "vendors",
   EXPOS: "expos",
+  PRODUCT_ALIASES: "productAliases",
 };
+
+interface ProductAliasRecord {
+  id: string;
+  userId: string;
+  productId: string;
+  vendorId?: string;
+  aliasNameNormalized: string;
+  aliasHsnNormalized: string;
+  aliasNameRaw?: string;
+  aliasHsnRaw?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 // Helper function to get user ID (for multi-user support in future)
 const getUserId = (): string => {
@@ -1051,11 +1065,315 @@ export const getPurchaseBills = async (): Promise<PurchaseBill[]> => {
   }
 };
 
+const roundToTwoDecimals = (value: number): number =>
+  Math.round((Number(value) || 0) * 100) / 100;
+
+const getPurchasePaymentStatus = (
+  total: number,
+  paidAmount: number,
+  dueDate?: string,
+): PurchaseBill["paymentStatus"] => {
+  const normalizedTotal = roundToTwoDecimals(Math.max(0, total || 0));
+  const normalizedPaid = roundToTwoDecimals(paidAmount || 0);
+
+  if (normalizedPaid > normalizedTotal) return "overpaid";
+  if (Math.abs(normalizedPaid - normalizedTotal) < 0.01) return "paid";
+  if (normalizedPaid > 0) return "partial";
+
+  if (dueDate) {
+    const due = new Date(dueDate);
+    const today = new Date();
+    due.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+    if (due < today) return "overdue";
+  }
+  return "pending";
+};
+
+const normalizeText = (value?: string): string =>
+  (value || "").trim().toLowerCase();
+
+const makeAliasKey = (vendorId: string, name: string, hsn: string): string =>
+  `${vendorId || "no-vendor"}|${name}|${hsn}`;
+
+const buildPurchaseConflictKey = (
+  item: InventoryItemInput,
+  index: number,
+  bill: PurchaseBill,
+): string => {
+  const vendorId = normalizeText(item.vendorId || bill.vendorId || "");
+  const name = normalizeText(item.description);
+  const hsn = normalizeText(item.hsnCode);
+  return `${vendorId}|${name}|${hsn}|${index}`;
+};
+
+const getProductAliasesForUser = async (): Promise<ProductAliasRecord[]> => {
+  const userId = getUserId();
+  const q = query(
+    collection(db, COLLECTIONS.PRODUCT_ALIASES),
+    where("userId", "==", userId),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => d.data() as ProductAliasRecord);
+};
+
+const indexAliasesByKey = (aliases: ProductAliasRecord[]) => {
+  const map = new Map<string, ProductAliasRecord>();
+  aliases.forEach((a) => {
+    map.set(
+      makeAliasKey(
+        normalizeText(a.vendorId),
+        normalizeText(a.aliasNameNormalized),
+        normalizeText(a.aliasHsnNormalized),
+      ),
+      a,
+    );
+  });
+  return map;
+};
+
+const resolveProductForPurchaseBillItem = (
+  item: PurchaseBill["items"][number],
+  products: Product[],
+): Product | null => {
+  if (item.productId) {
+    const byId = products.find((p) => p.id === item.productId);
+    if (byId) return byId;
+  }
+
+  const name = normalizeText(item.description);
+  const hsn = normalizeText(item.hsnCode);
+
+  if (hsn && name) {
+    const exact = products.find(
+      (p) => normalizeText(p.hsnCode) === hsn && normalizeText(p.name) === name,
+    );
+    if (exact) return exact;
+  }
+
+  if (name) {
+    const byName = products.find((p) => normalizeText(p.name) === name);
+    if (byName) return byName;
+  }
+
+  if (hsn) {
+    const byHsn = products.filter((p) => normalizeText(p.hsnCode) === hsn);
+    if (byHsn.length === 1) return byHsn[0];
+  }
+
+  return null;
+};
+
 export const updatePurchaseBill = async (bill: PurchaseBill): Promise<void> => {
   try {
     const docRef = doc(db, COLLECTIONS.PURCHASE_BILLS, bill.id);
-    const cleanedData = removeUndefined(bill);
-    await updateDoc(docRef, cleanedData);
+    const billSnap = await getDoc(docRef);
+    if (!billSnap.exists()) {
+      throw new Error("Purchase bill not found");
+    }
+
+    const existingBill = billSnap.data() as PurchaseBill;
+    const userId = getUserId();
+
+    const updatedBill: PurchaseBill = {
+      ...bill,
+      updatedAt: bill.updatedAt || new Date().toISOString(),
+    };
+
+    // Keep payment entries as actually recorded in history.
+    // When bill total changes, user should explicitly settle difference
+    // (pay remaining or collect overpaid) via payment dialog.
+    const existingPayments = Array.isArray(existingBill.payments)
+      ? [...existingBill.payments]
+      : [];
+    const incomingPayments = Array.isArray(updatedBill.payments)
+      ? [...updatedBill.payments]
+      : [...existingPayments];
+    const normalizedPayments = [...incomingPayments];
+
+    const normalizedPaidAmount = roundToTwoDecimals(
+      normalizedPayments.reduce((sum, p) => sum + (p.amount || 0), 0),
+    );
+    updatedBill.payments = normalizedPayments;
+    updatedBill.paidAmount = normalizedPaidAmount;
+    updatedBill.paymentStatus = getPurchasePaymentStatus(
+      updatedBill.total || 0,
+      normalizedPaidAmount,
+      updatedBill.dueDate,
+    );
+
+    const shouldReconcileInventory =
+      existingBill.itemsAddedToInventory === true ||
+      updatedBill.itemsAddedToInventory === true;
+
+    if (!shouldReconcileInventory) {
+      await updateDoc(docRef, removeUndefined(updatedBill));
+      return;
+    }
+
+    const batch = writeBatch(db);
+    const products = await getProducts();
+    const productById = new Map(products.map((p) => [p.id, p]));
+
+    // Read old posted purchase snapshot for this bill from inventory transactions.
+    const oldInventoryQuery = query(
+      collection(db, COLLECTIONS.INVENTORY),
+      where("billId", "==", bill.id),
+    );
+    const oldInventorySnap = await getDocs(oldInventoryQuery);
+
+    const oldQtyByProduct = new Map<string, number>();
+    oldInventorySnap.docs.forEach((d) => {
+      const data = d.data() as InventoryTransaction;
+      if (data.type !== "purchase") return;
+      const prev = oldQtyByProduct.get(data.productId) || 0;
+      oldQtyByProduct.set(
+        data.productId,
+        roundToTwoDecimals(prev + (data.quantity || 0)),
+      );
+      batch.delete(d.ref);
+    });
+
+    const newQtyByProduct = new Map<string, number>();
+    const newValueByProduct = new Map<string, number>();
+
+    for (const item of updatedBill.items || []) {
+      const qty = roundToTwoDecimals(item.quantity || 0);
+      if (qty <= 0) continue;
+
+      let product = resolveProductForPurchaseBillItem(item, products);
+      if (!product) {
+        const newProduct: Product = {
+          id: crypto.randomUUID(),
+          name: item.description || "Unnamed Product",
+          hsnCode: item.hsnCode || "",
+          gstRate: item.gstRate || 0,
+          unit: item.unit || "pcs",
+          price: item.rate || 0,
+          purchasePrice: item.rate || 0,
+          sellingPrice: item.rate || 0,
+          stock: 0,
+          createdAt: new Date().toISOString(),
+          whereToBuy: updatedBill.vendorName || "",
+          vendorId: updatedBill.vendorId || "",
+          weight: item.weight || 0,
+        };
+        const newProductRef = doc(db, COLLECTIONS.PRODUCTS, newProduct.id);
+        batch.set(newProductRef, removeUndefined({ ...newProduct, userId }));
+        product = newProduct;
+        products.push(newProduct);
+        productById.set(newProduct.id, newProduct);
+      }
+
+      const prevQty = newQtyByProduct.get(product.id) || 0;
+      newQtyByProduct.set(product.id, roundToTwoDecimals(prevQty + qty));
+
+      const prevValue = newValueByProduct.get(product.id) || 0;
+      newValueByProduct.set(
+        product.id,
+        roundToTwoDecimals(prevValue + qty * (item.rate || 0)),
+      );
+    }
+
+    const impactedProductIds = new Set<string>([
+      ...oldQtyByProduct.keys(),
+      ...newQtyByProduct.keys(),
+    ]);
+
+    // Validate stock for negative deltas before applying updates.
+    for (const productId of impactedProductIds) {
+      const oldQty = oldQtyByProduct.get(productId) || 0;
+      const newQty = newQtyByProduct.get(productId) || 0;
+      const deltaQty = roundToTwoDecimals(newQty - oldQty);
+      if (deltaQty >= 0) continue;
+
+      const product = productById.get(productId);
+      if (!product) {
+        throw new Error(`Product not found while reconciling: ${productId}`);
+      }
+      const requiredToRemove = Math.abs(deltaQty);
+      if ((product.stock || 0) < requiredToRemove) {
+        throw new Error(
+          `Cannot reduce stock for "${product.name}" by ${requiredToRemove.toFixed(
+            2,
+          )}. Available: ${(product.stock || 0).toFixed(2)}.`,
+        );
+      }
+    }
+
+    for (const productId of impactedProductIds) {
+      const oldQty = oldQtyByProduct.get(productId) || 0;
+      const newQty = newQtyByProduct.get(productId) || 0;
+      const deltaQty = roundToTwoDecimals(newQty - oldQty);
+      if (Math.abs(deltaQty) < 0.01) continue;
+
+      const product = productById.get(productId);
+      if (!product) continue;
+
+      const productRef = doc(db, COLLECTIONS.PRODUCTS, productId);
+      const currentStock = roundToTwoDecimals(product.stock || 0);
+      const nextStock = roundToTwoDecimals(currentStock + deltaQty);
+
+      const updates: Partial<Product> = {
+        stock: nextStock,
+      };
+
+      if (deltaQty > 0) {
+        const currentPurchasePrice = roundToTwoDecimals(
+          product.purchasePrice || 0,
+        );
+        const addedValue = newValueByProduct.get(productId) || 0;
+        const addedQty = newQtyByProduct.get(productId) || 0;
+        const incomingPurchasePrice =
+          addedQty > 0 ? roundToTwoDecimals(addedValue / addedQty) : 0;
+
+        if (nextStock > 0) {
+          const weightedPurchasePrice = roundToTwoDecimals(
+            (currentStock * currentPurchasePrice +
+              deltaQty * incomingPurchasePrice) /
+              nextStock,
+          );
+          updates.purchasePrice = weightedPurchasePrice;
+        }
+      }
+
+      batch.update(productRef, removeUndefined(updates));
+      productById.set(productId, {
+        ...product,
+        ...updates,
+      });
+    }
+
+    // Recreate purchase inventory transactions for this bill as the latest snapshot.
+    for (const [productId, qty] of newQtyByProduct.entries()) {
+      if (qty <= 0) continue;
+      const transactionRef = doc(collection(db, COLLECTIONS.INVENTORY));
+      const qtyValue = roundToTwoDecimals(qty);
+      const value = newValueByProduct.get(productId) || 0;
+      const purchasePrice =
+        qtyValue > 0 ? roundToTwoDecimals(value / qtyValue) : 0;
+
+      const transaction: InventoryTransaction = {
+        id: transactionRef.id,
+        productId,
+        billId: updatedBill.id,
+        type: "purchase",
+        quantity: qtyValue,
+        date: updatedBill.billDate || updatedBill.updatedAt || new Date().toISOString(),
+        purchasePrice,
+        userId,
+      };
+      batch.set(transactionRef, removeUndefined(transaction));
+    }
+
+    batch.update(docRef, {
+      ...removeUndefined(updatedBill),
+      itemsAddedToInventory: true,
+      inventoryAddedAt:
+        updatedBill.inventoryAddedAt || existingBill.inventoryAddedAt || new Date().toISOString(),
+    });
+
+    await batch.commit();
   } catch (error) {
     console.error("Error updating purchase bill:", error);
     throw error;
@@ -1347,18 +1665,68 @@ export const deletePurchaseReturn = async (
 export const addPurchaseItemsToInventory = async (
   bill: PurchaseBill,
   itemsWithSellingPrice: InventoryItemInput[],
-  conflictResolutions?: Map<string, string>, // HSN -> chosen name
+  conflictResolutions?: Map<string, string>, // conflictKey -> productId | __create_new__
 ): Promise<InventoryAddResult> => {
   try {
     const userId = getUserId();
     const products = await getProducts();
+    const aliases = await getProductAliasesForUser();
+    const aliasIndex = indexAliasesByKey(aliases);
     const batch = writeBatch(db);
 
     let added = 0;
     let updated = 0;
     const conflicts: ProductConflict[] = [];
 
-    for (const item of itemsWithSellingPrice) {
+    const registerAlias = (
+      item: InventoryItemInput,
+      productId: string,
+      index: number,
+    ) => {
+      const vendorId = normalizeText(item.vendorId || bill.vendorId || "");
+      const name = normalizeText(item.description);
+      const hsn = normalizeText(item.hsnCode);
+      const key = makeAliasKey(vendorId, name, hsn);
+      const now = new Date().toISOString();
+      const existingAlias = aliasIndex.get(key);
+
+      if (existingAlias) {
+        const aliasRef = doc(db, COLLECTIONS.PRODUCT_ALIASES, existingAlias.id);
+        batch.update(aliasRef, {
+          productId,
+          aliasNameRaw: item.description,
+          aliasHsnRaw: item.hsnCode || "",
+          updatedAt: now,
+        });
+        aliasIndex.set(key, {
+          ...existingAlias,
+          productId,
+          updatedAt: now,
+        });
+        return;
+      }
+
+      const aliasRef = doc(collection(db, COLLECTIONS.PRODUCT_ALIASES));
+      const alias: ProductAliasRecord = {
+        id: aliasRef.id,
+        userId,
+        productId,
+        vendorId: vendorId || "",
+        aliasNameNormalized: name,
+        aliasHsnNormalized: hsn,
+        aliasNameRaw: item.description,
+        aliasHsnRaw: item.hsnCode || "",
+        createdAt: now,
+        updatedAt: now,
+      };
+      batch.set(aliasRef, removeUndefined(alias));
+      aliasIndex.set(key, alias);
+    };
+
+    for (let index = 0; index < itemsWithSellingPrice.length; index++) {
+      const item = itemsWithSellingPrice[index];
+      const conflictKey = item.conflictKey || buildPurchaseConflictKey(item, index, bill);
+
       // 1. Check for manual product selection (isNewProduct = false)
       if (item.isNewProduct === false && item.productId) {
         const selectedProduct = products.find((p) => p.id === item.productId);
@@ -1370,6 +1738,7 @@ export const addPurchaseItemsToInventory = async (
             batch,
             userId,
           );
+          registerAlias(item, selectedProduct.id, index);
           updated++;
           continue;
         }
@@ -1377,80 +1746,125 @@ export const addPurchaseItemsToInventory = async (
 
       // 2. Check for manual "Create New" (isNewProduct = true)
       if (item.isNewProduct === true) {
-        await createNewProduct(item, bill, batch, userId);
+        const created = await createNewProduct(item, bill, batch, userId);
+        products.push(created);
+        registerAlias(item, created.id, index);
         added++;
         continue;
       }
 
-      // 3. Conflict resolution takes precedence if provided (legacy/fallback)
-      if (conflictResolutions && conflictResolutions.has(item.hsnCode || "")) {
-        const chosenName = conflictResolutions.get(item.hsnCode || "")!;
-        const productsWithSameHSN = products.filter(
-          (p) => p.hsnCode === item.hsnCode,
-        );
-        const productToUpdate =
-          productsWithSameHSN.find((p) => p.name === chosenName) ||
-          productsWithSameHSN[0];
+      // 3. If conflict was already resolved by UI, apply it deterministically.
+      const resolvedProductId = conflictResolutions?.get(conflictKey);
+      if (resolvedProductId) {
+        if (resolvedProductId === "__create_new__") {
+          const created = await createNewProduct(item, bill, batch, userId);
+          products.push(created);
+          registerAlias(item, created.id, index);
+          added++;
+          continue;
+        }
 
-        if (productToUpdate) {
-          await updateExistingProductWithNameChange(
-            productToUpdate,
+        const resolvedProduct = products.find((p) => p.id === resolvedProductId);
+        if (resolvedProduct) {
+          await updateExistingProduct(
+            resolvedProduct,
             item,
-            chosenName,
             bill,
             batch,
             userId,
           );
+          registerAlias(item, resolvedProduct.id, index);
           updated++;
           continue;
         }
       }
 
-      // 4. Default automated matching logic
-      if (!item.hsnCode) {
-        const existingProduct = products.find(
-          (p) => p.name.toLowerCase() === item.description.toLowerCase(),
-        );
-        if (existingProduct) {
-          await updateExistingProduct(
-            existingProduct,
-            item,
-            bill,
-            batch,
-            userId,
-          );
+      // 4. Vendor alias exact match
+      const normalizedVendorId = normalizeText(item.vendorId || bill.vendorId || "");
+      const normalizedName = normalizeText(item.description);
+      const normalizedHsn = normalizeText(item.hsnCode);
+      const aliasKey = makeAliasKey(
+        normalizedVendorId,
+        normalizedName,
+        normalizedHsn,
+      );
+      const aliasHit = aliasIndex.get(aliasKey);
+      if (aliasHit) {
+        const aliasedProduct = products.find((p) => p.id === aliasHit.productId);
+        if (aliasedProduct) {
+          await updateExistingProduct(aliasedProduct, item, bill, batch, userId);
+          registerAlias(item, aliasedProduct.id, index);
           updated++;
-        } else {
-          await createNewProduct(item, bill, batch, userId);
-          added++;
+          continue;
         }
-        continue;
       }
 
-      const productsWithSameHSN = products.filter(
-        (p) => p.hsnCode && p.hsnCode === item.hsnCode,
-      );
+      // 5. Exact global match by name + HSN
+      if (normalizedName && normalizedHsn) {
+        const exactMatches = products.filter(
+          (p) =>
+            normalizeText(p.name) === normalizedName &&
+            normalizeText(p.hsnCode) === normalizedHsn,
+        );
+        if (exactMatches.length === 1) {
+          await updateExistingProduct(exactMatches[0], item, bill, batch, userId);
+          registerAlias(item, exactMatches[0].id, index);
+          updated++;
+          continue;
+        }
+        if (exactMatches.length > 1) {
+          conflicts.push({
+            item: { ...item, conflictKey },
+            existingProducts: exactMatches,
+            conflictType: "potential-duplicate",
+            conflictKey,
+          });
+          continue;
+        }
+      }
 
-      if (productsWithSameHSN.length === 0) {
-        await createNewProduct(item, bill, batch, userId);
+      // 6. Name-only strict match when HSN is absent.
+      if (!normalizedHsn && normalizedName) {
+        const nameMatches = products.filter(
+          (p) => normalizeText(p.name) === normalizedName,
+        );
+        if (nameMatches.length === 1) {
+          await updateExistingProduct(nameMatches[0], item, bill, batch, userId);
+          registerAlias(item, nameMatches[0].id, index);
+          updated++;
+          continue;
+        }
+        if (nameMatches.length > 1) {
+          conflicts.push({
+            item: { ...item, conflictKey },
+            existingProducts: nameMatches,
+            conflictType: "potential-duplicate",
+            conflictKey,
+          });
+          continue;
+        }
+      }
+
+      // 7. No exact match -> either create new or ask explicit mapping.
+      const possibleMatches = products.filter((p) => {
+        const sameName = normalizedName && normalizeText(p.name) === normalizedName;
+        const sameHsn = normalizedHsn && normalizeText(p.hsnCode) === normalizedHsn;
+        return Boolean(sameName || sameHsn);
+      });
+
+      if (possibleMatches.length === 0) {
+        const created = await createNewProduct(item, bill, batch, userId);
+        products.push(created);
+        registerAlias(item, created.id, index);
         added++;
         continue;
       }
 
-      const exactMatch = productsWithSameHSN.find(
-        (p) => p.name.toLowerCase() === item.description.toLowerCase(),
-      );
-      if (exactMatch) {
-        await updateExistingProduct(exactMatch, item, bill, batch, userId);
-        updated++;
-        continue;
-      }
-
-      // Conflict detected
       conflicts.push({
-        item,
-        existingProducts: [productsWithSameHSN[0]],
+        item: { ...item, conflictKey },
+        existingProducts: possibleMatches,
         conflictType: "name-mismatch",
+        conflictKey,
       });
     }
 
@@ -1483,6 +1897,7 @@ export interface InventoryItemInput {
   gstRate?: number;
   productId?: string;
   isNewProduct?: boolean;
+  conflictKey?: string;
 }
 
 const updateExistingProduct = async (
@@ -1597,7 +2012,7 @@ const createNewProduct = async (
   bill: PurchaseBill,
   batch: any,
   userId: string,
-) => {
+): Promise<Product> => {
   const newProduct: Product = {
     id: crypto.randomUUID(),
     name: item.description,
@@ -1632,6 +2047,8 @@ const createNewProduct = async (
   };
   const cleanedTransactionData = removeUndefined(transaction);
   batch.set(transactionRef, cleanedTransactionData);
+
+  return newProduct;
 };
 
 export const isPurchaseBillDuplicate = async (

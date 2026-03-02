@@ -41,6 +41,8 @@ export function ProductAutocomplete({
   const [open, setOpen] = React.useState(false)
   const [inputValue, setInputValue] = React.useState(value)
 
+  const normalize = React.useCallback((text: string) => text.trim().toLowerCase(), [])
+
   // Update internal input value when prop changes
   React.useEffect(() => {
     setInputValue(value)
@@ -70,6 +72,15 @@ export function ProductAutocomplete({
     }).slice(0, 50) // Limit results for performance
   }, [products, inputValue, type])
 
+  const hasExactMatch = React.useMemo(() => {
+    const typed = normalize(inputValue)
+    if (!typed) return false
+    return products.some((product) => {
+      const productValue = type === "name" ? product.name : product.hsnCode || ""
+      return normalize(productValue) === typed
+    })
+  }, [inputValue, normalize, products, type])
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -93,6 +104,14 @@ export function ProductAutocomplete({
             onValueChange={(val) => {
                 setInputValue(val)
                 onChange(val)
+            }}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return
+              if (hasExactMatch) return
+              e.preventDefault()
+              e.stopPropagation()
+              onChange(inputValue)
+              setOpen(false)
             }}
           />
           <CommandList>

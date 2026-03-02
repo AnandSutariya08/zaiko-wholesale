@@ -375,6 +375,9 @@ export interface InventoryItemInput {
   purchasePrice: number;
   sellingPrice: number;
   gstRate?: number;
+  productId?: string;
+  isNewProduct?: boolean;
+  conflictKey?: string;
 }
 
 export interface InventoryAddResult {
@@ -386,6 +389,7 @@ export interface InventoryAddResult {
 export interface ProductConflict {
   item: InventoryItemInput;
   existingProducts?: Product[]; // Multiple potential matches
+  conflictKey?: string;
   conflictType: "name-mismatch" | "potential-duplicate" | "new-item";
 }
 
@@ -398,6 +402,7 @@ export interface PurchaseBillItem {
   storage?: string;
   color?: string;
   hsnCode?: string;
+  productId?: string;
   quantity: number;
   unit: string;
   rate: number;
