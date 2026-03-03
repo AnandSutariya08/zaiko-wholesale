@@ -396,6 +396,18 @@ export default function Dashboard() {
         const pending = roundToTwoDecimals(Math.max(0, netTotal - recognizedPaid));
         return { netTotal, recognizedPaid, pending };
       };
+      const getPurchaseBillAdjustedAmounts = (bill: PurchaseBill) => {
+        const totalReturns =
+          bill.returns?.reduce((rSum, r) => rSum + (r.totalReturnValue || 0), 0) ||
+          0;
+        const netTotal = roundToTwoDecimals(Math.max(0, bill.total - totalReturns));
+        const returnRatio = bill.total > 0 ? Math.min(1, totalReturns / bill.total) : 0;
+        const adjustedGst = roundToTwoDecimals((bill.totalTax || 0) * (1 - returnRatio));
+        const adjustedSubtotal = roundToTwoDecimals(
+          Math.max(0, netTotal - adjustedGst),
+        );
+        return { netTotal, adjustedGst, adjustedSubtotal };
+      };
 
       const pendingAmount = roundToTwoDecimals(
         filteredBillsInRange.reduce(
@@ -419,6 +431,27 @@ export default function Dashboard() {
           0,
         ),
       );
+      const paidPurchaseGstBreakdown = purchaseBillsInRange.reduce(
+        (sum, bill) => {
+          const adjusted = getPurchaseBillAdjustedAmounts(bill);
+          const purchaseFinancials = getPurchaseBillFinancials(bill);
+          const paymentRatio =
+            adjusted.netTotal > 0
+              ? Math.min(
+                  1,
+                  Math.max(0, purchaseFinancials.recognizedPaid / adjusted.netTotal),
+                )
+              : 0;
+          sum.base += adjusted.adjustedSubtotal * paymentRatio;
+          sum.gst += adjusted.adjustedGst * paymentRatio;
+          return sum;
+        },
+        { base: 0, gst: 0 },
+      );
+      const effectiveInputGstRateForCogs =
+        paidPurchaseGstBreakdown.base > 0
+          ? paidPurchaseGstBreakdown.gst / paidPurchaseGstBreakdown.base
+          : 0;
 
       const monthNames = [
         "Jan",
@@ -740,19 +773,7 @@ export default function Dashboard() {
           return sum + financials.netTax * financials.paymentRatio;
         }, 0),
       );
-      const gstPaid = roundToTwoDecimals(
-        purchaseBillsInRange.reduce((sum, bill) => {
-          const totalReturns =
-            bill.returns?.reduce((rSum, r) => rSum + r.totalReturnValue, 0) ||
-            0;
-          const returnRatio =
-            bill.total > 0
-              ? Math.min(1, Math.max(0, totalReturns / bill.total))
-              : 0;
-          const adjustedGst = bill.totalTax * (1 - returnRatio);
-          return sum + adjustedGst;
-        }, 0),
-      );
+      const gstPaid = roundToTwoDecimals(paidPurchaseGstBreakdown.gst);
       const netGst = roundToTwoDecimals(gstCollected - gstPaid);
 
       const deadstockLoss = roundToTwoDecimals(
@@ -802,8 +823,18 @@ export default function Dashboard() {
             financials.netTotal * unpaidRatio,
           );
 
-          const paidCost = roundToTwoDecimals(netEstimatedCost * paidRatio);
-          const pendingCost = roundToTwoDecimals(netEstimatedCost * unpaidRatio);
+          const paidBaseCost = roundToTwoDecimals(netEstimatedCost * paidRatio);
+          const pendingBaseCost = roundToTwoDecimals(netEstimatedCost * unpaidRatio);
+          const paidInputGstCost = roundToTwoDecimals(
+            paidBaseCost * effectiveInputGstRateForCogs,
+          );
+          const pendingInputGstCost = roundToTwoDecimals(
+            pendingBaseCost * effectiveInputGstRateForCogs,
+          );
+          const paidCost = roundToTwoDecimals(paidBaseCost + paidInputGstCost);
+          const pendingCost = roundToTwoDecimals(
+            pendingBaseCost + pendingInputGstCost,
+          );
 
           acc.realizedCOGS += paidCost;
           acc.realizedGrossProfit += paidRevenueInclGst - paidCost;
@@ -1769,7 +1800,7 @@ export default function Dashboard() {
                     </div>
                     <div className="flex flex-col gap-1 mt-1.5 sm:mt-2">
                       <span className="text-[10px] sm:text-xs text-muted-foreground break-words">
-                        Revenue - COGS (excl. expenses)
+                        Revenue - COGS incl. GST (excl. expenses)
                       </span>
                     </div>
                   </CardContent>
@@ -1924,14 +1955,14 @@ export default function Dashboard() {
                       <div className="flex items-center gap-1.5 sm:gap-2">
                         <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4 text-orange-600 flex-shrink-0" />
                         <span className="text-[10px] sm:text-xs md:text-sm font-medium text-muted-foreground truncate">
-                          COGS
+                          COGS (incl. GST)
                         </span>
                       </div>
                       <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-orange-600 break-words">
                         {formatCurrency(stats.totalCOGS)}
                       </p>
                       <p className="text-[10px] sm:text-xs text-muted-foreground break-words">
-                        Cost of goods sold
+                        Cost of goods sold including GST
                       </p>
                     </div>
 

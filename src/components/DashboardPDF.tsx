@@ -409,7 +409,9 @@ export const DashboardPDF = ({
         <Text style={styles.sectionHeader}>COST BREAKDOWN</Text>
         <View style={styles.table}>
           <View style={styles.tableRow}>
-            <Text style={styles.tableCellLabel}>Cost of Goods Sold (COGS)</Text>
+            <Text style={styles.tableCellLabel}>
+              Cost of Goods Sold (COGS incl. GST)
+            </Text>
             <Text style={styles.tableCellValue}>
               {formatCurrency(stats.totalCOGS)}
             </Text>

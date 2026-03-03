@@ -33,7 +33,7 @@ import ExpoDashboard from "@/pages/Expo/ExpoDashboard";
 import AIAgent from "@/pages/AIAgent";
 import BusinessHealth from "@/pages/BusinessHealth";
 import { LoadingSpinner } from "./components/LoadingSpinner";
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { SampleBillForm } from "./components/SampleBillForm";
 import { SampleBillViewPage } from "./components/SampleBillViewPage";
 import { SampleBillEditPage } from "./components/SampleBillEditPage";
@@ -41,95 +41,122 @@ import SampleBills from "@/pages/SampleBill";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <BrowserRouter>
-      <ThemeProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <PWAInstallPrompt />
-          <Routes>
-            <Route path="/auth" element={<Auth />} />
-            {/* Public bill view for QR scanning - no auth required */}
-            <Route path="/view/bill/:id" element={<BillViewPublic />} />
-            <Route
-              path="/*"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Routes>
-                      <Route path="/" element={<Dashboard />} />
-                      <Route path="/bills" element={<Bills />} />
-                      <Route path="/bills/gst" element={<Bills />} />
-                      <Route path="/bills/non-gst" element={<Bills />} />
-                      <Route path="/bills/international" element={<Bills />} />
-                      <Route path="/sample-bill" element={<SampleBill />} />
-                      <Route path="/bills/new" element={<CreateBill />} />
-                      <Route path="/bills/:id" element={<BillDetail />} />
-                      <Route path="/bills/:id/edit" element={<EditBill />} />
-                      <Route path="/purchases" element={<PurchaseBills />} />
-                      <Route path="/returns" element={<Returns />} />
-                      <Route path="/passbook" element={<Passbook />} />
-                      <Route path="/expenses" element={<Expenses />} />
-                      <Route path="/products" element={<Products />} />
-                      <Route path="/clients" element={<Clients />} />
-                      <Route path="/vendors" element={<Vendors />} />
-                      <Route path="/settings" element={<Settings />} />
-                      <Route path="/files" element={<Files />} />
-                      <Route path="/notes" element={<Notes />} />
-                      <Route path="/calculator" element={<Calculator />} />
-                      <Route path="/bank-accounts" element={<BankAccounts />} />
-                      <Route path="/bill-creators" element={<BillCreators />} />
-                      <Route
-                        path="/expo-dashboard/:expoId"
-                        element={<ExpoDashboard />}
-                      />
-                      <Route path="/ai-agent" element={<AIAgent />} />
-                      <Route
-                        path="/business-health"
-                        element={<BusinessHealth />}
-                      />
-                      <Route path="*" element={<NotFound />} />
-                      <Route path="/sample-bills" element={<SampleBills />} />
-                      <Route
-                        path="/sample-bills/new"
-                        element={<SampleBillForm />}
-                      />
-                      <Route
-                        path="/sample-bills/:id"
-                        element={
-                          <Suspense
-                            fallback={
-                              <LoadingSpinner fullScreen contentAreaOnly />
-                            }
-                          >
-                            <SampleBillViewPage />
-                          </Suspense>
-                        }
-                      />
-                      <Route
-                        path="/sample-bills/:id/edit"
-                        element={
-                          <Suspense
-                            fallback={
-                              <LoadingSpinner fullScreen contentAreaOnly />
-                            }
-                          >
-                            <SampleBillEditPage />
-                          </Suspense>
-                        }
-                      />
-                    </Routes>
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
-        </TooltipProvider>
-      </ThemeProvider>
-    </BrowserRouter>
-  </QueryClientProvider>
-);
+const App = () => {
+  useEffect(() => {
+    const preventNumberInputWheel = (event: WheelEvent) => {
+      const activeElement = document.activeElement;
+      if (!(activeElement instanceof HTMLInputElement)) return;
+      if (activeElement.type !== "number") return;
+
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (!activeElement.contains(target)) return;
+
+      event.preventDefault();
+    };
+
+    window.addEventListener("wheel", preventNumberInputWheel, {
+      passive: false,
+      capture: true,
+    });
+
+    return () => {
+      window.removeEventListener("wheel", preventNumberInputWheel, {
+        capture: true,
+      });
+    };
+  }, []);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <ThemeProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <PWAInstallPrompt />
+            <Routes>
+              <Route path="/auth" element={<Auth />} />
+              {/* Public bill view for QR scanning - no auth required */}
+              <Route path="/view/bill/:id" element={<BillViewPublic />} />
+              <Route
+                path="/*"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <Routes>
+                        <Route path="/" element={<Dashboard />} />
+                        <Route path="/bills" element={<Bills />} />
+                        <Route path="/bills/gst" element={<Bills />} />
+                        <Route path="/bills/non-gst" element={<Bills />} />
+                        <Route path="/bills/international" element={<Bills />} />
+                        <Route path="/sample-bill" element={<SampleBill />} />
+                        <Route path="/bills/new" element={<CreateBill />} />
+                        <Route path="/bills/:id" element={<BillDetail />} />
+                        <Route path="/bills/:id/edit" element={<EditBill />} />
+                        <Route path="/purchases" element={<PurchaseBills />} />
+                        <Route path="/returns" element={<Returns />} />
+                        <Route path="/passbook" element={<Passbook />} />
+                        <Route path="/expenses" element={<Expenses />} />
+                        <Route path="/products" element={<Products />} />
+                        <Route path="/clients" element={<Clients />} />
+                        <Route path="/vendors" element={<Vendors />} />
+                        <Route path="/settings" element={<Settings />} />
+                        <Route path="/files" element={<Files />} />
+                        <Route path="/notes" element={<Notes />} />
+                        <Route path="/calculator" element={<Calculator />} />
+                        <Route path="/bank-accounts" element={<BankAccounts />} />
+                        <Route path="/bill-creators" element={<BillCreators />} />
+                        <Route
+                          path="/expo-dashboard/:expoId"
+                          element={<ExpoDashboard />}
+                        />
+                        <Route path="/ai-agent" element={<AIAgent />} />
+                        <Route
+                          path="/business-health"
+                          element={<BusinessHealth />}
+                        />
+                        <Route path="*" element={<NotFound />} />
+                        <Route path="/sample-bills" element={<SampleBills />} />
+                        <Route
+                          path="/sample-bills/new"
+                          element={<SampleBillForm />}
+                        />
+                        <Route
+                          path="/sample-bills/:id"
+                          element={
+                            <Suspense
+                              fallback={
+                                <LoadingSpinner fullScreen contentAreaOnly />
+                              }
+                            >
+                              <SampleBillViewPage />
+                            </Suspense>
+                          }
+                        />
+                        <Route
+                          path="/sample-bills/:id/edit"
+                          element={
+                            <Suspense
+                              fallback={
+                                <LoadingSpinner fullScreen contentAreaOnly />
+                              }
+                            >
+                              <SampleBillEditPage />
+                            </Suspense>
+                          }
+                        />
+                      </Routes>
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
+          </TooltipProvider>
+        </ThemeProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
