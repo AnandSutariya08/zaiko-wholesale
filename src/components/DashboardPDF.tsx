@@ -358,8 +358,14 @@ export const DashboardPDF = ({
         <View style={styles.table}>
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Current Inventory Value</Text>
-            <Text style={styles.tableCellValue}>
+            <Text style={[styles.tableCellValue]}>
               {formatCurrency(stats.inventoryValue || 0)}
+            </Text>
+          </View>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableCellLabel}>Deadstock Value</Text>
+            <Text style={[styles.tableCellValue, { textAlign: "left" }]}>
+              {formatCurrency(stats.deadstockLoss || 0)}
             </Text>
           </View>
         </View>

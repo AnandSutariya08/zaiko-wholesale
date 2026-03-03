@@ -769,14 +769,59 @@ export default function Dashboard() {
         expensesInRange.reduce((sum, expense) => sum + expense.amount, 0),
       );
 
-      const totalCOGS = roundToTwoDecimals(totalPurchases);
-      const grossProfit = roundToTwoDecimals(totalRevenue - totalCOGS);
+      const invoiceLevelProfitBreakdown = filteredBillsInRange.reduce(
+        (acc, bill) => {
+          const financials = getBillFinancials(bill);
+          if (financials.netTotal <= 0) return acc;
+
+          const billReturns =
+            bill.returns?.reduce(
+              (returnSum, returnItem) =>
+                returnSum + (returnItem.totalReturnValue || 0),
+              0,
+            ) || 0;
+          const safeTotal = Math.max(0, bill.total || 0);
+          const safeReturns = Math.max(0, Math.min(billReturns, safeTotal));
+          const returnRatio = safeTotal > 0 ? safeReturns / safeTotal : 0;
+
+          const paidRatio = Math.max(0, Math.min(1, financials.paymentRatio));
+          const unpaidRatio = Math.max(0, Math.min(1, 1 - paidRatio));
+
+          const estimatedCost = (bill.items || []).reduce((itemSum, item) => {
+            const costPrice = getHistoricalAverageCost(item.productId, bill.date);
+            return itemSum + Math.max(0, item.quantity) * Math.max(0, costPrice);
+          }, 0);
+          const netEstimatedCost = roundToTwoDecimals(
+            estimatedCost * (1 - returnRatio),
+          );
+
+          const paidRevenueInclGst = roundToTwoDecimals(
+            financials.netTotal * paidRatio,
+          );
+          const pendingRevenueInclGst = roundToTwoDecimals(
+            financials.netTotal * unpaidRatio,
+          );
+
+          const paidCost = roundToTwoDecimals(netEstimatedCost * paidRatio);
+          const pendingCost = roundToTwoDecimals(netEstimatedCost * unpaidRatio);
+
+          acc.realizedCOGS += paidCost;
+          acc.realizedGrossProfit += paidRevenueInclGst - paidCost;
+          acc.pendingGrossProfit += pendingRevenueInclGst - pendingCost;
+          return acc;
+        },
+        { realizedCOGS: 0, realizedGrossProfit: 0, pendingGrossProfit: 0 },
+      );
+
+      const totalCOGS = roundToTwoDecimals(invoiceLevelProfitBreakdown.realizedCOGS);
+      const grossProfit = roundToTwoDecimals(
+        invoiceLevelProfitBreakdown.realizedGrossProfit,
+      );
       const profit = roundToTwoDecimals(
         grossProfit - deadstockLoss - totalExpenses,
       );
-      const grossMarginRatio = totalRevenue > 0 ? grossProfit / totalRevenue : 0;
       const expectedProfit = roundToTwoDecimals(
-        pendingAmount * grossMarginRatio,
+        invoiceLevelProfitBreakdown.pendingGrossProfit,
       );
       const expectedTotalNetProfit = roundToTwoDecimals(
         profit + expectedProfit,
@@ -1753,7 +1798,7 @@ export default function Dashboard() {
                     <div className="flex items-center gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
                       <Calculator className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
                       <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground break-words">
-                        Net expected profit from pending collection (excl. GST)
+                        Net expected profit from pending collection (incl. GST)
                         <br />
                         {`Expected total Net Profit: ${stats.expectedTotalNetProfit < 0 ? "-" : ""}Rs. ${Math.abs(
                           stats.expectedTotalNetProfit,
@@ -3240,7 +3285,7 @@ export default function Dashboard() {
                   </div>
 
                   <div className="space-y-1">
-                    <p className="font-semibold">Profit Overview (excl. GST)</p>
+                    <p className="font-semibold">Profit Overview (incl. GST)</p>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Net Profit</span>
                       <span
