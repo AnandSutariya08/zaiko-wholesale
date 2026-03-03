@@ -452,7 +452,6 @@ export default function Dashboard() {
         paidPurchaseGstBreakdown.base > 0
           ? paidPurchaseGstBreakdown.gst / paidPurchaseGstBreakdown.base
           : 0;
-
       const monthNames = [
         "Jan",
         "Feb",
@@ -839,9 +838,15 @@ export default function Dashboard() {
           acc.realizedCOGS += paidCost;
           acc.realizedGrossProfit += paidRevenueInclGst - paidCost;
           acc.pendingGrossProfit += pendingRevenueInclGst - pendingCost;
+          acc.pendingGrossProfitBase += pendingRevenueInclGst - pendingBaseCost;
           return acc;
         },
-        { realizedCOGS: 0, realizedGrossProfit: 0, pendingGrossProfit: 0 },
+        {
+          realizedCOGS: 0,
+          realizedGrossProfit: 0,
+          pendingGrossProfit: 0,
+          pendingGrossProfitBase: 0,
+        },
       );
 
       const totalCOGS = roundToTwoDecimals(invoiceLevelProfitBreakdown.realizedCOGS);
@@ -852,7 +857,7 @@ export default function Dashboard() {
         grossProfit - deadstockLoss - totalExpenses,
       );
       const expectedProfit = roundToTwoDecimals(
-        invoiceLevelProfitBreakdown.pendingGrossProfit,
+        invoiceLevelProfitBreakdown.pendingGrossProfitBase,
       );
       const expectedTotalNetProfit = roundToTwoDecimals(
         profit + expectedProfit,
@@ -1829,7 +1834,7 @@ export default function Dashboard() {
                     <div className="flex items-center gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
                       <Calculator className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
                       <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground break-words">
-                        Net expected profit from pending collection (incl. GST)
+                        Net expected profit from pending collection
                         <br />
                         {`Expected total Net Profit: ${stats.expectedTotalNetProfit < 0 ? "-" : ""}Rs. ${Math.abs(
                           stats.expectedTotalNetProfit,

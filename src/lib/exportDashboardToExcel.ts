@@ -36,7 +36,7 @@ export const exportDashboardToExcel = (
         ['Gross Profit', formatCurrency(stats.grossProfit), 'Revenue - COGS (incl. GST)'],
         ['Expenses', formatCurrency(stats.totalExpenses), 'Operational expenses in selected period'],
         ['Current Net Profit (After All Deductions)', formatCurrency(stats.profit), 'Revenue - COGS (incl. GST) - Expenses - Losses'],
-        ['Expected Net Profit', formatCurrency(stats.expectedProfit || 0), 'Net expected profit from pending collection (excl. GST)'],
+        ['Expected Net Profit', formatCurrency(stats.expectedProfit || 0), 'Net expected profit from pending collection'],
         ['Total Net Profit', formatCurrency(stats.expectedTotalNetProfit || 0), 'Current net profit + expected net profit'],
         ['Profit Margin', `${stats.totalCOGS > 0 ? ((stats.grossProfit / stats.totalCOGS) * 100).toFixed(2) : '0.00'}%`, 'Gross Profit / COGS'],
         ['ROI', `${stats.totalPurchases > 0 ? ((stats.profit / stats.totalPurchases) * 100).toFixed(2) : 'N/A'}%`, 'Net Profit / Total Purchases'],
