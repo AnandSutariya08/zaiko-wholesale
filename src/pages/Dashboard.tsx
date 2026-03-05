@@ -448,10 +448,6 @@ export default function Dashboard() {
         },
         { base: 0, gst: 0 },
       );
-      const effectiveInputGstRateForCogs =
-        paidPurchaseGstBreakdown.base > 0
-          ? paidPurchaseGstBreakdown.gst / paidPurchaseGstBreakdown.base
-          : 0;
       const monthNames = [
         "Jan",
         "Feb",
@@ -512,6 +508,41 @@ export default function Dashboard() {
         }),
       );
 
+      // Build lookup for exact per-purchase GST
+      const billGstByProductId = new Map<string, number>();
+      const billGstByName = new Map<string, number>();
+      allPurchaseBills.forEach((bill) => {
+        bill.items.forEach((item) => {
+          if (item.productId) {
+            billGstByProductId.set(`${bill.id}:${item.productId}`, item.gstRate || 0);
+          }
+          const nameKey = `${bill.id}:${(item.description || "").toLowerCase().trim()}`;
+          billGstByName.set(nameKey, item.gstRate || 0);
+        });
+      });
+
+      const getLandedPurchasePrice = (
+        product: Product,
+        transaction: { purchasePrice?: number; billId?: string },
+      ): number => {
+        const basePrice = transaction.purchasePrice || 0;
+        const gstKeyByProductId = transaction.billId
+          ? `${transaction.billId}:${product.id}`
+          : null;
+        const gstKeyByName = transaction.billId
+          ? `${transaction.billId}:${product.name.toLowerCase().trim()}`
+          : null;
+        const gstRate =
+          (gstKeyByProductId && billGstByProductId.has(gstKeyByProductId)
+            ? billGstByProductId.get(gstKeyByProductId)
+            : undefined) ??
+          (gstKeyByName && billGstByName.has(gstKeyByName)
+            ? billGstByName.get(gstKeyByName)
+            : undefined) ??
+          (product.gstRate ?? 0);
+        return roundToTwoDecimals(basePrice * (1 + gstRate / 100));
+      };
+
       const getHistoricalAverageCost = (
         productId: string,
         saleDate: string,
@@ -521,7 +552,10 @@ export default function Dashboard() {
 
         const transactions = productTransactionsMap[productId];
         if (!transactions || transactions.length === 0) {
-          return product.purchasePrice || product.price || 0;
+          return roundToTwoDecimals(
+            (product.purchasePrice || product.price || 0) *
+              (1 + (product.gstRate || 0) / 100),
+          );
         }
 
         const saleDateTime = new Date(saleDate).getTime();
@@ -535,8 +569,8 @@ export default function Dashboard() {
 
           if (transactionDate < saleDateTime) {
             if (transaction.type === "purchase" && transaction.purchasePrice) {
-              const purchaseValue =
-                transaction.quantity * transaction.purchasePrice;
+              const landedPrice = getLandedPurchasePrice(product, transaction);
+              const purchaseValue = transaction.quantity * landedPrice;
               currentInventory += transaction.quantity;
               currentInventoryValue += purchaseValue;
               totalPurchaseValue += purchaseValue;
@@ -579,9 +613,13 @@ export default function Dashboard() {
                     )
                     .slice(-1)[0];
                   if (lastPurchase && lastPurchase.purchasePrice) {
+                    const landedPrice = getLandedPurchasePrice(
+                      product,
+                      lastPurchase,
+                    );
                     currentInventory += transaction.quantity;
                     currentInventoryValue +=
-                      transaction.quantity * lastPurchase.purchasePrice;
+                      transaction.quantity * landedPrice;
                   }
                 }
               }
@@ -589,8 +627,9 @@ export default function Dashboard() {
               transaction.type === "purchase_return" &&
               transaction.purchasePrice
             ) {
+              const landedPrice = getLandedPurchasePrice(product, transaction);
               const returnValue =
-                Math.abs(transaction.quantity) * transaction.purchasePrice;
+                Math.abs(transaction.quantity) * landedPrice;
               currentInventory = Math.max(
                 0,
                 currentInventory - Math.abs(transaction.quantity),
@@ -617,15 +656,6 @@ export default function Dashboard() {
       const currentAveragePrices: Record<string, number> = {};
       const stockValues: Record<string, number> = {};
 
-      // Build lookup: "billId:itemName" → gstRate for per-purchase accurate landed cost
-      const billGstMap = new Map<string, number>();
-      allPurchaseBills.forEach((bill) => {
-        bill.items.forEach((item) => {
-          const key = `${bill.id}:${(item.description || "").toLowerCase().trim()}`;
-          billGstMap.set(key, item.gstRate || 0);
-        });
-      });
-
       for (const product of products) {
         const transactions = await getProductTransactions(product.id);
         const purchaseTransactions = (transactions || []).filter(
@@ -637,14 +667,9 @@ export default function Dashboard() {
             (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
           );
 
-          // Use actual per-purchase gstRate from the linked bill for landed cost
+          // Use exact landed purchase price (base + that purchase's GST)
           const totalPurchaseValue = filteredTransactions.reduce((sum, t) => {
-            const basePrice = t.purchasePrice || 0;
-            const gstKey = t.billId ? `${t.billId}:${product.name.toLowerCase().trim()}` : null;
-            const gstRate = (gstKey && billGstMap.has(gstKey))
-              ? billGstMap.get(gstKey)!
-              : (product.gstRate || 0);
-            return sum + t.quantity * basePrice * (1 + gstRate / 100);
+            return sum + t.quantity * getLandedPurchasePrice(product, t);
           }, 0);
 
           const totalPurchaseQuantity = filteredTransactions.reduce(
@@ -839,28 +864,18 @@ export default function Dashboard() {
 
           const paidBaseCost = roundToTwoDecimals(netEstimatedCost * paidRatio);
           const pendingBaseCost = roundToTwoDecimals(netEstimatedCost * unpaidRatio);
-          const paidInputGstCost = roundToTwoDecimals(
-            paidBaseCost * effectiveInputGstRateForCogs,
-          );
-          const pendingInputGstCost = roundToTwoDecimals(
-            pendingBaseCost * effectiveInputGstRateForCogs,
-          );
-          const paidCost = roundToTwoDecimals(paidBaseCost + paidInputGstCost);
-          const pendingCost = roundToTwoDecimals(
-            pendingBaseCost + pendingInputGstCost,
-          );
+          const paidCost = paidBaseCost;
+          const pendingCost = pendingBaseCost;
 
           acc.realizedCOGS += paidCost;
           acc.realizedGrossProfit += paidRevenueInclGst - paidCost;
           acc.pendingGrossProfit += pendingRevenueInclGst - pendingCost;
-          acc.pendingGrossProfitBase += pendingRevenueInclGst - pendingBaseCost;
           return acc;
         },
         {
           realizedCOGS: 0,
           realizedGrossProfit: 0,
           pendingGrossProfit: 0,
-          pendingGrossProfitBase: 0,
         },
       );
 
@@ -872,7 +887,7 @@ export default function Dashboard() {
         grossProfit - deadstockLoss - totalExpenses,
       );
       const expectedProfit = roundToTwoDecimals(
-        invoiceLevelProfitBreakdown.pendingGrossProfitBase,
+        invoiceLevelProfitBreakdown.pendingGrossProfit,
       );
       const expectedTotalNetProfit = roundToTwoDecimals(
         profit + expectedProfit,
