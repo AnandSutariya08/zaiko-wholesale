@@ -21,7 +21,7 @@ import {
   getVendors,
   getCreators,
   getPurchaseReturns,
-  getProductTransactions,
+  getInventoryTransactions,
 } from "@/lib/storage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -57,7 +57,7 @@ import {
   XCircle,
   SlidersHorizontal,
 } from "lucide-react";
-import { formatCurrency, roundToTwoDecimals } from "@/lib/billUtils";
+import { formatCurrency, roundToTwoDecimals, computeInventoryValue } from "@/lib/billUtils";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { cn } from "@/lib/utils";
 import {
@@ -419,7 +419,7 @@ export default function BusinessHealth() {
 
   const healthData = useMemo(() => {
     if (!rawData) return null;
-    const { bills, products, clients, returns, expenses, purchases, productTransactionsMap, deadstock } = rawData;
+    const { bills, products, clients, returns, expenses, purchases, productTransactionsMap, deadstock, allInventoryTransactions } = rawData;
 
     const requestedStart = startOfDay(new Date(dateRange.start));
     const requestedEnd = endOfDay(new Date(dateRange.end));
@@ -722,10 +722,7 @@ export default function BusinessHealth() {
     // Score Calculations
     const turnover =
       totalSales /
-      (products.reduce(
-        (s: number, p: any) => s + p.stock * (p.purchasePrice || 0),
-        0,
-      ) || 1);
+      (computeInventoryValue(products, purchases, allInventoryTransactions || []) || 1);
     const creditRisk =
       (filteredBills.filter((b: any) => b.paymentStatus === "overdue").length /
         (filteredBills.length || 1)) *
@@ -855,18 +852,17 @@ export default function BusinessHealth() {
           getPurchaseReturns(),
         ]);
 
-        const productTransactionsEntries = await Promise.all(
-          products.map(async (product: any) => {
-            const transactions = await getProductTransactions(product.id);
-            const sorted = (transactions || []).sort(
-              (a: any, b: any) =>
-                new Date(a.date).getTime() - new Date(b.date).getTime(),
-            );
-            return [product.id, sorted] as const;
-          }),
-        );
+        // Single query for all transactions (avoids N Firestore calls)
+        const allInventoryTransactions = await getInventoryTransactions();
+        const productTransactionsMap: Record<string, any[]> = {};
+        allInventoryTransactions.forEach((t) => {
+          if (!productTransactionsMap[t.productId]) productTransactionsMap[t.productId] = [];
+          productTransactionsMap[t.productId].push(t);
+        });
+        Object.values(productTransactionsMap).forEach((txns) => {
+          txns.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        });
 
-        const productTransactionsMap = Object.fromEntries(productTransactionsEntries);
         setRawData({
           bills,
           products,
@@ -877,6 +873,7 @@ export default function BusinessHealth() {
           expenses,
           purchaseReturns,
           productTransactionsMap,
+          allInventoryTransactions,
         });
       } catch (e) {
         console.error("Failed to load health data", e);

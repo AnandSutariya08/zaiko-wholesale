@@ -617,6 +617,15 @@ export default function Dashboard() {
       const currentAveragePrices: Record<string, number> = {};
       const stockValues: Record<string, number> = {};
 
+      // Build lookup: "billId:itemName" → gstRate for per-purchase accurate landed cost
+      const billGstMap = new Map<string, number>();
+      allPurchaseBills.forEach((bill) => {
+        bill.items.forEach((item) => {
+          const key = `${bill.id}:${(item.description || "").toLowerCase().trim()}`;
+          billGstMap.set(key, item.gstRate || 0);
+        });
+      });
+
       for (const product of products) {
         const transactions = await getProductTransactions(product.id);
         const purchaseTransactions = (transactions || []).filter(
@@ -628,26 +637,32 @@ export default function Dashboard() {
             (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
           );
 
-          const totalPurchaseValue = filteredTransactions.reduce(
-            (sum, t) => sum + t.quantity * (t.purchasePrice || 0),
-            0,
-          );
+          // Use actual per-purchase gstRate from the linked bill for landed cost
+          const totalPurchaseValue = filteredTransactions.reduce((sum, t) => {
+            const basePrice = t.purchasePrice || 0;
+            const gstKey = t.billId ? `${t.billId}:${product.name.toLowerCase().trim()}` : null;
+            const gstRate = (gstKey && billGstMap.has(gstKey))
+              ? billGstMap.get(gstKey)!
+              : (product.gstRate || 0);
+            return sum + t.quantity * basePrice * (1 + gstRate / 100);
+          }, 0);
+
           const totalPurchaseQuantity = filteredTransactions.reduce(
             (sum, t) => sum + t.quantity,
             0,
           );
 
-          const filteredAvgPurchasePrice =
+          const filteredAvgLandedPrice =
             totalPurchaseQuantity > 0
               ? totalPurchaseValue / totalPurchaseQuantity
-              : product.purchasePrice || 0;
+              : (product.purchasePrice || 0) * (1 + (product.gstRate || 0) / 100);
 
-          currentAveragePrices[product.id] = filteredAvgPurchasePrice;
-          stockValues[product.id] = product.stock * filteredAvgPurchasePrice;
+          currentAveragePrices[product.id] = filteredAvgLandedPrice;
+          stockValues[product.id] = product.stock * filteredAvgLandedPrice;
         } else {
-          currentAveragePrices[product.id] = product.purchasePrice || 0;
-          stockValues[product.id] =
-            product.stock * (product.purchasePrice || 0);
+          const landedCost = (product.purchasePrice || 0) * (1 + (product.gstRate || 0) / 100);
+          currentAveragePrices[product.id] = landedCost;
+          stockValues[product.id] = product.stock * landedCost;
         }
       }
 

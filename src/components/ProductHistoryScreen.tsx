@@ -961,6 +961,8 @@ export function ProductHistoryScreen({
                   product.hsnCode &&
                   item.hsnCode.trim() === product.hsnCode.trim()),
             );
+            const billGstRate = (billItem as any)?.gstRate ?? product.gstRate ?? 0;
+            const landedPurchasePrice = transaction.purchasePrice * (1 + billGstRate / 100);
             purchases.push({
               id: transaction.id,
               date: transaction.date,
@@ -972,8 +974,8 @@ export function ProductHistoryScreen({
               color: transaction.color || product.color || "",
               quantity: transaction.quantity,
               unit: product.unit,
-              purchasePrice: transaction.purchasePrice,
-              totalAmount: transaction.quantity * transaction.purchasePrice,
+              purchasePrice: landedPurchasePrice,
+              totalAmount: transaction.quantity * landedPurchasePrice,
               billNumber: bill.billNumber,
               addedToInventory: bill.itemsAddedToInventory || false,
               weight: (billItem as any)?.weight || "",
@@ -989,6 +991,8 @@ export function ProductHistoryScreen({
           !transaction.billId &&
           transaction.purchasePrice
         ) {
+          const manualGstRate = product.gstRate ?? 0;
+          const manualLandedPrice = transaction.purchasePrice * (1 + manualGstRate / 100);
           purchases.push({
             id: transaction.id,
             date: transaction.date,
@@ -1000,8 +1004,8 @@ export function ProductHistoryScreen({
             color: transaction.color || product.color || "",
             quantity: transaction.quantity,
             unit: product.unit,
-            purchasePrice: transaction.purchasePrice,
-            totalAmount: transaction.quantity * transaction.purchasePrice,
+            purchasePrice: manualLandedPrice,
+            totalAmount: transaction.quantity * manualLandedPrice,
             billNumber: undefined,
             addedToInventory: true,
           });
@@ -1036,8 +1040,8 @@ export function ProductHistoryScreen({
                 color: (item as any).color || product.color || "",
                 quantity: item.quantity,
                 unit: item.unit,
-                purchasePrice: item.rate,
-                totalAmount: item.amount,
+                purchasePrice: item.rate * (1 + (item.gstRate || 0) / 100),
+                totalAmount: item.amount * (1 + (item.gstRate || 0) / 100),
                 billNumber: bill.billNumber,
                 addedToInventory: bill.itemsAddedToInventory || false,
                 weight: (item as any).weight || "",
@@ -1119,8 +1123,8 @@ export function ProductHistoryScreen({
               vendorName: `Purchase Return: ${pReturn.vendorName}`,
               quantity: -item.quantity, // Negative quantity for return
               unit: (item as any).unit || product.unit,
-              purchasePrice: item.rate,
-              totalAmount: -(item.quantity * item.rate),
+              purchasePrice: item.rate * (1 + (item.gstRate || 0) / 100),
+              totalAmount: -(item.quantity * item.rate * (1 + (item.gstRate || 0) / 100)),
               billNumber: pReturn.billNumber,
               addedToInventory: true,
               isReturn: true,

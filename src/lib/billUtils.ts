@@ -1,4 +1,68 @@
-import { BillItem, CompanyProfile } from "@/types";
+import { BillItem, CompanyProfile, Product, PurchaseBill, InventoryTransaction } from "@/types";
+
+/**
+ * Compute total inventory value using the actual per-purchase GST rate from
+ * each purchase bill. This is the canonical inventory value calculation
+ * used consistently across the entire app.
+ *
+ * For each product, it finds all purchase inventory transactions, looks up
+ * the real gstRate from the linked purchase bill, computes the landed cost
+ * (base price + GST), and derives the weighted average landed cost for
+ * current stock.
+ */
+export function computeInventoryValue(
+  products: Product[],
+  purchaseBills: PurchaseBill[],
+  allInventoryTransactions: InventoryTransaction[],
+): number {
+  // Build lookup: "billId:itemName" → gstRate
+  const billGstMap = new Map<string, number>();
+  purchaseBills.forEach((bill) => {
+    bill.items.forEach((item) => {
+      const key = `${bill.id}:${(item.description || "").toLowerCase().trim()}`;
+      billGstMap.set(key, item.gstRate || 0);
+    });
+  });
+
+  // Group purchase transactions by productId
+  const txByProduct = new Map<string, InventoryTransaction[]>();
+  allInventoryTransactions.forEach((t) => {
+    if (t.type !== "purchase") return;
+    const list = txByProduct.get(t.productId) || [];
+    list.push(t);
+    txByProduct.set(t.productId, list);
+  });
+
+  let total = 0;
+  for (const product of products) {
+    const transactions = txByProduct.get(product.id) || [];
+    if (transactions.length > 0) {
+      const totalValue = transactions.reduce((sum, t) => {
+        const basePrice = t.purchasePrice || 0;
+        const gstKey = t.billId
+          ? `${t.billId}:${product.name.toLowerCase().trim()}`
+          : null;
+        const gstRate =
+          gstKey && billGstMap.has(gstKey)
+            ? billGstMap.get(gstKey)!
+            : product.gstRate || 0;
+        return sum + t.quantity * basePrice * (1 + gstRate / 100);
+      }, 0);
+      const totalQty = transactions.reduce((sum, t) => sum + t.quantity, 0);
+      const avgLandedPrice =
+        totalQty > 0
+          ? totalValue / totalQty
+          : (product.purchasePrice || 0) * (1 + (product.gstRate || 0) / 100);
+      total += product.stock * avgLandedPrice;
+    } else {
+      total +=
+        product.stock *
+        (product.purchasePrice || 0) *
+        (1 + (product.gstRate || 0) / 100);
+    }
+  }
+  return total;
+}
 
 /**
  * Round a number to 2 decimal places, fixing floating point precision issues

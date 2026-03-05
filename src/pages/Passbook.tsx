@@ -17,6 +17,7 @@ import {
   getExpenses,
   getBillReturns,
   getProducts,
+  getInventoryTransactions,
 } from "@/lib/storage";
 import { Bill, PurchaseBill, Expense, BillReturn, Product } from "@/types";
 import {
@@ -31,7 +32,7 @@ import {
   ArrowUpDown,
   Loader2,
 } from "lucide-react";
-import { formatCurrency, formatDate } from "@/lib/billUtils";
+import { formatCurrency, formatDate, computeInventoryValue } from "@/lib/billUtils";
 import * as XLSX from "xlsx";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 
@@ -102,21 +103,18 @@ export default function Passbook() {
   const loadPassbookData = async () => {
     setLoading(true);
     try {
-      const [bills, purchaseBills, expenses, returns, products] =
+      const [bills, purchaseBills, expenses, returns, products, allTransactions] =
         await Promise.all([
           getBills(),
           getPurchaseBills(),
           getExpenses(),
           getBillReturns(),
           getProducts(),
+          getInventoryTransactions(),
         ]);
 
-      // Calculate inventory value
-      const totalInv = products.reduce((sum, product) => {
-        const stock = product.stock || 0;
-        const price = product.purchasePrice || product.price || 0;
-        return sum + stock * price;
-      }, 0);
+      // Calculate inventory value using canonical per-purchase GST calculation
+      const totalInv = computeInventoryValue(products, purchaseBills, allTransactions);
       setInventoryValue(totalInv);
 
       const allEntries: PassbookEntry[] = [];

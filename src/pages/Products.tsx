@@ -32,10 +32,10 @@ import {
   getInventoryTransactions,
   getBills,
   getBillReturns,
+  getPurchaseBills,
 } from "@/lib/storage";
 import { Product, Vendor } from "@/types";
 import {
-  Plus,
   Edit,
   Trash2,
   Package,
@@ -137,9 +137,13 @@ export default function Products() {
     | "name-desc"
   >("none");
 
-  // Helper: get effective purchase price for a product (avg if available, else product price)
-  const getEffectivePrice = (product: Product) =>
+  // Helper: get effective base purchase price (avg if available, else product price)
+  const getEffectiveBasePrice = (product: Product) =>
     currentAveragePrices[product.id] || product.purchasePrice || 0;
+
+  // Avg prices already include GST (computed via per-purchase gstRate from bill)
+  const getEffectivePrice = (product: Product) =>
+    getEffectiveBasePrice(product);
 
   // Helper: compute stock value inline — no extra state needed
   const getStockValue = (product: Product) =>
@@ -163,10 +167,20 @@ export default function Products() {
 
     const now = new Date();
 
-    // Fetch all transactions in parallel — avoids N sequential DB calls
-    const allTransactions = await Promise.all(
-      products.map((p) => getProductTransactions(p.id)),
-    );
+    // Fetch transactions and purchase bills in parallel for accurate per-purchase gstRate
+    const [allTransactions, purchaseBills] = await Promise.all([
+      Promise.all(products.map((p) => getProductTransactions(p.id))),
+      getPurchaseBills(),
+    ]);
+
+    // Build lookup: "billId:itemName" → gstRate
+    const billGstMap = new Map<string, number>();
+    purchaseBills.forEach((bill) => {
+      bill.items.forEach((item) => {
+        const key = `${bill.id}:${(item.description || "").toLowerCase().trim()}`;
+        billGstMap.set(key, item.gstRate || 0);
+      });
+    });
 
     products.forEach((product, index) => {
       const transactions = allTransactions[index] || [];
@@ -200,25 +214,33 @@ export default function Products() {
           );
         }
 
-        const totalPurchaseValue = filteredTransactions.reduce(
-          (sum, t) => sum + t.quantity * (t.purchasePrice || 0),
-          0,
-        );
+        // Compute landed cost per transaction using the actual gstRate from that bill
+        const totalPurchaseValue = filteredTransactions.reduce((sum, t) => {
+          const basePrice = t.purchasePrice || 0;
+          const gstKey = t.billId ? `${t.billId}:${product.name.toLowerCase().trim()}` : null;
+          const gstRate = (gstKey && billGstMap.has(gstKey))
+            ? billGstMap.get(gstKey)!
+            : (product.gstRate || 0);
+          return sum + t.quantity * basePrice * (1 + gstRate / 100);
+        }, 0);
+
         const totalPurchaseQuantity = filteredTransactions.reduce(
           (sum, t) => sum + t.quantity,
           0,
         );
 
-        const filteredAvgPurchasePrice =
+        const filteredAvgLandedPrice =
           totalPurchaseQuantity > 0
             ? totalPurchaseValue / totalPurchaseQuantity
-            : product.purchasePrice || 0;
+            : (product.purchasePrice || 0) * (1 + (product.gstRate || 0) / 100);
 
-        prices[product.id] = filteredAvgPurchasePrice;
-        currentPrices[product.id] = filteredAvgPurchasePrice;
+        prices[product.id] = filteredAvgLandedPrice;
+        currentPrices[product.id] = filteredAvgLandedPrice;
       } else {
-        prices[product.id] = product.purchasePrice || 0;
-        currentPrices[product.id] = product.purchasePrice || 0;
+        // No transactions — use purchasePrice × gstRate as landed cost
+        const landedCost = (product.purchasePrice || 0) * (1 + (product.gstRate || 0) / 100);
+        prices[product.id] = landedCost;
+        currentPrices[product.id] = landedCost;
       }
     });
 
@@ -651,7 +673,7 @@ export default function Products() {
         "GST%",
         "Unit",
         "Stock",
-        "Purchase Price",
+        "Purchase Price (Incl GST)",
         "Selling Price",
         "Stock Value",
         "Margin %",
@@ -770,7 +792,7 @@ export default function Products() {
             </div>
           </div>
 
-          <div className="hidden w-full items-center gap-2 rounded-xl border border-border/70 bg-muted/30 p-2 sm:flex lg:w-auto">
+          <div className="hidden w-full items-center gap-2 rounded-xl  border-border/70 bg-muted/30 p-2 sm:flex lg:w-auto">
             <ProductForm
               open={isOpen}
               onOpenChange={(open) => {
@@ -782,14 +804,14 @@ export default function Products() {
               }}
               product={editingProduct}
             />
-            <Button
+            {/* <Button
               size="sm"
               className="h-10 rounded-xl px-3 text-sm"
               onClick={() => setIsOpen(true)}
             >
               <Plus className="h-4 w-4 mr-2" />
               Create Product
-            </Button>
+            </Button> */}
 
             <Dialog
               open={isAddStockOpen}
@@ -896,23 +918,6 @@ export default function Products() {
                         placeholder="0.00"
                       />
                     </div>
-                  </div>
-
-                  <div className="border-t pt-4">
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Product not found?
-                    </p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => {
-                        setIsAddStockOpen(false);
-                        setIsOpen(true);
-                      }}
-                    >
-                      Create New Product
-                    </Button>
                   </div>
 
                   <div className="dialog-form-footer flex gap-2 justify-end">
@@ -1095,15 +1100,6 @@ export default function Products() {
                 }}
                 product={editingProduct}
               />
-              <Button
-                size="sm"
-                className="flex-1 h-9"
-                onClick={() => setIsOpen(true)}
-              >
-                <Plus className="h-4 w-4 mr-1.5" />
-                Create
-              </Button>
-
               <Dialog
                 open={isAddStockOpen}
                 onOpenChange={(open) => {
@@ -1211,23 +1207,6 @@ export default function Products() {
                       </div>
                     </div>
 
-                    <div className="border-t pt-4">
-                      <p className="text-sm text-muted-foreground mb-2">
-                        Product not found?
-                      </p>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => {
-                          setIsAddStockOpen(false);
-                          setIsOpen(true);
-                        }}
-                      >
-                        Create New Product
-                      </Button>
-                    </div>
-
                     <div className="dialog-form-footer flex gap-2 justify-end">
                       <Button
                         type="button"
@@ -1305,7 +1284,7 @@ export default function Products() {
                       {formatCurrency(stats.totalInventoryValue)}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      At purchase price
+                      At purchase price (incl. GST)
                     </p>
                   </div>
                 </CardContent>
@@ -1361,12 +1340,12 @@ export default function Products() {
             <Card>
               <CardContent className="text-center py-12">
                 <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p className="text-muted-foreground mb-4">
+                <p className="text-muted-foreground mb-2">
                   No products added yet
                 </p>
-                <Button onClick={() => setIsOpen(true)}>
-                  Add your first product
-                </Button>
+                <p className="text-sm text-muted-foreground">
+                  Products are created automatically when you add inventory from a Purchase Bill.
+                </p>
               </CardContent>
             </Card>
           ) : filteredProducts.length === 0 ? (
@@ -1386,9 +1365,6 @@ export default function Products() {
               {pagedProducts.map((product) => {
                 const sellingPrice = roundToTwoDecimals(
                   product.sellingPrice || product.price || 0,
-                );
-                const purchasePrice = roundToTwoDecimals(
-                  product.purchasePrice || 0,
                 );
                 const currentAvgPurchasePrice = roundToTwoDecimals(
                   getEffectivePrice(product),
@@ -1520,11 +1496,9 @@ export default function Products() {
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span>Avg Purchase Price</span>
+                          <span>Avg Purchase Price (incl. GST)</span>
                           <span className="font-medium">
-                            {formatCurrency(
-                              averagePrices[product.id] || purchasePrice,
-                            )}
+                            {formatCurrency(getEffectivePrice(product))}
                           </span>
                         </div>
                         <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
@@ -1546,7 +1520,7 @@ export default function Products() {
                         <div className="space-y-2 rounded-xl border border-emerald-200/50 bg-gradient-to-r from-emerald-500/10 to-blue-500/10 p-3">
                           <div className="flex items-center justify-between text-sm">
                             <span className="font-medium">
-                              Current Avg Price
+                              Current Avg Price (incl. GST)
                             </span>
                             <span className="font-medium">
                               {formatCurrency(currentAvgPurchasePrice)}

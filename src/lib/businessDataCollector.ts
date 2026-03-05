@@ -1,4 +1,5 @@
-import { getBills, getProducts, getClients, getPurchaseBills, getExpenses, getBillReturns, getDeadstock, getCompanyProfile } from "./storage";
+import { getBills, getProducts, getClients, getPurchaseBills, getExpenses, getBillReturns, getDeadstock, getCompanyProfile, getInventoryTransactions } from "./storage";
+import { computeInventoryValue } from "./billUtils";
 
 export const getBusinessDataForAI = async () => {
   try {
@@ -10,7 +11,8 @@ export const getBusinessDataForAI = async () => {
       expenses,
       returns,
       deadstock,
-      company
+      company,
+      allTransactions,
     ] = await Promise.all([
       getBills(),
       getProducts(),
@@ -19,7 +21,8 @@ export const getBusinessDataForAI = async () => {
       getExpenses(),
       getBillReturns(),
       getDeadstock(),
-      getCompanyProfile()
+      getCompanyProfile(),
+      getInventoryTransactions(),
     ]);
 
     // Format data for AI consumption - reducing size and focus on relevant business metrics
@@ -28,7 +31,7 @@ export const getBusinessDataForAI = async () => {
       totalCollected: bills.reduce((sum, b) => sum + (b.paidAmount || 0), 0),
       totalPurchases: purchaseBills.reduce((sum, b) => sum + b.total, 0),
       totalExpenses: expenses.reduce((sum, b) => sum + b.amount, 0),
-      inventoryValue: products.reduce((sum, p) => sum + (p.stock * (p.purchasePrice || 0)), 0),
+      inventoryValue: computeInventoryValue(products, purchaseBills, allTransactions),
       netProfit: 0, // Calculated below
       gstLiability: bills.reduce((sum, b) => sum + (b.totalTax || 0), 0) - purchaseBills.reduce((sum, b) => sum + (b.totalTax || 0), 0)
     };
