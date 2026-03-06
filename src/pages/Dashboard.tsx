@@ -34,6 +34,7 @@ import {
   Note,
 } from "@/types";
 import {
+  computeInventoryValue,
   formatCurrency,
   formatDate,
   roundToTwoDecimals,
@@ -653,46 +654,9 @@ export default function Dashboard() {
         }
       };
 
-      const currentAveragePrices: Record<string, number> = {};
-      const stockValues: Record<string, number> = {};
-
-      for (const product of products) {
-        const transactions = await getProductTransactions(product.id);
-        const purchaseTransactions = (transactions || []).filter(
-          (t) => t.type === "purchase",
-        );
-
-        if (purchaseTransactions.length > 0) {
-          let filteredTransactions = [...purchaseTransactions].sort(
-            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-          );
-
-          // Use exact landed purchase price (base + that purchase's GST)
-          const totalPurchaseValue = filteredTransactions.reduce((sum, t) => {
-            return sum + t.quantity * getLandedPurchasePrice(product, t);
-          }, 0);
-
-          const totalPurchaseQuantity = filteredTransactions.reduce(
-            (sum, t) => sum + t.quantity,
-            0,
-          );
-
-          const filteredAvgLandedPrice =
-            totalPurchaseQuantity > 0
-              ? totalPurchaseValue / totalPurchaseQuantity
-              : (product.purchasePrice || 0) * (1 + (product.gstRate || 0) / 100);
-
-          currentAveragePrices[product.id] = filteredAvgLandedPrice;
-          stockValues[product.id] = product.stock * filteredAvgLandedPrice;
-        } else {
-          const landedCost = (product.purchasePrice || 0) * (1 + (product.gstRate || 0) / 100);
-          currentAveragePrices[product.id] = landedCost;
-          stockValues[product.id] = product.stock * landedCost;
-        }
-      }
-
+      const allInventoryTransactions = Object.values(productTransactionsMap).flat();
       const inventoryValue = roundToTwoDecimals(
-        Object.values(stockValues).reduce((sum, val) => sum + val, 0),
+        computeInventoryValue(products, allPurchaseBills, allInventoryTransactions),
       );
 
       const buckets: Record<

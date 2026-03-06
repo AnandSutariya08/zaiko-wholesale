@@ -28,7 +28,6 @@ import {
   getCompanyProfile,
   addStockToProduct,
   getVendors,
-  getProductTransactions,
   getInventoryTransactions,
   getBills,
   getBillReturns,
@@ -72,6 +71,8 @@ import { ProductHistoryScreen } from "@/components/ProductHistoryScreen";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import {
   calculateSellingPriceFromCommission,
+  computeRecentAverageLandedPrices,
+  DEFAULT_RECENT_PURCHASES_COUNT,
   formatCurrency,
   roundToTwoDecimals,
 } from "@/lib/billUtils";
@@ -108,7 +109,6 @@ export default function Products() {
     Record<string, number>
   >({});
   const [searchQuery, setSearchQuery] = useState("");
-  const [avgPriceFilter, setAvgPriceFilter] = useState<string>("all");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -159,93 +159,23 @@ export default function Products() {
     if (products.length > 0) {
       loadAveragePrices();
     }
-  }, [products, avgPriceFilter]);
+  }, [products]);
 
   const loadAveragePrices = async () => {
-    const prices: Record<string, number> = {};
-    const currentPrices: Record<string, number> = {};
-
-    const now = new Date();
-
-    // Fetch transactions and purchase bills in parallel for accurate per-purchase gstRate
     const [allTransactions, purchaseBills] = await Promise.all([
-      Promise.all(products.map((p) => getProductTransactions(p.id))),
+      getInventoryTransactions(),
       getPurchaseBills(),
     ]);
 
-    // Build lookup: "billId:itemName" → gstRate
-    const billGstMap = new Map<string, number>();
-    purchaseBills.forEach((bill) => {
-      bill.items.forEach((item) => {
-        const key = `${bill.id}:${(item.description || "").toLowerCase().trim()}`;
-        billGstMap.set(key, item.gstRate || 0);
-      });
-    });
+    const recentAvgPrices = computeRecentAverageLandedPrices(
+      products,
+      purchaseBills,
+      allTransactions,
+      DEFAULT_RECENT_PURCHASES_COUNT,
+    );
 
-    products.forEach((product, index) => {
-      const transactions = allTransactions[index] || [];
-
-      if (transactions.length > 0) {
-        let filteredTransactions = [...transactions].sort(
-          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-        );
-
-        if (avgPriceFilter === "last3") {
-          filteredTransactions = filteredTransactions.slice(0, 3);
-        } else if (avgPriceFilter === "last5") {
-          filteredTransactions = filteredTransactions.slice(0, 5);
-        } else if (avgPriceFilter === "1month") {
-          const oneMonthAgo = new Date(now);
-          oneMonthAgo.setMonth(now.getMonth() - 1);
-          filteredTransactions = filteredTransactions.filter(
-            (t) => new Date(t.date) >= oneMonthAgo,
-          );
-        } else if (avgPriceFilter === "3month") {
-          const threeMonthsAgo = new Date(now);
-          threeMonthsAgo.setMonth(now.getMonth() - 3);
-          filteredTransactions = filteredTransactions.filter(
-            (t) => new Date(t.date) >= threeMonthsAgo,
-          );
-        } else if (avgPriceFilter === "6month") {
-          const sixMonthsAgo = new Date(now);
-          sixMonthsAgo.setMonth(now.getMonth() - 6);
-          filteredTransactions = filteredTransactions.filter(
-            (t) => new Date(t.date) >= sixMonthsAgo,
-          );
-        }
-
-        // Compute landed cost per transaction using the actual gstRate from that bill
-        const totalPurchaseValue = filteredTransactions.reduce((sum, t) => {
-          const basePrice = t.purchasePrice || 0;
-          const gstKey = t.billId ? `${t.billId}:${product.name.toLowerCase().trim()}` : null;
-          const gstRate = (gstKey && billGstMap.has(gstKey))
-            ? billGstMap.get(gstKey)!
-            : (product.gstRate || 0);
-          return sum + t.quantity * basePrice * (1 + gstRate / 100);
-        }, 0);
-
-        const totalPurchaseQuantity = filteredTransactions.reduce(
-          (sum, t) => sum + t.quantity,
-          0,
-        );
-
-        const filteredAvgLandedPrice =
-          totalPurchaseQuantity > 0
-            ? totalPurchaseValue / totalPurchaseQuantity
-            : (product.purchasePrice || 0) * (1 + (product.gstRate || 0) / 100);
-
-        prices[product.id] = filteredAvgLandedPrice;
-        currentPrices[product.id] = filteredAvgLandedPrice;
-      } else {
-        // No transactions — use purchasePrice × gstRate as landed cost
-        const landedCost = (product.purchasePrice || 0) * (1 + (product.gstRate || 0) / 100);
-        prices[product.id] = landedCost;
-        currentPrices[product.id] = landedCost;
-      }
-    });
-
-    setAveragePrices(prices);
-    setCurrentAveragePrices(currentPrices);
+    setAveragePrices(recentAvgPrices);
+    setCurrentAveragePrices(recentAvgPrices);
   };
 
   const loadCompanyProfile = async () => {
@@ -1032,20 +962,6 @@ export default function Products() {
                 </SelectContent>
               </Select>
 
-              <Select value={avgPriceFilter} onValueChange={setAvgPriceFilter}>
-                <SelectTrigger className="h-9 flex-1 min-w-[130px] text-sm">
-                  <SelectValue placeholder="Avg Price" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Time Avg</SelectItem>
-                  <SelectItem value="last3">Last 3 Bills</SelectItem>
-                  <SelectItem value="last5">Last 5 Bills</SelectItem>
-                  <SelectItem value="1month">Last 1 Month</SelectItem>
-                  <SelectItem value="3month">Last 3 Months</SelectItem>
-                  <SelectItem value="6month">Last 6 Months</SelectItem>
-                </SelectContent>
-              </Select>
-
               <div className="flex sm:hidden items-center gap-2">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -1284,7 +1200,7 @@ export default function Products() {
                       {formatCurrency(stats.totalInventoryValue)}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      At purchase price (incl. GST)
+                      At avg purchase price of last 3 buys (incl. GST)
                     </p>
                   </div>
                 </CardContent>
@@ -1496,7 +1412,7 @@ export default function Products() {
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span>Avg Purchase Price (incl. GST)</span>
+                          <span>Avg Purchase Price (Last 3, incl. GST)</span>
                           <span className="font-medium">
                             {formatCurrency(getEffectivePrice(product))}
                           </span>
@@ -1520,7 +1436,7 @@ export default function Products() {
                         <div className="space-y-2 rounded-xl border border-emerald-200/50 bg-gradient-to-r from-emerald-500/10 to-blue-500/10 p-3">
                           <div className="flex items-center justify-between text-sm">
                             <span className="font-medium">
-                              Current Avg Price (incl. GST)
+                                Current Avg Price (Last 3, incl. GST)
                             </span>
                             <span className="font-medium">
                               {formatCurrency(currentAvgPurchasePrice)}

@@ -1,30 +1,54 @@
 import { BillItem, CompanyProfile, Product, PurchaseBill, InventoryTransaction } from "@/types";
 
-/**
- * Compute total inventory value using the actual per-purchase GST rate from
- * each purchase bill. This is the canonical inventory value calculation
- * used consistently across the entire app.
- *
- * For each product, it finds all purchase inventory transactions, looks up
- * the real gstRate from the linked purchase bill, computes the landed cost
- * (base price + GST), and derives the weighted average landed cost for
- * current stock.
- */
-export function computeInventoryValue(
-  products: Product[],
-  purchaseBills: PurchaseBill[],
-  allInventoryTransactions: InventoryTransaction[],
-): number {
-  // Build lookup: "billId:itemName" → gstRate
-  const billGstMap = new Map<string, number>();
+export const DEFAULT_RECENT_PURCHASES_COUNT = 3;
+
+const buildPurchaseBillGstMaps = (purchaseBills: PurchaseBill[]) => {
+  const billGstByProductId = new Map<string, number>();
+  const billGstByName = new Map<string, number>();
+
   purchaseBills.forEach((bill) => {
     bill.items.forEach((item) => {
-      const key = `${bill.id}:${(item.description || "").toLowerCase().trim()}`;
-      billGstMap.set(key, item.gstRate || 0);
+      if (item.productId) {
+        billGstByProductId.set(`${bill.id}:${item.productId}`, item.gstRate || 0);
+      }
+      const nameKey = `${bill.id}:${(item.description || "").toLowerCase().trim()}`;
+      billGstByName.set(nameKey, item.gstRate || 0);
     });
   });
 
-  // Group purchase transactions by productId
+  return { billGstByProductId, billGstByName };
+};
+
+export function computeRecentAverageLandedPrices(
+  products: Product[],
+  purchaseBills: PurchaseBill[],
+  allInventoryTransactions: InventoryTransaction[],
+  recentPurchasesCount: number = DEFAULT_RECENT_PURCHASES_COUNT,
+): Record<string, number> {
+  const { billGstByProductId, billGstByName } = buildPurchaseBillGstMaps(purchaseBills);
+
+  const getLandedFromTx = (
+    product: Product,
+    transaction: Pick<InventoryTransaction, "purchasePrice" | "billId">,
+  ) => {
+    const basePrice = transaction.purchasePrice || 0;
+    const gstKeyByProductId = transaction.billId
+      ? `${transaction.billId}:${product.id}`
+      : null;
+    const gstKeyByName = transaction.billId
+      ? `${transaction.billId}:${product.name.toLowerCase().trim()}`
+      : null;
+    const gstRate =
+      (gstKeyByProductId && billGstByProductId.has(gstKeyByProductId)
+        ? billGstByProductId.get(gstKeyByProductId)
+        : undefined) ??
+      (gstKeyByName && billGstByName.has(gstKeyByName)
+        ? billGstByName.get(gstKeyByName)
+        : undefined) ??
+      (product.gstRate || 0);
+    return basePrice * (1 + gstRate / 100);
+  };
+
   const txByProduct = new Map<string, InventoryTransaction[]>();
   allInventoryTransactions.forEach((t) => {
     if (t.type !== "purchase") return;
@@ -33,37 +57,56 @@ export function computeInventoryValue(
     txByProduct.set(t.productId, list);
   });
 
-  let total = 0;
-  for (const product of products) {
-    const transactions = txByProduct.get(product.id) || [];
-    if (transactions.length > 0) {
-      const totalValue = transactions.reduce((sum, t) => {
-        const basePrice = t.purchasePrice || 0;
-        const gstKey = t.billId
-          ? `${t.billId}:${product.name.toLowerCase().trim()}`
-          : null;
-        const gstRate =
-          gstKey && billGstMap.has(gstKey)
-            ? billGstMap.get(gstKey)!
-            : product.gstRate || 0;
-        return sum + t.quantity * basePrice * (1 + gstRate / 100);
-      }, 0);
-      const totalQty = transactions.reduce((sum, t) => sum + t.quantity, 0);
-      const avgLandedPrice =
-        totalQty > 0
-          ? totalValue / totalQty
-          : (product.purchasePrice || 0) * (1 + (product.gstRate || 0) / 100);
-      total += product.stock * avgLandedPrice;
-    } else {
-      total +=
-        product.stock *
-        (product.purchasePrice || 0) *
-        (1 + (product.gstRate || 0) / 100);
+  const averages: Record<string, number> = {};
+  products.forEach((product) => {
+    const recentTx = (txByProduct.get(product.id) || [])
+      .slice()
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, Math.max(1, recentPurchasesCount));
+
+    if (recentTx.length === 0) {
+      averages[product.id] =
+        (product.purchasePrice || 0) * (1 + (product.gstRate || 0) / 100);
+      return;
     }
-  }
-  return total;
+
+    const totalPurchaseValue = recentTx.reduce((sum, t) => {
+      return sum + t.quantity * getLandedFromTx(product, t);
+    }, 0);
+    const totalPurchaseQuantity = recentTx.reduce((sum, t) => sum + t.quantity, 0);
+
+    averages[product.id] =
+      totalPurchaseQuantity > 0
+        ? totalPurchaseValue / totalPurchaseQuantity
+        : (product.purchasePrice || 0) * (1 + (product.gstRate || 0) / 100);
+  });
+
+  return averages;
 }
 
+export function computeInventoryValue(
+  products: Product[],
+  purchaseBills: PurchaseBill[],
+  allInventoryTransactions: InventoryTransaction[],
+  recentPurchasesCount: number = DEFAULT_RECENT_PURCHASES_COUNT,
+): number {
+  const recentAvgPrices = computeRecentAverageLandedPrices(
+    products,
+    purchaseBills,
+    allInventoryTransactions,
+    recentPurchasesCount,
+  );
+
+  let total = 0;
+  for (const product of products) {
+    const avgLandedPrice =
+      recentAvgPrices[product.id] ??
+      (product.purchasePrice || 0) * (1 + (product.gstRate || 0) / 100);
+    total += product.stock * avgLandedPrice;
+  }
+
+  return total;
+}
 /**
  * Round a number to 2 decimal places, fixing floating point precision issues
  * @param num - The number to round
