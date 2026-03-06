@@ -17,6 +17,9 @@ export const exportDashboardToExcel = (
     const formatCurrency = (amount: number) => `₹${amount.toFixed(2)}`;
     const purchasePaidAmount = Math.max(0, stats.totalPurchases || 0);
     const totalSellAmount = (stats.totalRevenue || 0) + (stats.pendingAmount || 0);
+    const currentGrossProfit = (stats.grossProfit || 0) - (stats.expectedProfit || 0);
+    const currentNetProfitCollected =
+        currentGrossProfit - (stats.totalExpenses || 0) - (stats.deadstockLoss || 0);
 
     // ========== SHEET 1: EXECUTIVE SUMMARY ==========
     const summaryData = [
@@ -28,16 +31,19 @@ export const exportDashboardToExcel = (
         ['FINANCIAL OVERVIEW'],
         ['Metric', 'Value', 'Notes'],
         ['Total Revenue (Received)', formatCurrency(stats.totalRevenue), 'Actual money received including partial payments'],
+        ['Pending Collection', formatCurrency(stats.pendingAmount || 0), 'Uncollected sales amount for sold goods'],
+        ['Total Revenue for Gross Profit', formatCurrency(totalSellAmount), 'Collected + pending sales amount used in gross profit'],
         ['Total Revenue (excl. GST)', formatCurrency(stats.totalRevenue - stats.gstCollected), 'Revenue without GST'],
         ['Total Discount Given', formatCurrency(stats.totalDiscount), 'Total discount amount'],
         ['Total Purchases', formatCurrency(stats.totalPurchases), 'Paid purchases only (unpaid purchases are excluded)'],
         ['Current Inventory Value', formatCurrency(stats.inventoryValue || 0), 'Current value of available inventory stock'],
         ['Deadstock Value', formatCurrency(stats.deadstockLoss || 0), 'Value lost in deadstock/damaged inventory'],
-        ['Gross Profit', formatCurrency(stats.grossProfit), 'Revenue - COGS (incl. GST)'],
+        ['Gross Profit', formatCurrency(stats.grossProfit), '(Collected + pending revenue) - COGS (incl. GST)'],
+        ['Current Gross Profit', formatCurrency(currentGrossProfit), 'Gross profit from collected revenue only'],
         ['Expenses', formatCurrency(stats.totalExpenses), 'Operational expenses in selected period'],
-        ['Current Net Profit (After All Deductions)', formatCurrency(stats.profit), 'Revenue - COGS (incl. GST) - Expenses - Losses'],
-        ['Expected Net Profit', formatCurrency(stats.expectedProfit || 0), 'Net expected profit from pending collection'],
-        ['Total Net Profit', formatCurrency(stats.expectedTotalNetProfit || 0), 'Current net profit + expected net profit'],
+        ['Expected Net Profit', formatCurrency(stats.expectedProfit || 0), 'Pending collection contribution (shown separately)'],
+        ['Total Net Profit (with expected profits)', formatCurrency(stats.expectedTotalNetProfit || 0), 'Final net profit for selected period'],
+        ['Current Net Profit (After All Deductions)', formatCurrency(currentNetProfitCollected), 'Net profit from collected amount only (after expenses/losses)'],
         ['Profit Margin', `${stats.totalCOGS > 0 ? ((stats.grossProfit / stats.totalCOGS) * 100).toFixed(2) : '0.00'}%`, 'Gross Profit / COGS'],
         ['ROI', `${stats.totalPurchases > 0 ? ((stats.profit / stats.totalPurchases) * 100).toFixed(2) : 'N/A'}%`, 'Net Profit / Total Purchases'],
         [],
@@ -46,7 +52,7 @@ export const exportDashboardToExcel = (
         ['Total Purchase', formatCurrency(stats.totalPurchases || 0), 'Paid purchase value after returns'],
         ['Purchase Paid Amount', formatCurrency(purchasePaidAmount), 'Total purchases already paid (same as Total Purchase)'],
         ['Purchase Pending Amount', formatCurrency(stats.pendingPurchases || 0), 'Pending purchases payable to vendors'],
-        ['Total Sell', formatCurrency(totalSellAmount), 'Collected + pending sales amount'],
+        ['Total Sell (Collected + Pending)', formatCurrency(totalSellAmount), 'Collected + pending sales amount'],
         ['Sells Collected Amount', formatCurrency(stats.totalRevenue || 0), 'Total collected from sales'],
         ['Sells Pending Amount', formatCurrency(stats.pendingAmount || 0), 'Pending receivable from sales'],
         [],

@@ -231,6 +231,22 @@ export const DashboardPDF = ({
             </Text>
           </View>
           <View style={styles.tableRow}>
+            <Text style={styles.tableCellLabel}>Pending Collection</Text>
+            <Text style={styles.tableCellValue}>
+              {formatCurrency(stats.pendingAmount || 0)}
+            </Text>
+          </View>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableCellLabel}>
+              Total Revenue for Gross Profit
+            </Text>
+            <Text style={styles.tableCellValue}>
+              {formatCurrency(
+                (stats.totalRevenue || 0) + (stats.pendingAmount || 0),
+              )}
+            </Text>
+          </View>
+          <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Total Revenue (excl. GST)</Text>
             <Text style={styles.tableCellValue}>
               {formatCurrency(stats.totalRevenue - stats.gstCollected)}
@@ -250,7 +266,9 @@ export const DashboardPDF = ({
             </Text>
           </View>
           <View style={styles.tableRow}>
-            <Text style={styles.tableCellLabel}>Gross Profit</Text>
+            <Text style={styles.tableCellLabel}>
+              Gross Profit [(Collected + Pending) - COGS]
+            </Text>
             <Text
               style={[
                 styles.tableCellValue,
@@ -261,6 +279,21 @@ export const DashboardPDF = ({
             </Text>
           </View>
           <View style={styles.tableRow}>
+            <Text style={styles.tableCellLabel}>
+              Current Gross Profit (Collected Only)
+            </Text>
+            <Text
+              style={[
+                styles.tableCellValue,
+                (stats.grossProfit - (stats.expectedProfit || 0)) >= 0
+                  ? styles.profit
+                  : styles.loss,
+              ]}
+            >
+              {formatCurrency(stats.grossProfit - (stats.expectedProfit || 0))}
+            </Text>
+          </View>
+          <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Expenses</Text>
             <Text style={styles.tableCellValue}>
               {formatCurrency(stats.totalExpenses)}
@@ -268,19 +301,8 @@ export const DashboardPDF = ({
           </View>
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>
-              Current Net Profit (After All Deductions)
+              Expected Profit (Pending Contribution)
             </Text>
-            <Text
-              style={[
-                styles.tableCellValue,
-                stats.profit >= 0 ? styles.profit : styles.loss,
-              ]}
-            >
-              {formatCurrency(stats.profit)}
-            </Text>
-          </View>
-          <View style={styles.tableRow}>
-            <Text style={styles.tableCellLabel}>Expected Net Profit</Text>
             <Text
               style={[
                 styles.tableCellValue,
@@ -291,7 +313,9 @@ export const DashboardPDF = ({
             </Text>
           </View>
           <View style={styles.tableRow}>
-            <Text style={styles.tableCellLabel}>Total Net Profit</Text>
+            <Text style={styles.tableCellLabel}>
+              Total Net Profit (with expected profits)
+            </Text>
             <Text
               style={[
                 styles.tableCellValue,
@@ -301,6 +325,29 @@ export const DashboardPDF = ({
               ]}
             >
               {formatCurrency(stats.expectedTotalNetProfit || 0)}
+            </Text>
+          </View>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableCellLabel}>
+              Current Net Profit (After All Deductions - Collected Only)
+            </Text>
+            <Text
+              style={[
+                styles.tableCellValue,
+                (stats.grossProfit -
+                  (stats.expectedProfit || 0) -
+                  (stats.totalExpenses || 0) -
+                  (stats.deadstockLoss || 0)) >= 0
+                  ? styles.profit
+                  : styles.loss,
+              ]}
+            >
+              {formatCurrency(
+                stats.grossProfit -
+                  (stats.expectedProfit || 0) -
+                  (stats.totalExpenses || 0) -
+                  (stats.deadstockLoss || 0),
+              )}
             </Text>
           </View>
         </View>
@@ -331,7 +378,9 @@ export const DashboardPDF = ({
             </Text>
           </View>
           <View style={styles.tableRow}>
-            <Text style={styles.tableCellLabel}>Total Sell</Text>
+            <Text style={styles.tableCellLabel}>
+              Total Sell (Collected + Pending)
+            </Text>
             <Text style={[styles.tableCellValue, { textAlign: "left" }]}>
               {formatCurrency(
                 (stats.totalRevenue || 0) + (stats.pendingAmount || 0),

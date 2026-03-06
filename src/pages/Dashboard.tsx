@@ -831,22 +831,24 @@ export default function Dashboard() {
           const paidCost = paidBaseCost;
           const pendingCost = pendingBaseCost;
 
+          acc.totalCOGS += netEstimatedCost;
           acc.realizedCOGS += paidCost;
+          acc.totalGrossProfit += financials.netTotal - netEstimatedCost;
           acc.realizedGrossProfit += paidRevenueInclGst - paidCost;
           acc.pendingGrossProfit += pendingRevenueInclGst - pendingCost;
           return acc;
         },
         {
+          totalCOGS: 0,
           realizedCOGS: 0,
+          totalGrossProfit: 0,
           realizedGrossProfit: 0,
           pendingGrossProfit: 0,
         },
       );
 
-      const totalCOGS = roundToTwoDecimals(invoiceLevelProfitBreakdown.realizedCOGS);
-      const grossProfit = roundToTwoDecimals(
-        invoiceLevelProfitBreakdown.realizedGrossProfit,
-      );
+      const totalCOGS = roundToTwoDecimals(invoiceLevelProfitBreakdown.totalCOGS);
+      const grossProfit = roundToTwoDecimals(invoiceLevelProfitBreakdown.totalGrossProfit);
       const profit = roundToTwoDecimals(
         grossProfit - deadstockLoss - totalExpenses,
       );
@@ -854,7 +856,7 @@ export default function Dashboard() {
         invoiceLevelProfitBreakdown.pendingGrossProfit,
       );
       const expectedTotalNetProfit = roundToTwoDecimals(
-        profit + expectedProfit,
+        profit,
       );
 
       const totalDiscount = roundToTwoDecimals(
@@ -1799,7 +1801,7 @@ export default function Dashboard() {
                     </div>
                     <div className="flex flex-col gap-1 mt-1.5 sm:mt-2">
                       <span className="text-[10px] sm:text-xs text-muted-foreground break-words">
-                        Revenue - COGS incl. GST (excl. expenses)
+                        (Collected + Pending) Revenue - COGS incl. GST
                       </span>
                     </div>
                   </CardContent>
@@ -1828,9 +1830,9 @@ export default function Dashboard() {
                     <div className="flex items-center gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
                       <Calculator className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
                       <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground break-words">
-                        Net expected profit from pending collection
+                        Profit contribution from pending collection
                         <br />
-                        {`Expected total Net Profit: ${stats.expectedTotalNetProfit < 0 ? "-" : ""}Rs. ${Math.abs(
+                        {`Total Net Profit (already includes this): ${stats.expectedTotalNetProfit < 0 ? "-" : ""}Rs. ${Math.abs(
                           stats.expectedTotalNetProfit,
                         ).toLocaleString("en-IN", {
                           minimumFractionDigits: 2,
@@ -1939,14 +1941,14 @@ export default function Dashboard() {
                       <div className="flex items-center gap-1.5 sm:gap-2">
                         <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-emerald-600 flex-shrink-0" />
                         <span className="text-[10px] sm:text-xs md:text-sm font-medium text-muted-foreground truncate">
-                          Gross Revenue
+                          Collected Revenue
                         </span>
                       </div>
                       <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-emerald-600 break-words">
                         {formatCurrency(stats.totalRevenue)}
                       </p>
                       <p className="text-[10px] sm:text-xs text-muted-foreground break-words">
-                        Total sales (incl. GST)
+                        Collected sales amount (incl. GST)
                       </p>
                     </div>
 
@@ -1961,7 +1963,7 @@ export default function Dashboard() {
                         {formatCurrency(stats.totalCOGS)}
                       </p>
                       <p className="text-[10px] sm:text-xs text-muted-foreground break-words">
-                        Cost of goods sold including GST
+                        Cost of all sold goods including GST
                       </p>
                     </div>
 
@@ -2001,7 +2003,7 @@ export default function Dashboard() {
                           className={`h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0 ${stats.profit >= 0 ? "text-blue-600" : "text-red-600"}`}
                         />
                         <span className="text-[10px] sm:text-xs md:text-sm font-medium text-muted-foreground truncate">
-                          Net Profit
+                          Net Profit (incl. pending collection)
                         </span>
                       </div>
                       <p
@@ -2027,12 +2029,26 @@ export default function Dashboard() {
                       <div className="space-y-1">
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">
-                            Gross Revenue (after discount)
+                            Collected Revenue (after discount)
                           </span>
                           <span className="font-semibold text-emerald-600">
-                            {formatCurrency(
-                              stats.grossProfit + stats.totalCOGS,
-                            )}
+                            {formatCurrency(stats.totalRevenue)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">
+                            + Pending Collection
+                          </span>
+                          <span className="font-medium text-amber-600">
+                            +{formatCurrency(stats.pendingAmount)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">
+                            Total Revenue for GP
+                          </span>
+                          <span className="font-semibold text-emerald-600">
+                            {formatCurrency(stats.totalRevenue + stats.pendingAmount)}
                           </span>
                         </div>
                         <div className="flex justify-between">
