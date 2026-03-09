@@ -124,6 +124,7 @@ export default function Dashboard() {
     pendingAmount: 0,
     overdueBills: 0,
     totalPurchases: 0,
+    paidPurchases: 0,
     totalPurchaseBills: 0,
     pendingPurchases: 0,
     profit: 0,
@@ -421,6 +422,12 @@ export default function Dashboard() {
       ).length;
 
       const totalPurchases = roundToTwoDecimals(
+        purchaseBillsInRange.reduce(
+          (sum, bill) => sum + getPurchaseBillFinancials(bill).netTotal,
+          0,
+        ),
+      );
+      const paidPurchases = roundToTwoDecimals(
         purchaseBillsInRange.reduce(
           (sum, bill) => sum + getPurchaseBillFinancials(bill).recognizedPaid,
           0,
@@ -874,6 +881,7 @@ export default function Dashboard() {
         pendingAmount,
         overdueBills,
         totalPurchases,
+        paidPurchases,
         totalPurchaseBills: purchaseBillsInRange.length,
         pendingPurchases,
         profit,

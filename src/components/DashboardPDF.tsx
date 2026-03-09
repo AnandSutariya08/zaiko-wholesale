@@ -232,7 +232,7 @@ export const DashboardPDF = ({
           </View>
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Pending Collection</Text>
-            <Text style={styles.tableCellValue}>
+            <Text style={[styles.tableCellValue, { textAlign: "left" }]}>
               {formatCurrency(stats.pendingAmount || 0)}
             </Text>
           </View>
@@ -240,7 +240,7 @@ export const DashboardPDF = ({
             <Text style={styles.tableCellLabel}>
               Total Revenue for Gross Profit
             </Text>
-            <Text style={styles.tableCellValue}>
+            <Text style={[styles.tableCellValue, { textAlign: "left" }]}>
               {formatCurrency(
                 (stats.totalRevenue || 0) + (stats.pendingAmount || 0),
               )}
@@ -248,14 +248,14 @@ export const DashboardPDF = ({
           </View>
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Total Revenue (excl. GST)</Text>
-            <Text style={styles.tableCellValue}>
+            <Text style={[styles.tableCellValue, { textAlign: "left" }]}>
               {formatCurrency(stats.totalRevenue - stats.gstCollected)}
             </Text>
           </View>
 
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Total Discount Given</Text>
-            <Text style={styles.tableCellValue}>
+            <Text style={[styles.tableCellValue, { textAlign: "left" }]}>
               {formatCurrency(stats.totalDiscount)}
             </Text>
           </View>
@@ -266,6 +266,12 @@ export const DashboardPDF = ({
             </Text>
           </View>
           <View style={styles.tableRow}>
+            <Text style={styles.tableCellLabel}>Purchase Pending Payment</Text>
+            <Text style={[styles.tableCellValue, { textAlign: "left" }]}>
+              {formatCurrency(stats.pendingPurchases || 0)}
+            </Text>
+          </View>
+          <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>
               Gross Profit [(Collected + Pending) - COGS]
             </Text>
@@ -273,6 +279,7 @@ export const DashboardPDF = ({
               style={[
                 styles.tableCellValue,
                 stats.grossProfit >= 0 ? styles.profit : styles.loss,
+                { textAlign: "left" },
               ]}
             >
               {formatCurrency(stats.grossProfit)}
@@ -285,7 +292,7 @@ export const DashboardPDF = ({
             <Text
               style={[
                 styles.tableCellValue,
-                (stats.grossProfit - (stats.expectedProfit || 0)) >= 0
+                stats.grossProfit - (stats.expectedProfit || 0) >= 0
                   ? styles.profit
                   : styles.loss,
               ]}
@@ -334,10 +341,11 @@ export const DashboardPDF = ({
             <Text
               style={[
                 styles.tableCellValue,
-                (stats.grossProfit -
+                stats.grossProfit -
                   (stats.expectedProfit || 0) -
                   (stats.totalExpenses || 0) -
-                  (stats.deadstockLoss || 0)) >= 0
+                  (stats.deadstockLoss || 0) >=
+                0
                   ? styles.profit
                   : styles.loss,
               ]}
@@ -368,7 +376,7 @@ export const DashboardPDF = ({
           <View style={styles.tableRow}>
             <Text style={styles.tableCellLabel}>Purchase Paid Amount</Text>
             <Text style={[styles.tableCellValue, { textAlign: "left" }]}>
-              {formatCurrency(stats.totalPurchases || 0)}
+              {formatCurrency(stats.paidPurchases ?? stats.totalPurchases ?? 0)}
             </Text>
           </View>
           <View style={styles.tableRow}>
@@ -488,26 +496,6 @@ export const DashboardPDF = ({
         </View>
       </View>
 
-      <View style={styles.summaryBox}>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Profit Margin</Text>
-          <Text style={styles.summaryValue}>
-            {stats.totalCOGS > 0
-              ? ((stats.grossProfit / stats.totalCOGS) * 100).toFixed(2)
-              : "0.00"}
-            %
-          </Text>
-        </View>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>ROI (Return on Investment)</Text>
-          <Text style={styles.summaryValue}>
-            {stats.totalPurchases > 0
-              ? ((stats.profit / stats.totalPurchases) * 100).toFixed(2)
-              : "N/A"}
-            %
-          </Text>
-        </View>
-      </View>
       <Text
         style={styles.footer}
         fixed
