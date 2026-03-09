@@ -495,7 +495,27 @@ export const DashboardPDF = ({
           </View>
         </View>
       </View>
-
+{/* 
+      <View style={styles.summaryBox}>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Profit Margin</Text>
+          <Text style={styles.summaryValue}>
+            {stats.totalCOGS > 0
+              ? ((stats.grossProfit / stats.totalCOGS) * 100).toFixed(2)
+              : "0.00"}
+            %
+          </Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>ROI (Return on Investment)</Text>
+          <Text style={styles.summaryValue}>
+            {stats.totalPurchases > 0
+              ? ((stats.profit / stats.totalPurchases) * 100).toFixed(2)
+              : "N/A"}
+            %
+          </Text>
+        </View>
+      </View> */}
       <Text
         style={styles.footer}
         fixed
