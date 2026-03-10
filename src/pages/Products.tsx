@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -86,7 +86,7 @@ export default function Products() {
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const [pageSize, setPageSize] = useState(10);
   const [isOpen, setIsOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [historyProduct, setHistoryProduct] = useState<Product | null>(null);
@@ -127,16 +127,6 @@ export default function Products() {
     quantity: "",
     purchasePrice: "",
   });
-  const [stockSortOrder, setStockSortOrder] = useState<
-    | "none"
-    | "stock-low-to-high"
-    | "stock-high-to-low"
-    | "value-high-to-low"
-    | "value-low-to-high"
-    | "name-asc"
-    | "name-desc"
-  >("none");
-
   // Helper: get effective base purchase price (avg if available, else product price)
   const getEffectiveBasePrice = (product: Product) =>
     currentAveragePrices[product.id] || product.purchasePrice || 0;
@@ -471,7 +461,18 @@ export default function Products() {
     }
   };
 
-  const filteredProducts = products
+  const compareProductNamesAsc = (a: Product, b: Product) =>
+    (a.name || "").localeCompare(b.name || "", undefined, {
+      sensitivity: "base",
+      numeric: true,
+    });
+
+  const sortedProducts = useMemo(
+    () => [...products].sort(compareProductNamesAsc),
+    [products],
+  );
+
+  const filteredProducts = sortedProducts
     .filter((product) => {
       if (!searchQuery.trim()) return true;
       const query = searchQuery.toLowerCase().trim();
@@ -480,17 +481,6 @@ export default function Products() {
         product.hsnCode.toLowerCase().includes(query) ||
         (product.unit && product.unit.toLowerCase().includes(query))
       );
-    })
-    .sort((a, b) => {
-      if (stockSortOrder === "stock-low-to-high") return a.stock - b.stock;
-      if (stockSortOrder === "stock-high-to-low") return b.stock - a.stock;
-      if (stockSortOrder === "name-asc") return a.name.localeCompare(b.name);
-      if (stockSortOrder === "name-desc") return b.name.localeCompare(a.name);
-      if (stockSortOrder === "value-high-to-low")
-        return getStockValue(b) - getStockValue(a);
-      if (stockSortOrder === "value-low-to-high")
-        return getStockValue(a) - getStockValue(b);
-      return 0;
     });
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
@@ -502,7 +492,7 @@ export default function Products() {
 
   useEffect(() => {
     setPage(1);
-  }, [searchQuery]);
+  }, [searchQuery, pageSize]);
 
   const calculateStatistics = () => {
     if (products.length === 0) {
@@ -609,7 +599,7 @@ export default function Products() {
         "Margin %",
       ],
     ];
-    products.forEach((p) => {
+    sortedProducts.forEach((p) => {
       const currentAvg = getEffectivePrice(p);
       const selling = p.sellingPrice || p.price || 0;
       const margin =
@@ -895,12 +885,12 @@ export default function Products() {
                   <PDFDownloadLink
                     document={
                       <ProductsPDF
-                        products={products}
+                        products={sortedProducts}
                         stats={stats}
                         averagePrices={averagePrices}
                         currentAveragePrices={currentAveragePrices}
                         stockValues={Object.fromEntries(
-                          products.map((p) => [p.id, getStockValue(p)]),
+                          sortedProducts.map((p) => [p.id, getStockValue(p)]),
                         )}
                         companyProfile={companyProfile}
                       />
@@ -936,31 +926,6 @@ export default function Products() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Select
-                value={stockSortOrder}
-                onValueChange={(value: any) => setStockSortOrder(value)}
-              >
-                <SelectTrigger className="h-9 flex-1 min-w-[130px] text-sm">
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Default</SelectItem>
-                  <SelectItem value="name-asc">Name: A → Z</SelectItem>
-                  <SelectItem value="name-desc">Name: Z → A</SelectItem>
-                  <SelectItem value="stock-low-to-high">
-                    Stock: Low → High
-                  </SelectItem>
-                  <SelectItem value="stock-high-to-low">
-                    Stock: High → Low
-                  </SelectItem>
-                  <SelectItem value="value-high-to-low">
-                    Value: High → Low
-                  </SelectItem>
-                  <SelectItem value="value-low-to-high">
-                    Value: Low → High
-                  </SelectItem>
-                </SelectContent>
-              </Select>
 
               <div className="flex sm:hidden items-center gap-2">
                 <DropdownMenu>
@@ -978,12 +943,12 @@ export default function Products() {
                       <PDFDownloadLink
                         document={
                           <ProductsPDF
-                            products={products}
+                            products={sortedProducts}
                             stats={stats}
                             averagePrices={averagePrices}
                             currentAveragePrices={currentAveragePrices}
                             stockValues={Object.fromEntries(
-                              products.map((p) => [p.id, getStockValue(p)]),
+                              sortedProducts.map((p) => [p.id, getStockValue(p)]),
                             )}
                             companyProfile={companyProfile}
                           />
@@ -1497,29 +1462,47 @@ export default function Products() {
             </div>
           )}
           {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-2 pb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Rows per page</span>
+              <Select
+                value={String(pageSize)}
+                onValueChange={(value) => setPageSize(Number(value))}
               >
-                Previous
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                Page {currentPage} of {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-              >
-                Next
-              </Button>
+                <SelectTrigger className="h-8 w-[88px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          )}
+            {totalPages > 1 && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
