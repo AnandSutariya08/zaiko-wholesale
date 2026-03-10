@@ -80,6 +80,9 @@ const P = StyleSheet.create({
     fontFamily: "Inter",
     fontSize: 7.5,
     padding: mmToPt(5),
+    // Keep a little extra bottom breathing room to avoid edge clipping
+    // when content lands exactly at the page boundary.
+    paddingBottom: mmToPt(9),
     lineHeight: 1.4,
     color: "#000",
     backgroundColor: "#fff",
@@ -1869,16 +1872,25 @@ export function BillView({ bill }: BillViewProps) {
     const style = document.createElement("style");
     style.textContent = `
       @media print {
+        html, body {
+          height: auto !important;
+          overflow: visible !important;
+        }
         body * { visibility: hidden; }
         #bill-print, #bill-print * { visibility: visible; }
         #bill-print {
-          position: absolute; left: 0; top: 0;
-          width: 210mm !important; min-height: 297mm !important;
-          max-width: 210mm !important; margin: 0 !important;
+          position: static !important;
+          width: 100% !important;
+          min-height: auto !important;
+          max-width: none !important;
+          margin: 0 !important;
           padding: 5mm !important; box-shadow: none !important;
+          box-sizing: border-box !important;
+          height: auto !important;
+          overflow: visible !important;
           font-size: 10px !important; transform: none !important;
         }
-        @page { size: A4; margin: 0; }
+        @page { size: A4; margin: 6mm; }
       }
     `;
     document.head.appendChild(style);
@@ -1887,7 +1899,62 @@ export function BillView({ bill }: BillViewProps) {
     };
   }, []);
 
-  const handlePrint = () => window.print();
+  const generateBillPdfBlob = async () => {
+    const qrToUse =
+      qrDataURL ||
+      (await QRCode.toDataURL(window.location.origin + `/bills/${bill.id}`));
+
+    const signatureForPdf = await resolveSignatureForPdf(company?.signature);
+    const isSampleBill = "isSample" in bill && bill.isSample;
+    const companyForPdf = signatureForPdf
+      ? { ...company, signature: signatureForPdf }
+      : company;
+
+    return pdf(
+      <BillPDF
+        bill={bill}
+        company={companyForPdf}
+        qrDataURL={qrToUse}
+        isSample={isSampleBill}
+      />,
+    ).toBlob();
+  };
+
+  const handlePrint = async () => {
+    toast.info("Preparing print...");
+    try {
+      const blob = await generateBillPdfBlob();
+      const url = URL.createObjectURL(blob);
+      const printWindow = window.open(url, "_blank");
+
+      if (!printWindow) {
+        URL.revokeObjectURL(url);
+        toast.error("Popup blocked. Please allow popups and try again.");
+        return;
+      }
+
+      const cleanup = () => {
+        URL.revokeObjectURL(url);
+      };
+
+      // Give the browser PDF viewer time to fully load pages before printing.
+      setTimeout(() => {
+        try {
+          printWindow.focus();
+          printWindow.print();
+          toast.success("Print dialog opened");
+        } catch (printErr) {
+          console.error("Failed to trigger print dialog", printErr);
+          toast.error("Print dialog could not be opened automatically");
+        } finally {
+          setTimeout(cleanup, 30000);
+        }
+      }, 900);
+    } catch (err) {
+      console.error("Print generation failed", err);
+      toast.error("Failed to prepare print");
+    }
+  };
 
   const resolveSignatureForPdf = async (
     signature?: string,
@@ -1956,29 +2023,7 @@ export function BillView({ bill }: BillViewProps) {
   const handleDownloadPDF = async () => {
     toast.info("Generating PDF...");
     try {
-      // Fallback QR if not yet generated
-      const qrToUse =
-        qrDataURL ||
-        (await QRCode.toDataURL(window.location.origin + `/bills/${bill.id}`));
-
-      // Resolve signature for PDF embedding
-      const signatureForPdf = await resolveSignatureForPdf(company?.signature);
-
-      const isSampleBill = "isSample" in bill && bill.isSample;
-
-      // Pass resolved signature inside company object
-      const companyForPdf = signatureForPdf
-        ? { ...company, signature: signatureForPdf }
-        : company;
-
-      const blob = await pdf(
-        <BillPDF
-          bill={bill}
-          company={companyForPdf}
-          qrDataURL={qrToUse}
-          isSample={isSampleBill}
-        />,
-      ).toBlob();
+      const blob = await generateBillPdfBlob();
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -2036,7 +2081,7 @@ export function BillView({ bill }: BillViewProps) {
   const scaledHeight = A4_HEIGHT_PX * scale;
 
   return (
-    <div className="w-full flex flex-col min-h-screen">
+    <div className="w-full flex flex-col">
       {/* ── Action buttons ── */}
       <div className="sticky top-0 z-10dark:border-slate-700 print:hidden">
         <div className="flex flex-wrap items-center justify-center gap-2 p-3 max-w-4xl mx-auto">
@@ -2073,17 +2118,17 @@ export function BillView({ bill }: BillViewProps) {
       {/* ── Bill container — centers the scaled bill ── */}
       <div
         ref={containerRef}
-        className="flex-1 w-full overflow-hidden"
+        className="w-full overflow-visible"
         style={{
           // Smooth momentum scrolling for any nested scrollable content.
           WebkitOverflowScrolling: "touch",
         }}
       >
-        <div className="flex h-full w-full items-start justify-center p-3 sm:p-4">
+        <div className="flex w-full items-start justify-center p-3 sm:p-4">
           <div
             style={{
               width: `${scaledWidth}px`,
-              height: `${scaledHeight}px`,
+              minHeight: `${scaledHeight}px`,
             }}
           >
             <div
@@ -2099,6 +2144,7 @@ export function BillView({ bill }: BillViewProps) {
                 transformOrigin: "top left",
                 fontFamily: "Inter, Arial, sans-serif",
                 padding: "19px", // ~5mm at 96dpi
+                paddingBottom: "32px",
                 boxSizing: "border-box",
                 fontSize: "10px",
                 lineHeight: "1.4",
