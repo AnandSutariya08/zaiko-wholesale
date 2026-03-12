@@ -565,6 +565,8 @@ export function BillForm({
         const newItem: BillItem = {
           productId: product.id,
           productName: product.name,
+          purchasePrice: product.purchasePrice || 0,
+          costAtSale: 0,
           hsnCode: product.hsnCode,
           gstRate: product.gstRate,
           quantity: qty,
@@ -835,6 +837,8 @@ export function BillForm({
     const item = { ...updated[index] };
     item.productId = product.id;
     item.productName = product.name;
+    item.purchasePrice = product.purchasePrice || 0;
+    item.costAtSale = 0;
     item.hsnCode = product.hsnCode;
     item.gstRate = product.gstRate;
     item.unit = product.unit;
@@ -863,6 +867,8 @@ export function BillForm({
       {
         productId: "",
         productName: "",
+        purchasePrice: 0,
+        costAtSale: 0,
         hsnCode: "",
         gstRate: 0,
         quantity: 1,
@@ -889,6 +895,8 @@ export function BillForm({
       if (product) {
         item.productId = product.id;
         item.productName = product.name;
+        item.purchasePrice = product.purchasePrice || 0;
+        item.costAtSale = 0;
         item.hsnCode = product.hsnCode;
         item.gstRate = product.gstRate;
         item.unit = product.unit;

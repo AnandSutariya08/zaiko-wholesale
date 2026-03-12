@@ -45,7 +45,7 @@ export const exportDashboardToExcel = (
         ['Expected Net Profit', formatCurrency(stats.expectedProfit || 0), 'Pending collection contribution (shown separately)'],
         ['Total Net Profit (with expected profits)', formatCurrency(stats.expectedTotalNetProfit || 0), 'Final net profit for selected period'],
         ['Current Net Profit (After All Deductions)', formatCurrency(currentNetProfitCollected), 'Net profit from collected amount only (after expenses/losses)'],
-        ['Profit Margin', `${stats.totalCOGS > 0 ? ((stats.grossProfit / stats.totalCOGS) * 100).toFixed(2) : '0.00'}%`, 'Gross Profit / COGS'],
+        ['Profit Margin', `${stats.totalRevenue > 0 ? ((stats.grossProfit / stats.totalRevenue) * 100).toFixed(2) : '0.00'}%`, 'Gross Profit / Revenue'],
         ['ROI', `${stats.totalPurchases > 0 ? ((stats.profit / stats.totalPurchases) * 100).toFixed(2) : 'N/A'}%`, 'Net Profit / Total Purchases'],
         [],
         ['PURCHASE & SALES SETTLEMENT OVERVIEW'],

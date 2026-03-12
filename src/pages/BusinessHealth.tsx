@@ -517,6 +517,30 @@ export default function BusinessHealth() {
       products.map((p: any) => [p.id, p]),
     ) as Record<string, any>;
 
+    // Build GST lookup maps from purchase bills (same pattern as Dashboard)
+    const bhBillGstByProductId = new Map<string, number>();
+    const bhBillGstByName = new Map<string, number>();
+    purchases.forEach((bill: any) => {
+      (bill.items || []).forEach((item: any) => {
+        if (item.productId) {
+          bhBillGstByProductId.set(`${bill.id}:${item.productId}`, item.gstRate || 0);
+        }
+        const nameKey = `${bill.id}:${(item.description || "").toLowerCase().trim()}`;
+        bhBillGstByName.set(nameKey, item.gstRate || 0);
+      });
+    });
+
+    const bhGetLandedPrice = (product: any, transaction: any): number => {
+      const basePrice = transaction.purchasePrice || 0;
+      const gstKeyById = transaction.billId ? `${transaction.billId}:${product.id}` : null;
+      const gstKeyByName = transaction.billId ? `${transaction.billId}:${(product.name || "").toLowerCase().trim()}` : null;
+      const gstRate =
+        (gstKeyById && bhBillGstByProductId.has(gstKeyById) ? bhBillGstByProductId.get(gstKeyById) : undefined) ??
+        (gstKeyByName && bhBillGstByName.has(gstKeyByName) ? bhBillGstByName.get(gstKeyByName) : undefined) ??
+        (product.gstRate ?? 0);
+      return roundToTwoDecimals(basePrice * (1 + (gstRate as number) / 100));
+    };
+
     const getHistoricalAverageCost = (
       productId: string,
       saleDate: string,
@@ -526,29 +550,50 @@ export default function BusinessHealth() {
 
       const transactions = (productTransactionsMap?.[productId] || []) as any[];
       if (!transactions.length) {
-        return roundToTwoDecimals(product.purchasePrice || product.price || 0);
+        return roundToTwoDecimals(
+          (product.purchasePrice || product.price || 0) * (1 + (product.gstRate || 0) / 100),
+        );
       }
 
-      const saleDateTime = new Date(saleDate).getTime();
+      // Normalize to date-only (YYYY-MM-DD) to avoid UTC midnight vs ISO timestamp mismatch
+      const saleDateMs = new Date(saleDate.slice(0, 10)).getTime();
       let totalPurchaseValue = 0;
       let totalPurchaseQuantity = 0;
       let currentInventory = 0;
       let currentInventoryValue = 0;
 
-      for (const transaction of transactions) {
-        const transactionDate = new Date(transaction.date).getTime();
-        if (transactionDate >= saleDateTime) continue;
+      // Sort: date ASC, then on same day purchases before sales
+      const bhTypeOrder: Record<string, number> = { purchase: 0, purchase_return: 1, return: 2, sale: 3 };
+      const sortedTx = [...transactions].sort((a: any, b: any) => {
+        const dA = new Date(a.date.slice(0, 10)).getTime(), dB = new Date(b.date.slice(0, 10)).getTime();
+        if (dA !== dB) return dA - dB;
+        return (bhTypeOrder[a.type] ?? 3) - (bhTypeOrder[b.type] ?? 3);
+      });
 
-        if (transaction.type === "purchase" && transaction.purchasePrice) {
-          const purchaseValue = transaction.quantity * transaction.purchasePrice;
+      for (const transaction of sortedTx) {
+        const txDateMs = new Date(transaction.date.slice(0, 10)).getTime();
+
+        if (transaction.type === "purchase") {
+          // Include same-day purchases
+          if (txDateMs > saleDateMs) break;
+          if (!transaction.purchasePrice) continue;
+          const landedPrice = bhGetLandedPrice(product, transaction);
+          const purchaseValue = transaction.quantity * landedPrice;
           currentInventory += transaction.quantity;
           currentInventoryValue += purchaseValue;
           totalPurchaseValue += purchaseValue;
           totalPurchaseQuantity += transaction.quantity;
-          continue;
-        }
-
-        if (transaction.type === "sale") {
+        } else if (transaction.type === "purchase_return") {
+          // Include same-day purchase returns
+          if (txDateMs > saleDateMs) break;
+          if (!transaction.purchasePrice) continue;
+          const landedPrice = bhGetLandedPrice(product, transaction);
+          const returnValue = Math.abs(transaction.quantity) * landedPrice;
+          currentInventory = Math.max(0, currentInventory - Math.abs(transaction.quantity));
+          currentInventoryValue = Math.max(0, currentInventoryValue - returnValue);
+        } else if (transaction.type === "sale") {
+          // Only prior-day sales
+          if (txDateMs >= saleDateMs) continue;
           if (currentInventory > 0) {
             const avgCost = currentInventoryValue / currentInventory;
             const soldValue = transaction.quantity * avgCost;
@@ -557,10 +602,9 @@ export default function BusinessHealth() {
           } else {
             currentInventory = Math.max(0, currentInventory - transaction.quantity);
           }
-          continue;
-        }
-
-        if (transaction.type === "return") {
+        } else if (transaction.type === "return") {
+          // Only prior-day returns
+          if (txDateMs >= saleDateMs) continue;
           const returnItem = filteredReturns.find((r: any) => r.id === transaction.billId);
           const returnItemData = returnItem?.items?.find((i: any) => i.productId === productId);
           if (returnItemData?.condition !== "good") continue;
@@ -570,29 +614,30 @@ export default function BusinessHealth() {
             currentInventory += transaction.quantity;
             currentInventoryValue += transaction.quantity * avgCost;
           } else {
-            const lastPurchase = transactions
+            const lastPurchase = sortedTx
               .filter(
                 (t: any) =>
                   t.type === "purchase" &&
                   t.purchasePrice &&
-                  new Date(t.date).getTime() < transactionDate,
+                  new Date(t.date.slice(0, 10)).getTime() < txDateMs,
               )
               .slice(-1)[0];
             if (lastPurchase?.purchasePrice) {
+              const landedPrice = bhGetLandedPrice(product, lastPurchase);
               currentInventory += transaction.quantity;
-              currentInventoryValue += transaction.quantity * lastPurchase.purchasePrice;
+              currentInventoryValue += transaction.quantity * landedPrice;
             }
           }
         }
       }
 
       if (currentInventory > 0) {
-        return roundToTwoDecimals(currentInventoryValue / currentInventory);
+        return currentInventoryValue / currentInventory;
       }
       if (totalPurchaseQuantity > 0) {
-        return roundToTwoDecimals(totalPurchaseValue / totalPurchaseQuantity);
+        return totalPurchaseValue / totalPurchaseQuantity;
       }
-      return roundToTwoDecimals(product.purchasePrice || product.price || 0);
+      return (product.purchasePrice || product.price || 0) * (1 + (product.gstRate || 0) / 100);
     };
 
     // Executive Summary Metrics (single consistent net-profit logic)

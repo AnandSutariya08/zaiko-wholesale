@@ -307,9 +307,9 @@ export const DashboardPDF = ({
             </Text>
           </View>
           <View style={styles.tableRow}>
-            <Text style={styles.tableCellLabel}>
-              Expected Profit (Pending Contribution)
-            </Text>
+              <Text style={styles.tableCellLabel}>
+                Expected Profit (Pending excl. Overdue)
+              </Text>
             <Text
               style={[
                 styles.tableCellValue,

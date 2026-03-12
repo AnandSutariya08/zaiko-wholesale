@@ -914,7 +914,7 @@ export default function Products() {
       <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-border/70 bg-background/70 p-2 sm:p-4">
         <div className="h-full overflow-y-auto space-y-5 pr-1 sm:pr-2">
           <div className="flex flex-col gap-2">
-            <div className="relative w-full">
+            <div className="relative w-full p-2">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               <Input
                 type="text"

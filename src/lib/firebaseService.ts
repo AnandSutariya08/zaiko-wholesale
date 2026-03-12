@@ -589,6 +589,8 @@ export const saveBill = async (bill: Bill): Promise<void> => {
       existingBill = existingBillSnap.data() as Bill;
     }
 
+    const productCache = new Map<string, Product>();
+
     // Calculate stock adjustments needed
     const stockAdjustments = new Map<string, number>();
 
@@ -623,11 +625,17 @@ export const saveBill = async (bill: Bill): Promise<void> => {
     for (const [productId, adjustment] of stockAdjustments.entries()) {
       if (adjustment < 0) {
         // Only validate if we need to deduct stock (negative adjustment)
-        const productRef = doc(db, COLLECTIONS.PRODUCTS, productId);
-        const productSnap = await getDoc(productRef);
+        let product = productCache.get(productId);
+        if (!product) {
+          const productRef = doc(db, COLLECTIONS.PRODUCTS, productId);
+          const productSnap = await getDoc(productRef);
+          if (productSnap.exists()) {
+            product = productSnap.data() as Product;
+            productCache.set(productId, product);
+          }
+        }
 
-        if (productSnap.exists()) {
-          const product = productSnap.data() as Product;
+        if (product) {
           const requiredStock = Math.abs(adjustment);
 
           if (product.stock < requiredStock) {
@@ -684,10 +692,16 @@ export const saveBill = async (bill: Bill): Promise<void> => {
     for (const [productId, adjustment] of stockAdjustments.entries()) {
       if (adjustment !== 0) {
         const productRef = doc(db, COLLECTIONS.PRODUCTS, productId);
-        const productSnap = await getDoc(productRef);
+        let product = productCache.get(productId);
+        if (!product) {
+          const productSnap = await getDoc(productRef);
+          if (productSnap.exists()) {
+            product = productSnap.data() as Product;
+            productCache.set(productId, product);
+          }
+        }
 
-        if (productSnap.exists()) {
-          const product = productSnap.data() as Product;
+        if (product) {
           const newStock = Math.max(0, product.stock + adjustment); // adjustment is negative for deduction
           batch.update(productRef, { stock: newStock });
         }
@@ -760,7 +774,12 @@ export const saveBill = async (bill: Bill): Promise<void> => {
         billId: bill.id,
         type: "sale" as const,
         quantity: item.quantity,
-        date: new Date().toISOString(),
+        purchasePrice:
+          typeof item.costAtSale === "number" && item.costAtSale > 0
+            ? item.costAtSale
+            : item.purchasePrice || 0,
+        sellingPrice: item.ratePerUnit || 0,
+        date: bill.date,
         userId,
       };
       batch.set(transactionRef, transaction);
@@ -942,12 +961,7 @@ export const getInventoryTransactions = async (): Promise<
       (doc) => doc.data() as InventoryTransaction,
     );
 
-    // Sort by date descending in JavaScript (avoids index requirement)
-    return transactions.sort((a, b) => {
-      const dateA = new Date(a.date || 0).getTime();
-      const dateB = new Date(b.date || 0).getTime();
-      return dateB - dateA;
-    });
+    return transactions;
   } catch (error) {
     console.error("Error getting inventory transactions:", error);
     return [];
@@ -1020,9 +1034,7 @@ export const getProductTransactions = async (
 ): Promise<InventoryTransaction[]> => {
   try {
     const transactions = await getInventoryTransactions();
-    return transactions.filter(
-      (t) => t.productId === productId && t.type === "purchase",
-    );
+    return transactions.filter((t) => t.productId === productId);
   } catch (error) {
     console.error("Error getting product transactions:", error);
     return [];
@@ -2540,8 +2552,12 @@ export const getCostOfGoodsSold = async (): Promise<number> => {
     bills.forEach((bill) => {
       bill.items.forEach((item) => {
         const product = products.find((p) => p.id === item.productId);
-        // Use purchasePrice (true cost) if available; fall back to price for legacy data
-        const costPrice = product?.purchasePrice ?? product?.price ?? 0;
+        const costPrice =
+          (typeof item.costAtSale === "number" && item.costAtSale > 0
+            ? item.costAtSale
+            : typeof item.purchasePrice === "number" && item.purchasePrice > 0
+              ? item.purchasePrice
+              : product?.purchasePrice ?? product?.price ?? 0) || 0;
         totalCost += item.quantity * costPrice;
       });
     });

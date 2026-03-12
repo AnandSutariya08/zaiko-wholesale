@@ -226,6 +226,25 @@ export default function Dashboard() {
   });
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [todayNotes, setTodayNotes] = useState<Note[]>([]);
+  const [expectedProfitBreakdown, setExpectedProfitBreakdown] = useState<
+    Array<{
+      billId: string;
+      billNumber: string;
+      clientName: string;
+      pendingAmount: number;
+      profitContribution: number;
+    }>
+  >([]);
+  const [otherGrossProfitBreakdown, setOtherGrossProfitBreakdown] = useState<
+    Array<{
+      billId: string;
+      billNumber: string;
+      clientName: string;
+      paymentStatus: string;
+      pendingAmount: number;
+      profitContribution: number;
+    }>
+  >([]);
 
   // Load today's notes separately - runs on mount and when component is visible
   useEffect(() => {
@@ -360,7 +379,11 @@ export default function Dashboard() {
         const netTax = roundToTwoDecimals(
           (bill.totalTax || 0) * (1 - returnRatio),
         );
-        const paidRaw = Math.max(0, bill.paidAmount || 0);
+        const isFullyPaid =
+          bill.paymentStatus === "paid" || bill.paymentStatus === "overpaid";
+        const paidRaw = isFullyPaid
+          ? netTotal
+          : Math.max(0, bill.paidAmount || 0);
         const recognizedPaid = roundToTwoDecimals(Math.min(paidRaw, netTotal));
         const pending = roundToTwoDecimals(
           Math.max(0, netTotal - recognizedPaid),
@@ -566,99 +589,102 @@ export default function Dashboard() {
           );
         }
 
-        const saleDateTime = new Date(saleDate).getTime();
+        // Normalize to date-only (YYYY-MM-DD) to avoid UTC midnight vs ISO timestamp mismatch
+        const saleDateMs = new Date(saleDate.slice(0, 10)).getTime();
         let totalPurchaseValue = 0;
         let totalPurchaseQuantity = 0;
         let currentInventory = 0;
         let currentInventoryValue = 0;
 
-        for (const transaction of transactions) {
-          const transactionDate = new Date(transaction.date).getTime();
+        // Sort: date ASC, then on same day purchases before sales
+        const txTypeOrder: Record<string, number> = { purchase: 0, purchase_return: 1, return: 2, sale: 3 };
+        const sortedTx = [...transactions].sort((a, b) => {
+          const dA = new Date(a.date.slice(0, 10)).getTime(), dB = new Date(b.date.slice(0, 10)).getTime();
+          if (dA !== dB) return dA - dB;
+          return (txTypeOrder[a.type] ?? 3) - (txTypeOrder[b.type] ?? 3);
+        });
 
-          if (transactionDate < saleDateTime) {
-            if (transaction.type === "purchase" && transaction.purchasePrice) {
-              const landedPrice = getLandedPurchasePrice(product, transaction);
-              const purchaseValue = transaction.quantity * landedPrice;
-              currentInventory += transaction.quantity;
-              currentInventoryValue += purchaseValue;
-              totalPurchaseValue += purchaseValue;
-              totalPurchaseQuantity += transaction.quantity;
-            } else if (transaction.type === "sale") {
+        for (const transaction of sortedTx) {
+          const txDateMs = new Date(transaction.date.slice(0, 10)).getTime();
+
+          if (transaction.type === "purchase") {
+            // Include same-day purchases (cost was incurred before/at the sale)
+            if (txDateMs > saleDateMs) break;
+            if (!transaction.purchasePrice) continue;
+            const landedPrice = getLandedPurchasePrice(product, transaction);
+            const purchaseValue = transaction.quantity * landedPrice;
+            currentInventory += transaction.quantity;
+            currentInventoryValue += purchaseValue;
+            totalPurchaseValue += purchaseValue;
+            totalPurchaseQuantity += transaction.quantity;
+          } else if (transaction.type === "purchase_return") {
+            // Include same-day purchase returns
+            if (txDateMs > saleDateMs) break;
+            if (!transaction.purchasePrice) continue;
+            const landedPrice = getLandedPurchasePrice(product, transaction);
+            const returnValue = Math.abs(transaction.quantity) * landedPrice;
+            currentInventory = Math.max(0, currentInventory - Math.abs(transaction.quantity));
+            currentInventoryValue = Math.max(0, currentInventoryValue - returnValue);
+          } else if (transaction.type === "sale") {
+            // Only prior-day sales affect cost basis for this sale
+            if (txDateMs >= saleDateMs) continue;
+            if (currentInventory > 0) {
+              const averageCostAtSale = currentInventoryValue / currentInventory;
+              const saleValue = transaction.quantity * averageCostAtSale;
+              currentInventory -= transaction.quantity;
+              currentInventoryValue -= saleValue;
+            } else {
+              currentInventory = Math.max(0, currentInventory - transaction.quantity);
+            }
+          } else if (transaction.type === "return") {
+            // Only prior-day customer returns affect cost basis
+            if (txDateMs >= saleDateMs) continue;
+            const returnItem = allReturns.find(
+              (r) =>
+                r.id === transaction.billReturnId ||
+                r.id === transaction.billId,
+            );
+            const returnItemData = returnItem?.items.find(
+              (i) => i.productId === productId,
+            );
+            if (returnItemData && returnItemData.condition === "good") {
               if (currentInventory > 0) {
-                const averageCostAtSale =
-                  currentInventoryValue / currentInventory;
-                const saleValue = transaction.quantity * averageCostAtSale;
-                currentInventory -= transaction.quantity;
-                currentInventoryValue -= saleValue;
+                const avgCost = currentInventoryValue / currentInventory;
+                currentInventory += transaction.quantity;
+                currentInventoryValue += transaction.quantity * avgCost;
               } else {
-                currentInventory = Math.max(
-                  0,
-                  currentInventory - transaction.quantity,
-                );
-              }
-            } else if (transaction.type === "return") {
-              const returnItem = allReturns.find(
-                (r) =>
-                  r.id === transaction.billReturnId ||
-                  r.id === transaction.billId,
-              );
-              const returnItemData = returnItem?.items.find(
-                (i) => i.productId === productId,
-              );
-
-              if (returnItemData && returnItemData.condition === "good") {
-                if (currentInventory > 0) {
-                  const avgCost = currentInventoryValue / currentInventory;
+                const lastPurchase = sortedTx
+                  .filter(
+                    (t) =>
+                      t.type === "purchase" &&
+                      t.purchasePrice &&
+                      new Date(t.date.slice(0, 10)).getTime() < txDateMs,
+                  )
+                  .slice(-1)[0];
+                if (lastPurchase && lastPurchase.purchasePrice) {
+                  const landedPrice = getLandedPurchasePrice(product, lastPurchase);
                   currentInventory += transaction.quantity;
-                  currentInventoryValue += transaction.quantity * avgCost;
-                } else {
-                  const lastPurchase = transactions
-                    .filter(
-                      (t) =>
-                        t.type === "purchase" &&
-                        t.purchasePrice &&
-                        new Date(t.date).getTime() < transactionDate,
-                    )
-                    .slice(-1)[0];
-                  if (lastPurchase && lastPurchase.purchasePrice) {
-                    const landedPrice = getLandedPurchasePrice(
-                      product,
-                      lastPurchase,
-                    );
-                    currentInventory += transaction.quantity;
-                    currentInventoryValue +=
-                      transaction.quantity * landedPrice;
-                  }
+                  currentInventoryValue += transaction.quantity * landedPrice;
                 }
               }
-            } else if (
-              transaction.type === "purchase_return" &&
-              transaction.purchasePrice
-            ) {
-              const landedPrice = getLandedPurchasePrice(product, transaction);
-              const returnValue =
-                Math.abs(transaction.quantity) * landedPrice;
-              currentInventory = Math.max(
-                0,
-                currentInventory - Math.abs(transaction.quantity),
-              );
-              currentInventoryValue = Math.max(
-                0,
-                currentInventoryValue - returnValue,
-              );
             }
           }
         }
 
         if (currentInventory > 0) {
-          return roundToTwoDecimals(currentInventoryValue / currentInventory);
+          return currentInventoryValue / currentInventory;
         } else if (totalPurchaseQuantity > 0) {
-          return roundToTwoDecimals(totalPurchaseValue / totalPurchaseQuantity);
+          return totalPurchaseValue / totalPurchaseQuantity;
         } else {
-          return roundToTwoDecimals(
-            product.purchasePrice || product.price || 0,
-          );
+          return product.purchasePrice || product.price || 0;
         }
+      };
+
+      const getBillItemCostBasis = (
+        item: { productId: string; costAtSale?: number; purchasePrice?: number },
+        billDate: string,
+      ): number => {
+        return getHistoricalAverageCost(item.productId, billDate);
       };
 
       const allInventoryTransactions = Object.values(productTransactionsMap).flat();
@@ -815,34 +841,54 @@ export default function Dashboard() {
           const safeReturns = Math.max(0, Math.min(billReturns, safeTotal));
           const returnRatio = safeTotal > 0 ? safeReturns / safeTotal : 0;
 
-          const paidRatio = Math.max(0, Math.min(1, financials.paymentRatio));
-          const unpaidRatio = Math.max(0, Math.min(1, 1 - paidRatio));
+          const isStrictPendingBill = bill.paymentStatus === "pending";
+          const includeInExpectedProfit =
+            isStrictPendingBill &&
+            !financials.isOverdue &&
+            financials.pending > 0.009;
+          const paidCollectionRatio = includeInExpectedProfit ? 0 : 1;
 
           const estimatedCost = (bill.items || []).reduce((itemSum, item) => {
-            const costPrice = getHistoricalAverageCost(item.productId, bill.date);
+            const costPrice = getBillItemCostBasis(item, bill.date);
             return itemSum + Math.max(0, item.quantity) * Math.max(0, costPrice);
           }, 0);
           const netEstimatedCost = roundToTwoDecimals(
             estimatedCost * (1 - returnRatio),
           );
 
-          const paidRevenueInclGst = roundToTwoDecimals(
-            financials.netTotal * paidRatio,
+          const netSubtotal = financials.netSubtotalAfterDiscount;
+          const paidCost = roundToTwoDecimals(
+            netEstimatedCost * paidCollectionRatio,
           );
-          const pendingRevenueInclGst = roundToTwoDecimals(
-            financials.netTotal * unpaidRatio,
-          );
-
-          const paidBaseCost = roundToTwoDecimals(netEstimatedCost * paidRatio);
-          const pendingBaseCost = roundToTwoDecimals(netEstimatedCost * unpaidRatio);
-          const paidCost = paidBaseCost;
-          const pendingCost = pendingBaseCost;
 
           acc.totalCOGS += netEstimatedCost;
           acc.realizedCOGS += paidCost;
-          acc.totalGrossProfit += financials.netTotal - netEstimatedCost;
-          acc.realizedGrossProfit += paidRevenueInclGst - paidCost;
-          acc.pendingGrossProfit += pendingRevenueInclGst - pendingCost;
+          acc.totalGrossProfit += netSubtotal - netEstimatedCost;
+          acc.grossBreakdown.push({
+            billId: bill.id,
+            billNumber: bill.billNumber || bill.id,
+            clientName: bill.client?.name || "Unknown Client",
+            paymentStatus: bill.paymentStatus || "unknown",
+            pendingAmount: financials.pending,
+            profitContribution: roundToTwoDecimals(netSubtotal - netEstimatedCost),
+            includedInExpected: includeInExpectedProfit,
+          });
+          acc.realizedGrossProfit +=
+            netSubtotal * paidCollectionRatio - paidCost;
+          acc.pendingGrossProfit += includeInExpectedProfit
+            ? netSubtotal - netEstimatedCost
+            : 0;
+          if (includeInExpectedProfit) {
+            acc.expectedBreakdown.push({
+              billId: bill.id,
+              billNumber: bill.billNumber || bill.id,
+              clientName: bill.client?.name || "Unknown Client",
+              pendingAmount: financials.pending,
+              profitContribution: roundToTwoDecimals(
+                netSubtotal - netEstimatedCost,
+              ),
+            });
+          }
           return acc;
         },
         {
@@ -851,6 +897,22 @@ export default function Dashboard() {
           totalGrossProfit: 0,
           realizedGrossProfit: 0,
           pendingGrossProfit: 0,
+          expectedBreakdown: [] as Array<{
+            billId: string;
+            billNumber: string;
+            clientName: string;
+            pendingAmount: number;
+            profitContribution: number;
+          }>,
+          grossBreakdown: [] as Array<{
+            billId: string;
+            billNumber: string;
+            clientName: string;
+            paymentStatus: string;
+            pendingAmount: number;
+            profitContribution: number;
+            includedInExpected: boolean;
+          }>,
         },
       );
 
@@ -864,6 +926,17 @@ export default function Dashboard() {
       );
       const expectedTotalNetProfit = roundToTwoDecimals(
         profit,
+      );
+      setExpectedProfitBreakdown(
+        invoiceLevelProfitBreakdown.expectedBreakdown
+          .sort((a, b) => b.profitContribution - a.profitContribution)
+          .slice(0, 5),
+      );
+      setOtherGrossProfitBreakdown(
+        invoiceLevelProfitBreakdown.grossBreakdown
+          .filter((entry) => !entry.includedInExpected)
+          .sort((a, b) => b.profitContribution - a.profitContribution)
+          .slice(0, 8),
       );
 
       const totalDiscount = roundToTwoDecimals(
@@ -962,7 +1035,7 @@ export default function Dashboard() {
             };
           }
 
-          const costPrice = getHistoricalAverageCost(product.id, bill.date);
+          const costPrice = getBillItemCostBasis(item, bill.date);
           const itemCost = roundToTwoDecimals(item.quantity * costPrice);
           const itemDiscount = roundToTwoDecimals(item.amount * discountRatio);
           const itemRevenue = roundToTwoDecimals(item.amount - itemDiscount);
@@ -1811,7 +1884,49 @@ export default function Dashboard() {
                       <span className="text-[10px] sm:text-xs text-muted-foreground break-words">
                         (Collected + Pending) Revenue - COGS incl. GST
                       </span>
+                      <span className="text-[10px] sm:text-xs text-muted-foreground break-words">
+                        Other Gross Profit (collected/overdue/non-pending):{" "}
+                        {formatCurrency(
+                          roundToTwoDecimals(
+                            stats.grossProfit - stats.expectedProfit,
+                          ),
+                        )}
+                      </span>
                     </div>
+                    {expectedProfitBreakdown.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        <div className="text-[10px] sm:text-xs text-muted-foreground">
+                          Pending contributors included in Gross Profit:
+                        </div>
+                        {expectedProfitBreakdown.map((entry) => (
+                          <div
+                            key={`gross-${entry.billId}`}
+                            className="text-[10px] sm:text-xs text-muted-foreground break-words"
+                          >
+                            {`${entry.clientName} (${entry.billNumber}) -> Profit ${formatCurrency(
+                              entry.profitContribution,
+                            )}, Pending ${formatCurrency(entry.pendingAmount)}`}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {otherGrossProfitBreakdown.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        <div className="text-[10px] sm:text-xs text-muted-foreground">
+                          Other Gross Profit contributors:
+                        </div>
+                        {otherGrossProfitBreakdown.map((entry) => (
+                          <div
+                            key={`other-gross-${entry.billId}`}
+                            className="text-[10px] sm:text-xs text-muted-foreground break-words"
+                          >
+                            {`${entry.clientName} (${entry.billNumber}) [${entry.paymentStatus}] -> Profit ${formatCurrency(
+                              entry.profitContribution,
+                            )}, Pending ${formatCurrency(entry.pendingAmount)}`}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -1838,7 +1953,7 @@ export default function Dashboard() {
                     <div className="flex items-center gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
                       <Calculator className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
                       <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground break-words">
-                        Profit contribution from pending collection
+                        Profit contribution from pending (excluding overdue) collection
                         <br />
                         {`Total Net Profit (already includes this): ${stats.expectedTotalNetProfit < 0 ? "-" : ""}Rs. ${Math.abs(
                           stats.expectedTotalNetProfit,
@@ -1848,6 +1963,20 @@ export default function Dashboard() {
                         })}`}
                       </div>
                     </div>
+                    {expectedProfitBreakdown.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {expectedProfitBreakdown.map((entry) => (
+                          <div
+                            key={entry.billId}
+                            className="text-[10px] sm:text-xs text-muted-foreground break-words"
+                          >
+                            {`${entry.clientName} (${entry.billNumber}) -> Profit ${formatCurrency(
+                              entry.profitContribution,
+                            )}, Pending ${formatCurrency(entry.pendingAmount)}`}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -2574,6 +2703,9 @@ export default function Dashboard() {
                           Top Products by Profit Margin
                         </h3>
                       </div>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground mb-2">
+                        Showing top 6 products only. This list does not represent total Gross Profit.
+                      </p>
                       {productAnalytics.topProductsByProfit.length === 0 ? (
                         <p className="text-xs sm:text-sm text-muted-foreground text-center py-3 sm:py-4">
                           No profit data available

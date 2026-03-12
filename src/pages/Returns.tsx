@@ -115,78 +115,87 @@ export default function Returns() {
 
     const transactions = productTransactionsMap[productId];
     if (!transactions || transactions.length === 0) {
-      return product.purchasePrice || product.price || 0;
+      return (product.purchasePrice || product.price || 0) * (1 + (product.gstRate || 0) / 100);
     }
 
-    const saleDateTime = new Date(saleDate).getTime();
+    // Normalize to date-only (YYYY-MM-DD) to avoid UTC midnight vs ISO timestamp mismatch
+    const saleDateMs = new Date(saleDate.slice(0, 10)).getTime();
     let totalPurchaseValue = 0;
     let totalPurchaseQuantity = 0;
-    let currentInventory = 0; // Running inventory balance
-    let currentInventoryValue = 0; // Running inventory value
+    let currentInventory = 0;
+    let currentInventoryValue = 0;
 
-    // Process all transactions chronologically up to (but not including) the sale date
-    for (const transaction of transactions) {
-      const transactionDate = new Date(transaction.date).getTime();
+    // Helper: landed price = purchasePrice × (1 + product GST%)
+    const landedCost = (purchasePrice: number) =>
+      purchasePrice * (1 + (product.gstRate || 0) / 100);
 
-      // Only consider transactions before the sale date
-      if (transactionDate < saleDateTime) {
-        if (transaction.type === "purchase" && transaction.purchasePrice) {
-          // Add purchase to inventory
-          const purchaseValue =
-            transaction.quantity * transaction.purchasePrice;
+    // Sort: date ASC, then on same day purchases before sales
+    const rtTypeOrder: Record<string, number> = { purchase: 0, purchase_return: 1, return: 2, sale: 3 };
+    const sortedTx = [...transactions].sort((a, b) => {
+      const dA = new Date(a.date.slice(0, 10)).getTime(), dB = new Date(b.date.slice(0, 10)).getTime();
+      if (dA !== dB) return dA - dB;
+      return (rtTypeOrder[a.type] ?? 3) - (rtTypeOrder[b.type] ?? 3);
+    });
+
+    for (const transaction of sortedTx) {
+      const txDateMs = new Date(transaction.date.slice(0, 10)).getTime();
+
+      if (transaction.type === "purchase") {
+        // Include same-day purchases (with GST)
+        if (txDateMs > saleDateMs) break;
+        if (!transaction.purchasePrice) continue;
+        const purchaseValue = transaction.quantity * landedCost(transaction.purchasePrice);
+        currentInventory += transaction.quantity;
+        currentInventoryValue += purchaseValue;
+        totalPurchaseValue += purchaseValue;
+        totalPurchaseQuantity += transaction.quantity;
+      } else if (transaction.type === "purchase_return") {
+        // Include same-day purchase returns
+        if (txDateMs > saleDateMs) break;
+        if (!transaction.purchasePrice) continue;
+        const returnValue = Math.abs(transaction.quantity) * landedCost(transaction.purchasePrice);
+        currentInventory = Math.max(0, currentInventory - Math.abs(transaction.quantity));
+        currentInventoryValue = Math.max(0, currentInventoryValue - returnValue);
+      } else if (transaction.type === "sale") {
+        // Only prior-day sales
+        if (txDateMs >= saleDateMs) continue;
+        if (currentInventory > 0) {
+          const averageCostAtSale = currentInventoryValue / currentInventory;
+          const saleValue = transaction.quantity * averageCostAtSale;
+          currentInventory -= transaction.quantity;
+          currentInventoryValue -= saleValue;
+        } else {
+          currentInventory = Math.max(0, currentInventory - transaction.quantity);
+        }
+      } else if (transaction.type === "return") {
+        // Only prior-day returns
+        if (txDateMs >= saleDateMs) continue;
+        if (currentInventory > 0) {
+          const avgCost = currentInventoryValue / currentInventory;
           currentInventory += transaction.quantity;
-          currentInventoryValue += purchaseValue;
-          totalPurchaseValue += purchaseValue;
-          totalPurchaseQuantity += transaction.quantity;
-        } else if (transaction.type === "sale") {
-          // Remove sale from inventory using weighted average cost
-          if (currentInventory > 0) {
-            const averageCostAtSale = currentInventoryValue / currentInventory;
-            const saleValue = transaction.quantity * averageCostAtSale;
-            currentInventory -= transaction.quantity;
-            currentInventoryValue -= saleValue;
-          } else {
-            // No inventory, but sale occurred - use last known cost
-            currentInventory = Math.max(
-              0,
-              currentInventory - transaction.quantity,
-            );
-          }
-        } else if (transaction.type === "return") {
-          // Returns: good returns go back to inventory at their original cost
-          if (currentInventory > 0) {
-            const avgCost = currentInventoryValue / currentInventory;
+          currentInventoryValue += transaction.quantity * avgCost;
+        } else {
+          const lastPurchase = sortedTx
+            .filter(
+              (t) =>
+                t.type === "purchase" &&
+                t.purchasePrice &&
+                new Date(t.date.slice(0, 10)).getTime() < txDateMs,
+            )
+            .slice(-1)[0];
+          if (lastPurchase && lastPurchase.purchasePrice) {
             currentInventory += transaction.quantity;
-            currentInventoryValue += transaction.quantity * avgCost;
-          } else {
-            // No current inventory, use last purchase price if available
-            const lastPurchase = transactions
-              .filter(
-                (t) =>
-                  t.type === "purchase" &&
-                  t.purchasePrice &&
-                  new Date(t.date).getTime() < transactionDate,
-              )
-              .slice(-1)[0];
-            if (lastPurchase && lastPurchase.purchasePrice) {
-              currentInventory += transaction.quantity;
-              currentInventoryValue +=
-                transaction.quantity * lastPurchase.purchasePrice;
-            }
+            currentInventoryValue += transaction.quantity * landedCost(lastPurchase.purchasePrice);
           }
         }
       }
     }
 
-    // Calculate weighted average cost at the time of sale
     if (currentInventory > 0) {
-      // Use the running average cost of available inventory
       return currentInventoryValue / currentInventory;
     } else if (totalPurchaseQuantity > 0) {
-      // No inventory available, but we have purchase history - use overall average
       return totalPurchaseValue / totalPurchaseQuantity;
     } else {
-      // Fallback to product default price
       return product.purchasePrice || product.price || 0;
     }
   };
@@ -239,7 +248,6 @@ export default function Returns() {
       const product = productsData.find((p) => p.id === item.productId);
 
       // Use HISTORICAL average cost at the time of the original sale
-      // This ensures return value calculations reflect the actual cost basis when the sale occurred
       const costPrice = product
         ? getHistoricalAverageCost(product.id, bill.date, product)
         : item.ratePerUnit; // Fallback to selling price if product not found

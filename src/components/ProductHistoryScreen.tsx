@@ -887,6 +887,7 @@ interface SalesHistoryItem {
   quantity: number;
   unit: string;
   sellingPrice: number;
+  costAtSale?: number;
   totalAmount: number;
   billNumber: string;
 }
@@ -1068,6 +1069,7 @@ export function ProductHistoryScreen({
               quantity: item.quantity,
               unit: item.unit,
               sellingPrice: item.ratePerUnit,
+              costAtSale: item.costAtSale || item.purchasePrice || 0,
               totalAmount: item.amount,
               billNumber: bill.billNumber,
             });
@@ -1203,8 +1205,19 @@ export function ProductHistoryScreen({
     // Net quantity sold (sales - good returns, as good returns go back to inventory)
     const netSold = totalSold - totalReturnedGood;
 
-    // Cost of Goods Sold using weighted average
-    const costOfGoodsSold = netSold * overallAvgPurchasePrice;
+    // Cost of Goods Sold uses frozen sale cost when available to keep historical margins stable.
+    const grossSoldCost = salesHistory.reduce((sum, item) => {
+      const itemCost =
+        typeof item.costAtSale === "number" && item.costAtSale > 0
+          ? item.costAtSale
+          : overallAvgPurchasePrice;
+      return sum + item.quantity * itemCost;
+    }, 0);
+    const estimatedReturnedGoodCost = totalReturnedGood * overallAvgPurchasePrice;
+    const costOfGoodsSold = Math.max(
+      0,
+      grossSoldCost - estimatedReturnedGoodCost,
+    );
 
     // Remaining inventory value
     const totalAssets = totalPurchaseValue - totalSalesValue;

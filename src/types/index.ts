@@ -134,6 +134,7 @@ export interface BillItem {
   vendorId?: string;
   vendorName?: string;
   purchasePrice?: number;
+  costAtSale?: number; // Frozen landed cost snapshot for historical profit calculations
   hsnCode: string;
   gstRate: number;
   quantity: number;
