@@ -149,10 +149,11 @@ interface ClientPDFProps {
 }
 
 const formatCurrency = (amount: number) => {
+  const rounded = Math.round(Math.abs(amount));
   const formatted = new Intl.NumberFormat("en-IN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(Math.abs(amount));
+  }).format(rounded);
   return `${amount < 0 ? "-" : ""}Rs. ${formatted}`;
 };
 

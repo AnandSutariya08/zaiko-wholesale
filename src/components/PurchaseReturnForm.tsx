@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PurchaseBill, PurchaseReturn, PurchaseReturnItem } from "@/types";
 import { getProducts, savePurchaseReturn, updateProductStock, deletePurchaseReturn } from "@/lib/firebaseService";
+import { formatCurrency } from "@/lib/billUtils";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
@@ -282,7 +283,7 @@ export function PurchaseReturnForm({ open, onOpenChange, bill, onSuccess, editRe
                       <td className="p-2 text-right">{item.gstRate}%</td>
                       <td className="p-2 text-right font-medium">
                         {item.selected && item.returnQuantity > 0 
-                          ? `₹${totalAmount.toFixed(2)}`
+                          ? formatCurrency(totalAmount)
                           : '-'
                         }
                       </td>
@@ -301,7 +302,7 @@ export function PurchaseReturnForm({ open, onOpenChange, bill, onSuccess, editRe
 
           <div className="flex justify-between items-center pt-4 border-t">
             <div className="text-lg font-semibold">
-              Total Return Value: <span className="text-primary">₹{totalReturnAmount.toFixed(2)}</span>
+              Total Return Value: <span className="text-primary">{formatCurrency(totalReturnAmount)}</span>
             </div>
           </div>
 

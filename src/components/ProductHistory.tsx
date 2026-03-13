@@ -837,6 +837,7 @@ import {
   getPurchaseReturns,
   getProductTransactions,
 } from "@/lib/storage";
+import { formatCurrency as formatAmount } from "@/lib/billUtils";
 import {
   Calendar,
   TrendingUp,
@@ -1217,17 +1218,7 @@ export function ProductHistory({
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    const isNegative = amount < 0;
-    const absAmount = Math.abs(amount);
-    const formatted = new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(absAmount);
-    return isNegative ? `-${formatted}` : formatted;
-  };
+  const formatCurrency = (amount: number) => formatAmount(amount);
 
   const filteredPurchases = purchaseHistory.filter((item) => {
     const searchStr = searchTerm.toLowerCase();

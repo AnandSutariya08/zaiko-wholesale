@@ -36,6 +36,15 @@ const isValidAmount = (amount: number): boolean => {
   return !isNaN(amount) && amount >= 0;
 };
 
+const formatRoundedCurrency = (amount: number): string => {
+  const rounded = Math.round(amount);
+  const formatted = new Intl.NumberFormat("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Math.abs(rounded));
+  return `${rounded < 0 ? "-" : ""}Rs. ${formatted}`;
+};
+
 export const extractBillFromImage = async (
   imageBase64: string,
 ): Promise<ExtractedBillData> => {
@@ -202,18 +211,18 @@ Return ONLY the JSON object, no other text.`;
           // Check for calculation errors
           if (Math.abs(expectedAmount - amount) > 1) {
             hasError = true;
-            errorMessage = `Amount mismatch: ${quantity} × ₹${rate} = ₹${expectedAmount.toFixed(2)}, but bill shows ₹${amount.toFixed(2)}`;
+            errorMessage = `Amount mismatch: ${quantity} × ${formatRoundedCurrency(rate)} = ${formatRoundedCurrency(expectedAmount)}, but bill shows ${formatRoundedCurrency(amount)}`;
             errors.push({
               field: `items[${index}].amount`,
               message: errorMessage,
               severity: "warning",
-              suggestion: `Expected amount: ₹${expectedAmount.toFixed(2)}`,
+              suggestion: `Expected amount: ${formatRoundedCurrency(expectedAmount)}`,
             });
           }
 
           if (gstRate > 0 && Math.abs(expectedGstAmount - gstAmount) > 1) {
             hasError = true;
-            const gstError = `GST mismatch: ${gstRate}% of ₹${amount} = ₹${expectedGstAmount.toFixed(2)}, but bill shows ₹${gstAmount.toFixed(2)}`;
+            const gstError = `GST mismatch: ${gstRate}% of ${formatRoundedCurrency(amount)} = ${formatRoundedCurrency(expectedGstAmount)}, but bill shows ${formatRoundedCurrency(gstAmount)}`;
             errorMessage = errorMessage
               ? `${errorMessage}; ${gstError}`
               : gstError;
@@ -221,7 +230,7 @@ Return ONLY the JSON object, no other text.`;
               field: `items[${index}].gstAmount`,
               message: gstError,
               severity: "warning",
-              suggestion: `Expected GST: ₹${expectedGstAmount.toFixed(2)}`,
+              suggestion: `Expected GST: ${formatRoundedCurrency(expectedGstAmount)}`,
             });
           }
 
@@ -254,9 +263,9 @@ Return ONLY the JSON object, no other text.`;
       if (Math.abs(expectedTotal - total) > 1) {
         errors.push({
           field: "total",
-          message: `Total mismatch: Subtotal (₹${subtotal.toFixed(2)}) + Tax (₹${totalTax.toFixed(2)}) = ₹${expectedTotal.toFixed(2)}, but bill shows ₹${total.toFixed(2)}`,
+          message: `Total mismatch: Subtotal (${formatRoundedCurrency(subtotal)}) + Tax (${formatRoundedCurrency(totalTax)}) = ${formatRoundedCurrency(expectedTotal)}, but bill shows ${formatRoundedCurrency(total)}`,
           severity: "warning",
-          suggestion: `Expected total: ₹${expectedTotal.toFixed(2)}`,
+          suggestion: `Expected total: ${formatRoundedCurrency(expectedTotal)}`,
         });
       }
 

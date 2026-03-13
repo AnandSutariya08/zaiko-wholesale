@@ -14,7 +14,14 @@ export const exportDashboardToExcel = (
     const workbook = XLSX.utils.book_new();
 
     // Helper function to format currency
-    const formatCurrency = (amount: number) => `₹${amount.toFixed(2)}`;
+    const formatCurrency = (amount: number) => {
+        const rounded = Math.round(amount);
+        const formatted = new Intl.NumberFormat("en-IN", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        }).format(Math.abs(rounded));
+        return `${rounded < 0 ? "-" : ""}Rs. ${formatted}`;
+    };
     const purchasePaidAmount = Math.max(0, stats.paidPurchases ?? stats.totalPurchases ?? 0);
     const totalSellAmount = (stats.totalRevenue || 0) + (stats.pendingAmount || 0);
     const currentGrossProfit = (stats.grossProfit || 0) - (stats.expectedProfit || 0);

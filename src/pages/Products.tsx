@@ -568,7 +568,7 @@ export default function Products() {
   const stats = calculateStatistics();
 
   const handleDownloadExcel = () => {
-    const formatCurr = (amount: number) => `₹${amount.toFixed(2)}`;
+    const formatCurr = (amount: number) => formatCurrency(amount);
     const workbook = XLSX.utils.book_new();
 
     const summaryData = [

@@ -1884,16 +1884,16 @@ export default function Dashboard() {
                       <span className="text-[10px] sm:text-xs text-muted-foreground break-words">
                         (Collected + Pending) Revenue - COGS incl. GST
                       </span>
-                      <span className="text-[10px] sm:text-xs text-muted-foreground break-words">
+                      {/* <span className="text-[10px] sm:text-xs text-muted-foreground break-words">
                         Other Gross Profit (collected/overdue/non-pending):{" "}
                         {formatCurrency(
                           roundToTwoDecimals(
                             stats.grossProfit - stats.expectedProfit,
                           ),
                         )}
-                      </span>
+                      </span> */}
                     </div>
-                    {expectedProfitBreakdown.length > 0 && (
+                    {/* {expectedProfitBreakdown.length > 0 && (
                       <div className="mt-2 space-y-1">
                         <div className="text-[10px] sm:text-xs text-muted-foreground">
                           Pending contributors included in Gross Profit:
@@ -1926,7 +1926,7 @@ export default function Dashboard() {
                           </div>
                         ))}
                       </div>
-                    )}
+                    )} */}
                   </CardContent>
                 </Card>
 
@@ -1963,7 +1963,7 @@ export default function Dashboard() {
                         })}`}
                       </div>
                     </div>
-                    {expectedProfitBreakdown.length > 0 && (
+                    {/* {expectedProfitBreakdown.length > 0 && (
                       <div className="mt-2 space-y-1">
                         {expectedProfitBreakdown.map((entry) => (
                           <div
@@ -1976,7 +1976,7 @@ export default function Dashboard() {
                           </div>
                         ))}
                       </div>
-                    )}
+                    )} */}
                   </CardContent>
                 </Card>
 

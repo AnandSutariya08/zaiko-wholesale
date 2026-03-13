@@ -596,6 +596,15 @@ function PurchaseBills() {
     "amount-asc": "Amount (Low to High)",
     vendor: "Vendor Name",
   };
+  const pendingCount = filteredBills.filter(
+    (bill) => bill.paymentStatus === "pending",
+  ).length;
+  const paidCount = filteredBills.filter(
+    (bill) => bill.paymentStatus === "paid",
+  ).length;
+  const overdueCount = filteredBills.filter(
+    (bill) => bill.paymentStatus === "overdue",
+  ).length;
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1845,6 +1854,25 @@ function PurchaseBills() {
 
       <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-border/70 bg-background/70 p-2 sm:p-4">
         <div className="h-full overflow-y-auto space-y-5 pr-1 sm:pr-2">
+          <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                {gstLabelMap[gstFilter]} - {statusLabelMap[statusFilter]} -{" "}
+                {sortLabelMap[sortBy]}
+              </p>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Badge variant="secondary" className="rounded-md px-2 py-0.5 text-[11px]">
+                  Pending {pendingCount}
+                </Badge>
+                <Badge variant="secondary" className="rounded-md px-2 py-0.5 text-[11px]">
+                  Paid {paidCount}
+                </Badge>
+                <Badge variant="secondary" className="rounded-md px-2 py-0.5 text-[11px]">
+                  Overdue {overdueCount}
+                </Badge>
+              </div>
+            </div>
+          </div>
           {/* Summary Tiles */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             <Card className="border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5 shadow-sm">
@@ -4334,7 +4362,7 @@ function PurchaseBills() {
                             Purchase Price
                           </Label>
                           <div className="text-sm font-medium bg-muted px-3 py-2 rounded">
-                            ₹{item.purchasePrice.toFixed(2)}
+                            {formatCurrency(item.purchasePrice)}
                           </div>
                         </div>
                         <div className="space-y-1">
@@ -4368,8 +4396,7 @@ function PurchaseBills() {
                       </div>
                       {item.sellingPrice > 0 && (
                         <p className="text-xs text-emerald-600 mt-2">
-                          Margin: ₹
-                          {(item.sellingPrice - item.purchasePrice).toFixed(2)}(
+                          Margin: {formatCurrency(item.sellingPrice - item.purchasePrice)}(
                           {(
                             ((item.sellingPrice - item.purchasePrice) /
                               item.purchasePrice) *

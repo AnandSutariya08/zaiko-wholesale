@@ -76,6 +76,8 @@ export function BankStatement({ account, isOpen, onClose }: BankStatementProps) 
     }
   };
 
+  const formatRoundedAmount = (amount: number) => Math.round(amount).toFixed(2);
+
   const allRelevantBillsAndSamples = (bills: Bill[], samples: SampleBill[]) => {
     return [...bills, ...samples].map(bill => ({
       id: bill.id,
@@ -146,11 +148,11 @@ export function BankStatement({ account, isOpen, onClose }: BankStatementProps) 
     doc.setFontSize(11);
     doc.setTextColor(0);
     doc.text(`Opening Balance: Rs. 0.00`, 140, 38);
-    doc.text(`Total Credits: Rs. ${statementData.filter(i => i.amount > 0).reduce((sum, i) => sum + i.amount, 0).toFixed(2)}`, 140, 44);
-    doc.text(`Total Debits: Rs. ${Math.abs(statementData.filter(i => i.amount < 0).reduce((sum, i) => sum + i.amount, 0)).toFixed(2)}`, 140, 50);
+    doc.text(`Total Credits: Rs. ${formatRoundedAmount(statementData.filter(i => i.amount > 0).reduce((sum, i) => sum + i.amount, 0))}`, 140, 44);
+    doc.text(`Total Debits: Rs. ${formatRoundedAmount(Math.abs(statementData.filter(i => i.amount < 0).reduce((sum, i) => sum + i.amount, 0)))}`, 140, 50);
     doc.setFontSize(12);
     doc.setTextColor(79, 70, 229); // Primary color
-    doc.text(`Net Balance: Rs. ${totalReceived.toFixed(2)}`, 140, 58);
+    doc.text(`Net Balance: Rs. ${formatRoundedAmount(totalReceived)}`, 140, 58);
 
     doc.setFontSize(10);
     doc.setTextColor(100);
@@ -170,9 +172,9 @@ export function BankStatement({ account, isOpen, onClose }: BankStatementProps) 
         formatDate(item.date),
         item.billNumber === "EXPENSE" ? item.clientName : `Payment received from ${item.clientName}`,
         item.billNumber === "EXPENSE" ? "EXP" : item.billNumber,
-        item.amount > 0 ? item.amount.toFixed(2) : "-",
-        item.amount < 0 ? Math.abs(item.amount).toFixed(2) : "-",
-        runningBalance.toFixed(2)
+        item.amount > 0 ? formatRoundedAmount(item.amount) : "-",
+        item.amount < 0 ? formatRoundedAmount(Math.abs(item.amount)) : "-",
+        formatRoundedAmount(runningBalance)
       ];
     });
 

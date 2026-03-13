@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+﻿import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -37,6 +37,7 @@ import {
   getPaymentStatus,
   roundToTwoDecimals,
   formatToTwoDecimals,
+  formatCurrency,
 } from "@/lib/billUtils";
 import { toast } from "sonner";
 import {
@@ -1667,14 +1668,12 @@ export function BillForm({
                     </div>
                     <div className="rounded-xl border border-border/70 bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground sm:px-4">
                       <span className="font-semibold text-foreground">
-                        Amount: ₹{formatToTwoDecimals(item.amount)}
+                        Amount: {formatCurrency(item.amount)}
                       </span>
                       {gstEnabled && (
                         <span className="ml-2">
-                          + {isIGST ? "IGST" : "CGST+SGST"}: ₹
-                          {formatToTwoDecimals(
-                            item.igst || item.cgst + item.sgst,
-                          )}
+                          + {isIGST ? "IGST" : "CGST+SGST"}:{" "}
+                          {formatCurrency(item.igst || item.cgst + item.sgst)}
                           {isIGST && (
                             <span className="ml-1 text-xs text-orange-600">
                               (Inter-State)
@@ -1782,11 +1781,11 @@ export function BillForm({
           <div className="space-y-2">
             <div className="flex justify-between text-sm sm:text-base">
               <span>Subtotal:</span>
-              <span>₹{totals.subtotal.toFixed(2)}</span>
+              <span>{formatCurrency(totals.subtotal)}</span>
             </div>
             <div className="flex justify-between text-sm sm:text-base">
               <span>Total Tax:</span>
-              <span>₹{formatToTwoDecimals(totals.totalTax)}</span>
+              <span>{formatCurrency(totals.totalTax)}</span>
             </div>
             {discountNum > 0 && totals.discount > 0 && (
               <div className="flex justify-between text-sm text-red-600 sm:text-base">
@@ -1797,18 +1796,13 @@ export function BillForm({
                     : ""}
                   :
                 </span>
-                <span>-₹{formatToTwoDecimals(totals.discount)}</span>
+                <span>-{formatCurrency(totals.discount)}</span>
               </div>
             )}
             {(parseFloat(String(formData.otherCharges)) || 0) > 0 && (
               <div className="flex justify-between text-sm sm:text-base">
                 <span>Other Charges:</span>
-                <span>
-                  ₹
-                  {formatToTwoDecimals(
-                    parseFloat(String(formData.otherCharges)) || 0,
-                  )}
-                </span>
+                <span>{formatCurrency(parseFloat(String(formData.otherCharges)) || 0)}</span>
               </div>
             )}
             {totals.roundOff !== 0 && (
@@ -1822,7 +1816,7 @@ export function BillForm({
             )}
             <div className="flex justify-between border-t pt-3 text-lg font-bold sm:text-xl">
               <span>Total:</span>
-              <span>₹{formatToTwoDecimals(totals.total)}</span>
+              <span>{formatCurrency(totals.total)}</span>
             </div>
           </div>
         </CardContent>
@@ -1991,3 +1985,4 @@ export function BillForm({
     </div>
   );
 }
+

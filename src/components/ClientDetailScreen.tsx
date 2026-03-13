@@ -278,14 +278,6 @@ export function ClientDetailScreen({
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 2,
-    }).format(amount);
-  };
-
   const handleViewBill = (billId: string) => {
     navigate(`/bills/${billId}`);
     onBack();
