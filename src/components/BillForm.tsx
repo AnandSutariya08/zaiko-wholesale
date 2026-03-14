@@ -70,12 +70,15 @@ import { ClientForm } from "./ClientForm";
 import { ProductForm } from "./ProductForm";
 import { Switch } from "./ui/switch";
 import { BillCreator, BankAccount } from "@/types";
+import { getDraft, removeDraft, setDraft } from "@/lib/draftStorage";
 
 interface BillFormProps {
   bill?: Bill;
   isEdit?: boolean;
   initialGstEnabled?: boolean;
   billType?: "domestic" | "international";
+  backPath?: string;
+  onBackHandlerReady?: (handler: () => void) => void;
 }
 
 type QuaggaDetectedResult = {
@@ -92,11 +95,50 @@ type QuaggaLike = {
   offDetected: (callback: (result: QuaggaDetectedResult) => void) => void;
 };
 
+type SalesBillDraft = {
+  selectedClient: Client | null;
+  billItems: BillItem[];
+  gstType: "igst" | "cgst_sgst";
+  internalBillType: "domestic" | "international";
+  gstEnabled: boolean;
+  formData: {
+    date: string;
+    paymentTerms: number;
+    deliveryNote: string;
+    modeOfPayment: string;
+    placeOfSupply: string;
+    notes: string;
+    paidAmount: string;
+    otherCharges: string;
+    discount: string;
+    discountType: "amount" | "percentage";
+    createdBy: string;
+    bankAccountId: string;
+  };
+  internationalData: {
+    preCarriageBy: string;
+    vesselsFlightNo: string;
+    portOfDischarge: string;
+    placeOfReceiptByPreCarriage: string;
+    portOfLoading: string;
+    finalDestination: string;
+    grossWeight: string;
+    netWeight: string;
+    countryOfOrigin: string;
+    countryOfFinalDestination: string;
+  };
+  updatedAt: string;
+};
+
+const SALES_BILL_DRAFT_KEY = "sales_bill_create_draft_v1";
+
 export function BillForm({
   bill,
   isEdit = false,
   initialGstEnabled,
   billType: propBillType,
+  backPath = "/bills",
+  onBackHandlerReady,
 }: BillFormProps) {
   const navigate = useNavigate();
   const [billType, setBillType] = useState<"domestic" | "international">(
@@ -206,6 +248,7 @@ export function BillForm({
     null,
   );
   const [gstEnabled, setGstEnabled] = useState(initialGstEnabled ?? true);
+  const [draftExitDialogOpen, setDraftExitDialogOpen] = useState(false);
 
   // Auto-set GST and type based on props
   useEffect(() => {
@@ -291,6 +334,91 @@ export function BillForm({
     };
     loadData();
   }, [bill, isEdit, initialGstEnabled]);
+
+  useEffect(() => {
+    if (isEdit) return;
+    const existingDraft = getDraft<SalesBillDraft>(SALES_BILL_DRAFT_KEY);
+    if (!existingDraft) return;
+    setSelectedClient(existingDraft.selectedClient || null);
+    setBillItems(existingDraft.billItems || []);
+    setGstType(existingDraft.gstType || "cgst_sgst");
+    setInternalBillType(existingDraft.internalBillType || "domestic");
+    setGstEnabled(existingDraft.gstEnabled ?? true);
+    setFormData(existingDraft.formData);
+    setInternationalData(existingDraft.internationalData);
+    toast.success("Draft loaded");
+  }, [isEdit]);
+
+  const hasDraftableData = useCallback(() => {
+    if (!!selectedClient || billItems.length > 0) return true;
+    if (
+      formData.deliveryNote.trim() ||
+      formData.modeOfPayment.trim() ||
+      formData.placeOfSupply.trim() ||
+      formData.notes.trim() ||
+      formData.paidAmount.trim() ||
+      formData.otherCharges.trim() ||
+      formData.discount.trim()
+    ) {
+      return true;
+    }
+    if (
+      internationalData.preCarriageBy.trim() ||
+      internationalData.vesselsFlightNo.trim() ||
+      internationalData.portOfDischarge.trim() ||
+      internationalData.placeOfReceiptByPreCarriage.trim() ||
+      internationalData.portOfLoading.trim() ||
+      internationalData.finalDestination.trim() ||
+      internationalData.grossWeight.trim() ||
+      internationalData.netWeight.trim() ||
+      internationalData.countryOfOrigin.trim() ||
+      internationalData.countryOfFinalDestination.trim()
+    ) {
+      return true;
+    }
+    return false;
+  }, [selectedClient, billItems, formData, internationalData]);
+
+  const saveSalesDraft = useCallback(() => {
+    const draft: SalesBillDraft = {
+      selectedClient,
+      billItems,
+      gstType,
+      internalBillType,
+      gstEnabled,
+      formData,
+      internationalData,
+      updatedAt: new Date().toISOString(),
+    };
+    setDraft(SALES_BILL_DRAFT_KEY, draft);
+  }, [
+    selectedClient,
+    billItems,
+    gstType,
+    internalBillType,
+    gstEnabled,
+    formData,
+    internationalData,
+  ]);
+
+  const requestExitFromCreate = useCallback(() => {
+    if (isEdit) {
+      navigate(backPath);
+      return;
+    }
+
+    if (!hasDraftableData()) {
+      removeDraft(SALES_BILL_DRAFT_KEY);
+      navigate(backPath);
+      return;
+    }
+
+    setDraftExitDialogOpen(true);
+  }, [isEdit, hasDraftableData, navigate, backPath]);
+
+  useEffect(() => {
+    onBackHandlerReady?.(requestExitFromCreate);
+  }, [onBackHandlerReady, requestExitFromCreate]);
 
   const handleSubmit = async () => {
     if (!selectedClient) {
@@ -495,6 +623,9 @@ export function BillForm({
       };
 
       await saveBill(newBill);
+      if (!isEdit) {
+        removeDraft(SALES_BILL_DRAFT_KEY);
+      }
       toast.success(
         isEdit ? "Bill updated successfully" : "Bill created successfully",
       );
@@ -595,7 +726,7 @@ export function BillForm({
           newItem.igst = 0;
         }
 
-        return [...nextItems, newItem];
+        return [newItem, ...nextItems];
       });
 
       if (notify) toast.success(`Added ${qty} x ${product.name}`);
@@ -864,7 +995,6 @@ export function BillForm({
 
   const addItem = () => {
     setBillItems([
-      ...billItems,
       {
         productId: "",
         productName: "",
@@ -880,6 +1010,7 @@ export function BillForm({
         sgst: 0,
         igst: 0,
       },
+      ...billItems,
     ]);
   };
 
@@ -1448,7 +1579,7 @@ export function BillForm({
                   <CardContent className="space-y-4 p-4 sm:p-5">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                        Item {index + 1}
+                        Item {billItems.length - index}
                       </p>
                       <div className="flex items-center gap-2">
                         {item.quantity > availableStock && (
@@ -1836,12 +1967,51 @@ export function BillForm({
           variant="outline"
           size="lg"
           className="h-11 sm:w-auto"
-          onClick={() => navigate("/bills")}
+          onClick={requestExitFromCreate}
           disabled={saving}
         >
           Cancel
         </Button>
       </div>
+
+      <Dialog open={draftExitDialogOpen} onOpenChange={setDraftExitDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Save Draft Before Leaving?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Do you want to store this draft or clear it before going back?
+          </p>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDraftExitDialogOpen(false)}
+            >
+              Continue Editing
+            </Button>
+            <Button
+              variant="outline"
+              className="text-destructive hover:text-destructive"
+              onClick={() => {
+                removeDraft(SALES_BILL_DRAFT_KEY);
+                setDraftExitDialogOpen(false);
+                navigate(backPath);
+              }}
+            >
+              Clear Draft
+            </Button>
+            <Button
+              onClick={() => {
+                saveSalesDraft();
+                setDraftExitDialogOpen(false);
+                navigate(backPath);
+              }}
+            >
+              Store Draft
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={barcodeScannerOpen} onOpenChange={setBarcodeScannerOpen}>
         <DialogContent>

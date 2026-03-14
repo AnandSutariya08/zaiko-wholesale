@@ -1,10 +1,12 @@
 import { BillForm } from '@/components/BillForm';
-import { ArrowLeft, FileText } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useState } from 'react';
 
 export default function CreateBill() {
   const navigate = useNavigate();
+  const [handleBackFromForm, setHandleBackFromForm] = useState<(() => void) | null>(null);
   const [searchParams] = useSearchParams();
   const mode = searchParams.get("mode");
 
@@ -36,7 +38,7 @@ export default function CreateBill() {
       <div className="sticky top-0 z-20 shrink-0 rounded-2xl border border-border/70 bg-background/95 p-2 shadow-sm backdrop-blur sm:p-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <Button variant="outline" size="icon" onClick={() => navigate(backPath)} className="h-10 w-10 shrink-0 rounded-lg bg-background">
+            <Button variant="outline" size="icon" onClick={() => (handleBackFromForm ? handleBackFromForm() : navigate(backPath))} className="h-10 w-10 shrink-0 rounded-lg bg-background">
               <ArrowLeft className="h-4 w-4" />
             </Button>
             {/* <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-border">
@@ -59,7 +61,12 @@ export default function CreateBill() {
 
       <div className="min-h-0 flex-1 rounded-2xl border border-border/70 bg-background/85 p-2 sm:p-3">
         <div className="h-full overflow-y-auto pr-1 sm:pr-2">
-          <BillForm initialGstEnabled={initialGstEnabled} billType={billType} />
+          <BillForm
+            initialGstEnabled={initialGstEnabled}
+            billType={billType}
+            backPath={backPath}
+            onBackHandlerReady={(handler) => setHandleBackFromForm(() => handler)}
+          />
         </div>
       </div>
     </div>

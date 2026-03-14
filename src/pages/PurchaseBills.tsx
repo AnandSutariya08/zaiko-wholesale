@@ -110,6 +110,34 @@ import { ConflictResolutionDialog } from "@/components/ConflictResolutionDialog"
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { compressFile, getBase64SizeKB } from "@/lib/imageCompression";
 import { ProductAutocomplete } from "@/components/ProductAutocomplete";
+import { getDraft, removeDraft, setDraft } from "@/lib/draftStorage";
+
+type PurchaseManualDraft = {
+  manualVendorMode: "select" | "create";
+  manualVendorForm: {
+    name: string;
+    address: string;
+    gstin: string;
+    phone: string;
+    email: string;
+  };
+  manualBill: {
+    billImage: string;
+    vendorId?: string;
+    vendorName: string;
+    vendorAddress?: string;
+    vendorGstin?: string;
+    billNumber?: string;
+    billDate: string;
+    dueDate?: string;
+    paymentTerms?: number;
+    notes?: string;
+    items: PurchaseBillItem[];
+  };
+  updatedAt: string;
+};
+
+const PURCHASE_MANUAL_DRAFT_KEY = "purchase_bill_manual_draft_v1";
 
 function PurchaseBills() {
   const navigate = useNavigate();
@@ -324,6 +352,7 @@ function PurchaseBills() {
 
   const [products, setProducts] = useState<any[]>([]);
   const [manualCreateOpen, setManualCreateOpen] = useState(false);
+  const [manualExitDialogOpen, setManualExitDialogOpen] = useState(false);
   const manualImageInputRef = useRef<HTMLInputElement>(null);
   const [manualVendorMode, setManualVendorMode] = useState<"select" | "create">(
     "select",
@@ -791,8 +820,68 @@ function PurchaseBills() {
   };
 
   const openManualCreate = () => {
-    resetManualCreate();
+    const draft = getDraft<PurchaseManualDraft>(PURCHASE_MANUAL_DRAFT_KEY);
+    if (draft) {
+      setManualVendorMode(draft.manualVendorMode || "select");
+      setManualVendorForm(draft.manualVendorForm);
+      setManualBill(draft.manualBill);
+      toast({
+        title: "Draft Restored",
+        description: "Loaded your last purchase bill draft",
+      });
+    } else {
+      resetManualCreate();
+    }
     setManualCreateOpen(true);
+  };
+
+  const hasManualDraftableData = () => {
+    if (manualVendorMode === "create") return true;
+    if (
+      !!manualBill.vendorId ||
+      manualBill.vendorName.trim() ||
+      (manualBill.vendorAddress || "").trim() ||
+      (manualBill.vendorGstin || "").trim() ||
+      (manualBill.billNumber || "").trim() ||
+      (manualBill.notes || "").trim() ||
+      !!manualBill.billImage
+    ) {
+      return true;
+    }
+    if (manualBill.items.length > 1) return true;
+    if (
+      manualBill.items.some(
+        (item) =>
+          item.description.trim() ||
+          (item.hsnCode || "").trim() ||
+          item.quantity !== 1 ||
+          item.rate !== 0 ||
+          (item.gstRate || 0) !== 0,
+      )
+    ) {
+      return true;
+    }
+    return false;
+  };
+
+  const saveManualDraft = () => {
+    const draft: PurchaseManualDraft = {
+      manualVendorMode,
+      manualVendorForm,
+      manualBill,
+      updatedAt: new Date().toISOString(),
+    };
+    setDraft(PURCHASE_MANUAL_DRAFT_KEY, draft);
+  };
+
+  const requestCloseManualCreate = () => {
+    if (!hasManualDraftableData()) {
+      removeDraft(PURCHASE_MANUAL_DRAFT_KEY);
+      setManualCreateOpen(false);
+      resetManualCreate();
+      return;
+    }
+    setManualExitDialogOpen(true);
   };
 
   const updateManualItem = (
@@ -836,7 +925,6 @@ function PurchaseBills() {
     setManualBill((prev) => ({
       ...prev,
       items: [
-        ...prev.items,
         {
           description: "",
           hsnCode: "",
@@ -848,6 +936,7 @@ function PurchaseBills() {
           gstAmount: 0,
           whereToBuy: prev.vendorName || "",
         },
+        ...prev.items,
       ],
     }));
   };
@@ -1060,6 +1149,7 @@ function PurchaseBills() {
 
       await savePurchaseBill(newBill);
       await loadBills();
+      removeDraft(PURCHASE_MANUAL_DRAFT_KEY);
       setManualCreateOpen(false);
       resetManualCreate();
       setSelectedBill(newBill);
@@ -1432,7 +1522,7 @@ function PurchaseBills() {
       weight: 0,
       hasError: false,
     };
-    setEditedBill({ ...editedBill, items: [...editedBill.items, newItem] });
+    setEditedBill({ ...editedBill, items: [newItem, ...editedBill.items] });
   };
 
   const removeEditedItemRow = (index: number) => {
@@ -2439,8 +2529,11 @@ function PurchaseBills() {
           <Dialog
             open={manualCreateOpen}
             onOpenChange={(open) => {
-              setManualCreateOpen(open);
-              if (!open) resetManualCreate();
+              if (open) {
+                setManualCreateOpen(true);
+                return;
+              }
+              requestCloseManualCreate();
             }}
           >
             <DialogContent
@@ -2773,7 +2866,7 @@ function PurchaseBills() {
                           >
                             <div className="flex items-center justify-between">
                               <p className="text-sm font-medium">
-                                Item {index + 1}
+                                Item {manualBill.items.length - index}
                               </p>
                               {manualBill.items.length > 1 && (
                                 <Button
@@ -2984,10 +3077,7 @@ function PurchaseBills() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => {
-                      setManualCreateOpen(false);
-                      resetManualCreate();
-                    }}
+                    onClick={requestCloseManualCreate}
                   >
                     Cancel
                   </Button>
@@ -3002,6 +3092,44 @@ function PurchaseBills() {
               </div>
             </DialogContent>
           </Dialog>
+          <AlertDialog
+            open={manualExitDialogOpen}
+            onOpenChange={setManualExitDialogOpen}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Save Draft Before Leaving?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Do you want to store this purchase draft or clear it before
+                  going back?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Continue Editing</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => {
+                    removeDraft(PURCHASE_MANUAL_DRAFT_KEY);
+                    setManualExitDialogOpen(false);
+                    setManualCreateOpen(false);
+                    resetManualCreate();
+                  }}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Clear Draft
+                </AlertDialogAction>
+                <AlertDialogAction
+                  onClick={() => {
+                    saveManualDraft();
+                    setManualExitDialogOpen(false);
+                    setManualCreateOpen(false);
+                    resetManualCreate();
+                  }}
+                >
+                  Store Draft
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
 
           {/* Image View Dialog */}
           <Dialog
@@ -3665,7 +3793,9 @@ function PurchaseBills() {
                                   }`}
                                 >
                                   <td className="px-4 py-3 font-medium sticky left-0 bg-background text-sm">
-                                    {index + 1}
+                                    {isEditing && editedBill
+                                      ? editedBill.items.length - index
+                                      : index + 1}
                                   </td>
                                   <td className="px-4 py-3 max-w-md">
                                     {isEditing ? (
