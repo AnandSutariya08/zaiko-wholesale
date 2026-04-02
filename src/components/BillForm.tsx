@@ -131,6 +131,7 @@ type SalesBillDraft = {
 };
 
 const SALES_BILL_DRAFT_KEY = "sales_bill_create_draft_v1";
+const PURCHASE_PREFILL_KEY = "purchase_to_sale_prefill_v1";
 
 export function BillForm({
   bill,
@@ -337,6 +338,17 @@ export function BillForm({
 
   useEffect(() => {
     if (isEdit) return;
+
+    // Check for items pre-filled from a purchase bill ("Create Sale" flow).
+    // Takes priority over any existing draft — it's a deliberate fresh start.
+    const prefillItems = getDraft<BillItem[]>(PURCHASE_PREFILL_KEY);
+    if (prefillItems && prefillItems.length > 0) {
+      removeDraft(PURCHASE_PREFILL_KEY);
+      setBillItems(prefillItems);
+      toast.success(`${prefillItems.length} item(s) copied from purchase bill`);
+      return;
+    }
+
     const existingDraft = getDraft<SalesBillDraft>(SALES_BILL_DRAFT_KEY);
     if (!existingDraft) return;
     setSelectedClient(existingDraft.selectedClient || null);
