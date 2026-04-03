@@ -1144,6 +1144,43 @@ const indexAliasesByKey = (aliases: ProductAliasRecord[]) => {
   return map;
 };
 
+export interface ProductAlias {
+  id: string;
+  vendorId?: string;
+  aliasNameRaw: string;
+  aliasHsnRaw: string;
+  productId: string;
+  productName?: string; // Enriched client-side
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const getProductAliases = async (): Promise<ProductAlias[]> => {
+  const userId = getUserId();
+  const q = query(
+    collection(db, COLLECTIONS.PRODUCT_ALIASES),
+    where("userId", "==", userId),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => {
+    const data = d.data() as ProductAliasRecord;
+    return {
+      id: data.id,
+      vendorId: data.vendorId,
+      aliasNameRaw: data.aliasNameRaw || data.aliasNameNormalized,
+      aliasHsnRaw: data.aliasHsnRaw || data.aliasHsnNormalized,
+      productId: data.productId,
+      createdAt: data.createdAt,
+      updatedAt: data.updatedAt,
+    };
+  });
+};
+
+export const deleteProductAlias = async (aliasId: string): Promise<void> => {
+  const aliasRef = doc(db, COLLECTIONS.PRODUCT_ALIASES, aliasId);
+  await deleteDoc(aliasRef);
+};
+
 const resolveProductForPurchaseBillItem = (
   item: PurchaseBill["items"][number],
   products: Product[],
@@ -1908,6 +1945,7 @@ export interface InventoryItemInput {
   sellingPrice: number;
   gstRate?: number;
   productId?: string;
+  vendorId?: string;
   isNewProduct?: boolean;
   conflictKey?: string;
 }
@@ -1947,6 +1985,11 @@ const updateExistingProduct = async (
   }
 
   batch.update(productRef, updates);
+
+  // Update in-memory so subsequent calls for the same product within the same bill
+  // use the correct cumulative stock/price (Firestore batch last-write-wins otherwise).
+  existingProduct.stock = newStock;
+  existingProduct.purchasePrice = newPurchasePrice;
 
   // Create inventory transaction record
   const transactionRef = doc(collection(db, COLLECTIONS.INVENTORY));
@@ -2002,6 +2045,11 @@ const updateExistingProductWithNameChange = async (
   }
 
   batch.update(productRef, updates);
+
+  // Update in-memory so subsequent calls for the same product within the same bill
+  // use the correct cumulative stock/price (Firestore batch last-write-wins otherwise).
+  existingProduct.stock = newStock;
+  existingProduct.purchasePrice = newPurchasePrice;
 
   // Create inventory transaction record
   const transactionRef = doc(collection(db, COLLECTIONS.INVENTORY));
@@ -2541,6 +2589,95 @@ export const getTotalDeadstockLoss = async (): Promise<number> => {
     console.error("Error getting total deadstock loss:", error);
     return 0;
   }
+};
+
+// Reconcile stock for all products by recalculating from inventory transactions and bill data.
+// This fixes gaps caused by the batch-overwrite bug (multiple items of the same product in one
+// purchase bill) where only the last item's quantity was applied to product.stock.
+export const reconcileAllProductStocks = async (): Promise<{
+  fixedCount: number;
+  changes: Array<{ name: string; oldStock: number; newStock: number }>;
+}> => {
+  const userId = getUserId();
+  const [products, allTransactions, bills, billReturns] = await Promise.all([
+    getProducts(),
+    getInventoryTransactions(),
+    getBills(),
+    getBillReturns(),
+  ]);
+
+  const changes: Array<{ name: string; oldStock: number; newStock: number }> = [];
+  const productRefs: Array<{ ref: any; stock: number }> = [];
+
+  for (const product of products) {
+    const productTxns = allTransactions.filter((t) => t.productId === product.id);
+
+    // Purchases: sum all purchase-type transactions (source of truth for received qty)
+    const totalPurchased = productTxns
+      .filter((t) => t.type === "purchase")
+      .reduce((sum, t) => sum + (t.quantity || 0), 0);
+
+    // Purchase returns: transactions have negative quantities
+    const purchaseReturned = productTxns
+      .filter((t) => t.type === "purchase_return")
+      .reduce((sum, t) => sum + (t.quantity || 0), 0);
+
+    // Sales: use bills directly (authoritative, handles edits correctly)
+    const totalSold = bills.reduce((sum, bill) => {
+      return (
+        sum +
+        bill.items
+          .filter((item) => item.productId === product.id)
+          .reduce((s, item) => s + (item.quantity || 0), 0)
+      );
+    }, 0);
+
+    // Good customer returns: add back to stock
+    const goodReturned = billReturns.reduce((sum, br) => {
+      const items = (br as any).items || [];
+      return (
+        sum +
+        items
+          .filter(
+            (item: any) =>
+              String(item.productId) === String(product.id) &&
+              item.condition === "good",
+          )
+          .reduce((s: number, item: any) => s + (Number(item.quantity) || 0), 0)
+      );
+    }, 0);
+
+    // Safety guard: if no purchase transactions exist but product has stock,
+    // it was manually set (direct edit). Skip — we cannot safely reconcile it.
+    if (totalPurchased === 0 && (product.stock || 0) > 0) continue;
+
+    const correctStock = Math.round(
+      (totalPurchased + purchaseReturned - totalSold + goodReturned) * 100,
+    ) / 100;
+
+    if (Math.abs(correctStock - (product.stock || 0)) >= 0.01) {
+      productRefs.push({
+        ref: doc(db, COLLECTIONS.PRODUCTS, product.id),
+        stock: correctStock,
+      });
+      changes.push({
+        name: product.name,
+        oldStock: product.stock || 0,
+        newStock: correctStock,
+      });
+    }
+  }
+
+  // Commit in batches of 400 (Firestore limit is 500 per batch)
+  for (let i = 0; i < productRefs.length; i += 400) {
+    const batch = writeBatch(db);
+    productRefs.slice(i, i + 400).forEach(({ ref, stock }) => {
+      batch.update(ref, { stock, userId });
+    });
+    await batch.commit();
+  }
+
+  return { fixedCount: changes.length, changes };
 };
 
 export const getCostOfGoodsSold = async (): Promise<number> => {

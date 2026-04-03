@@ -944,27 +944,27 @@ export function ProductHistoryScreen({
 
       // Find purchase history - match by product ID from transactions
       const purchases: PurchaseHistoryItem[] = [];
+      // Track which billIds are already captured via transactions to prevent double-counting
+      const capturedBillIds = new Set<string>();
 
       // First, get purchases from transactions that have billId
       transactions.forEach((transaction) => {
         if (
           transaction.type === "purchase" &&
           transaction.billId &&
-          transaction.purchasePrice
+          transaction.purchasePrice !== undefined
         ) {
           // Find the corresponding purchase bill
           const bill = purchaseBills.find((b) => b.id === transaction.billId);
           if (bill) {
+            capturedBillIds.add(transaction.billId);
             const billItem = bill.items.find(
               (item) =>
                 item.description.toLowerCase().trim() ===
-                product.name.toLowerCase().trim() ||
-                (item.hsnCode &&
-                  product.hsnCode &&
-                  item.hsnCode.trim() === product.hsnCode.trim()),
+                product.name.toLowerCase().trim(),
             );
             const billGstRate = (billItem as any)?.gstRate ?? product.gstRate ?? 0;
-            const landedPurchasePrice = transaction.purchasePrice * (1 + billGstRate / 100);
+            const landedPurchasePrice = (transaction.purchasePrice || 0) * (1 + billGstRate / 100);
             purchases.push({
               id: transaction.id,
               date: transaction.date,
@@ -991,10 +991,10 @@ export function ProductHistoryScreen({
         if (
           transaction.type === "purchase" &&
           !transaction.billId &&
-          transaction.purchasePrice
+          transaction.purchasePrice !== undefined
         ) {
           const manualGstRate = product.gstRate ?? 0;
-          const manualLandedPrice = transaction.purchasePrice * (1 + manualGstRate / 100);
+          const manualLandedPrice = (transaction.purchasePrice || 0) * (1 + manualGstRate / 100);
           purchases.push({
             id: transaction.id,
             date: transaction.date,
@@ -1014,44 +1014,41 @@ export function ProductHistoryScreen({
         }
       });
 
-      // If no transactions found, fall back to matching by name and HSN code
-      // This is for legacy data or purchases before transaction tracking
-      if (purchases.length === 0) {
-        purchaseBills.forEach((bill) => {
-          bill.items.forEach((item) => {
-            // Exact match by name (case-insensitive)
-            const exactNameMatch =
-              item.description.toLowerCase().trim() ===
-              product.name.toLowerCase().trim();
-            // Match by HSN code if both exist
-            const hsnMatch =
-              item.hsnCode &&
-              product.hsnCode &&
-              item.hsnCode.trim() === product.hsnCode.trim();
+      // Always run legacy fallback for bills not captured via transactions.
+      // This covers purchases made before transaction tracking was introduced.
+      // Skip bills already captured via transactions to prevent double-counting.
+      // Only include bills that were actually added to inventory (affected product.stock).
+      purchaseBills.forEach((bill) => {
+        if (capturedBillIds.has(bill.id)) return;
+        if (!bill.itemsAddedToInventory) return;
+        bill.items.forEach((item) => {
+          // Exact match by name only — HSN codes are category-level (e.g. all umbrellas
+          // share 6601) so HSN matching would incorrectly cross-match different products.
+          const exactNameMatch =
+            item.description.toLowerCase().trim() ===
+            product.name.toLowerCase().trim();
 
-            // Only include if there's an exact name match OR HSN match
-            if (exactNameMatch || hsnMatch) {
-              purchases.push({
-                id: `${bill.id}-${item.description}`,
-                date: bill.billDate || bill.createdAt,
-                vendorName: bill.vendorName,
-                itemNo: (item as any).itemNo || product.itemNo || "",
-                model: (item as any).model || product.model || "",
-                imeiNumber: (item as any).imeiNumber || product.imeiNumber || "",
-                storage: (item as any).storage || product.storage || "",
-                color: (item as any).color || product.color || "",
-                quantity: item.quantity,
-                unit: item.unit,
-                purchasePrice: item.rate * (1 + (item.gstRate || 0) / 100),
-                totalAmount: item.amount * (1 + (item.gstRate || 0) / 100),
-                billNumber: bill.billNumber,
-                addedToInventory: bill.itemsAddedToInventory || false,
-                weight: (item as any).weight || "",
-              });
-            }
-          });
+          if (exactNameMatch) {
+            purchases.push({
+              id: `${bill.id}-${item.description}`,
+              date: bill.billDate || bill.createdAt,
+              vendorName: bill.vendorName,
+              itemNo: (item as any).itemNo || product.itemNo || "",
+              model: (item as any).model || product.model || "",
+              imeiNumber: (item as any).imeiNumber || product.imeiNumber || "",
+              storage: (item as any).storage || product.storage || "",
+              color: (item as any).color || product.color || "",
+              quantity: item.quantity,
+              unit: item.unit,
+              purchasePrice: item.rate * (1 + (item.gstRate || 0) / 100),
+              totalAmount: item.amount * (1 + (item.gstRate || 0) / 100),
+              billNumber: bill.billNumber,
+              addedToInventory: true,
+              weight: (item as any).weight || "",
+            });
+          }
         });
-      }
+      });
 
       // Find sales history - match by productId
       const sales: SalesHistoryItem[] = [];
@@ -1111,10 +1108,45 @@ export function ProductHistoryScreen({
         });
       });
 
-      // Find purchase return history - match by productId and add to purchase history
+      // Find purchase return history.
+      // Primary: use inventory transactions with type "purchase_return" — these are keyed
+      // to productId (reliable), not product name (fragile). This fixes the case where
+      // a purchase return exists but the name doesn't match exactly, causing the return
+      // to be invisible in history while still having reduced product.stock.
+      const capturedPurchaseReturnIds = new Set<string>();
+
+      transactions
+        .filter((t) => t.type === "purchase_return" && t.purchaseReturnId)
+        .forEach((transaction) => {
+          const pReturn = purchaseReturns.find((r) => r.id === transaction.purchaseReturnId);
+          capturedPurchaseReturnIds.add(transaction.purchaseReturnId!);
+
+          // Find the item for price details (display only — quantity comes from transaction)
+          const returnItem = pReturn?.items.find(
+            (i) => i.description.toLowerCase().trim() === product.name.toLowerCase().trim(),
+          );
+          const rate = returnItem?.rate ?? 0;
+          const gstRate = returnItem?.gstRate ?? 0;
+          const qty = Math.abs(transaction.quantity || 0);
+
+          purchases.push({
+            id: `p-return-${transaction.id}`,
+            date: transaction.date,
+            vendorName: pReturn ? `Purchase Return: ${pReturn.vendorName}` : "Purchase Return",
+            quantity: -qty,
+            unit: product.unit,
+            purchasePrice: rate * (1 + gstRate / 100),
+            totalAmount: -(qty * rate * (1 + gstRate / 100)),
+            billNumber: pReturn?.billNumber,
+            addedToInventory: true,
+            isReturn: true,
+          });
+        });
+
+      // Fallback: name-based matching for purchase returns that predate transaction tracking
       purchaseReturns.forEach((pReturn) => {
+        if (capturedPurchaseReturnIds.has(pReturn.id)) return;
         pReturn.items.forEach((item) => {
-          // Match by description since purchase returns might not have productId
           const isMatch =
             item.description.toLowerCase().trim() ===
             product.name.toLowerCase().trim();
@@ -1124,7 +1156,7 @@ export function ProductHistoryScreen({
               id: `p-return-${pReturn.id}-${item.description}`,
               date: pReturn.returnDate || pReturn.createdAt,
               vendorName: `Purchase Return: ${pReturn.vendorName}`,
-              quantity: -item.quantity, // Negative quantity for return
+              quantity: -item.quantity,
               unit: (item as any).unit || product.unit,
               purchasePrice: item.rate * (1 + (item.gstRate || 0) / 100),
               totalAmount: -(item.quantity * item.rate * (1 + (item.gstRate || 0) / 100)),

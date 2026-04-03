@@ -1036,14 +1036,52 @@ function PurchaseBills() {
       item.gstAmount = (item.amount * (value || 0)) / 100;
     }
 
+    // If description changed, check for duplicate — merge into existing item
+    if (field === "description" && value.trim()) {
+      const dupIndex = items.findIndex(
+        (it, i) =>
+          i !== index &&
+          it.description.toLowerCase().trim() === value.toLowerCase().trim(),
+      );
+      if (dupIndex !== -1) {
+        const merged = { ...items[dupIndex] };
+        merged.quantity = merged.quantity + item.quantity;
+        merged.amount = merged.quantity * merged.rate;
+        merged.gstAmount = (merged.amount * (merged.gstRate || 0)) / 100;
+        items[dupIndex] = merged;
+        items.splice(index, 1);
+        setManualBill((prev) => ({ ...prev, items }));
+        toast({ title: "Duplicate item merged", description: `Quantity added to existing "${merged.description}" entry.` });
+        return;
+      }
+    }
+
     items[index] = item;
     setManualBill((prev) => ({ ...prev, items }));
   };
 
   const handleManualProductSelect = (index: number, product: any) => {
     const items = [...manualBill.items];
-    const item = { ...items[index] };
 
+    // Check if this product already exists in another row — merge if so
+    const dupIndex = items.findIndex(
+      (it, i) =>
+        i !== index &&
+        it.description.toLowerCase().trim() === product.name.toLowerCase().trim(),
+    );
+    if (dupIndex !== -1) {
+      const merged = { ...items[dupIndex] };
+      merged.quantity = merged.quantity + (items[index].quantity || 1);
+      merged.amount = merged.quantity * merged.rate;
+      merged.gstAmount = (merged.amount * (merged.gstRate || 0)) / 100;
+      items[dupIndex] = merged;
+      items.splice(index, 1);
+      setManualBill((prev) => ({ ...prev, items }));
+      toast({ title: "Duplicate item merged", description: `"${product.name}" already in bill. Quantity added to existing row.` });
+      return;
+    }
+
+    const item = { ...items[index] };
     item.description = product.name;
     item.hsnCode = product.hsnCode || item.hsnCode || "";
     item.rate = product.purchasePrice ?? item.rate;
@@ -1759,6 +1797,28 @@ function PurchaseBills() {
       item.gstAmount = (item.amount * (value || 0)) / 100;
     }
 
+    // If description changed, check for duplicate — merge into existing item
+    if (field === "description" && value.trim()) {
+      const dupIndex = items.findIndex(
+        (it, i) =>
+          i !== index &&
+          it.description.toLowerCase().trim() === value.toLowerCase().trim(),
+      );
+      if (dupIndex !== -1) {
+        const merged = { ...items[dupIndex] };
+        merged.quantity = merged.quantity + item.quantity;
+        merged.amount = merged.quantity * merged.rate;
+        merged.gstAmount = (merged.amount * (merged.gstRate || 0)) / 100;
+        merged.hasError = false;
+        merged.errorMessage = undefined;
+        items[dupIndex] = merged;
+        items.splice(index, 1);
+        setEditedBill({ ...editedBill, items });
+        toast({ title: "Duplicate item merged", description: `Quantity added to existing "${merged.description}" entry.` });
+        return;
+      }
+    }
+
     // Clear error flag after edit
     item.hasError = false;
     item.errorMessage = undefined;
@@ -1770,25 +1830,35 @@ function PurchaseBills() {
   const handleProductSelect = (index: number, product: any) => {
     if (!editedBill) return;
     const items = [...editedBill.items];
+
+    // Check if this product already exists in another row — merge if so
+    const dupIndex = items.findIndex(
+      (it, i) =>
+        i !== index &&
+        it.description.toLowerCase().trim() === product.name.toLowerCase().trim(),
+    );
+    if (dupIndex !== -1) {
+      const merged = { ...items[dupIndex] };
+      merged.quantity = merged.quantity + (items[index].quantity || 1);
+      merged.amount = merged.quantity * merged.rate;
+      merged.gstAmount = (merged.amount * (merged.gstRate || 0)) / 100;
+      merged.hasError = false;
+      merged.errorMessage = undefined;
+      items[dupIndex] = merged;
+      items.splice(index, 1);
+      setEditedBill({ ...editedBill, items });
+      toast({ title: "Duplicate item merged", description: `"${product.name}" already in bill. Quantity added to existing row.` });
+      return;
+    }
+
     const item = { ...items[index] };
-
-    item.description = product.name; // Update description
-    if (product.hsnCode) item.hsnCode = product.hsnCode; // Update HSN if available
-
-    // Update rate if available (assuming purchasePrice is the buying rate)
+    item.description = product.name;
+    if (product.hsnCode) item.hsnCode = product.hsnCode;
     if (product.purchasePrice) item.rate = product.purchasePrice;
-
-    // Update GST rate
     if (product.gstRate !== undefined) item.gstRate = product.gstRate;
-
-    // Update Unit
     if (product.unit) item.unit = product.unit;
-
-    // Recalculate amounts
     item.amount = item.quantity * item.rate;
     item.gstAmount = (item.amount * (item.gstRate || 0)) / 100;
-
-    // Clear error flag after edit
     item.hasError = false;
     item.errorMessage = undefined;
 

@@ -84,6 +84,10 @@ export {
   deleteExpo,
   transferStockToExpo,
   endExpoAndReturnStock,
+  reconcileAllProductStocks,
+  getProductAliases,
+  deleteProductAlias,
   type InventoryItemInput,
 } from "./firebaseService";
+export type { ProductAlias } from "./firebaseService";
 export type { Expo } from "@/types";
