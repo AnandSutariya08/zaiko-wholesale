@@ -94,6 +94,7 @@ import {
   SlidersHorizontal,
   ChevronDown,
   User,
+  ShoppingCart,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -103,8 +104,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
-import { PDFDownloadLink } from "@react-pdf/renderer";
+import { pdf } from "@react-pdf/renderer";
 import { PurchaseBillPDF } from "@/components/PurchaseBillPDF";
+import { getDownloadURL, ref } from "firebase/storage";
+import { storage } from "@/lib/firebase";
 import { Textarea } from "@/components/ui/textarea";
 import { ConflictResolutionDialog } from "@/components/ConflictResolutionDialog";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
@@ -470,6 +473,138 @@ function PurchaseBills() {
   const loadCompanyProfile = async () => {
     const profile = await getCompanyProfile();
     setCompanyProfile(profile);
+  };
+
+  const resolveSignatureForPdf = async (
+    signature?: string,
+  ): Promise<string | null> => {
+    if (!signature) return null;
+    let signatureUrl = signature.trim();
+    if (!signatureUrl) return null;
+
+    if (
+      !signatureUrl.startsWith("data:") &&
+      !/^https?:\/\//i.test(signatureUrl)
+    ) {
+      try {
+        signatureUrl = await getDownloadURL(ref(storage, signatureUrl));
+      } catch {
+        return null;
+      }
+    }
+
+    try {
+      const response = await fetch(signatureUrl, { mode: "cors" });
+      if (!response.ok) return signatureUrl;
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      try {
+        const pngDataUrl = await new Promise<string>((resolve, reject) => {
+          const img = new window.Image();
+          img.onload = () => {
+            try {
+              const width = Math.max(1, img.naturalWidth || 0);
+              const height = Math.max(1, img.naturalHeight || 0);
+              const canvas = document.createElement("canvas");
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext("2d");
+              if (!ctx) { reject(new Error("No canvas context")); return; }
+              ctx.clearRect(0, 0, width, height);
+              ctx.drawImage(img, 0, 0, width, height);
+              resolve(canvas.toDataURL("image/png"));
+            } catch (e) { reject(e); }
+          };
+          img.onerror = () => reject(new Error("Failed to load image"));
+          img.src = objectUrl;
+        });
+        return pngDataUrl || signatureUrl;
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    } catch {
+      return signatureUrl;
+    }
+  };
+
+  const handleDownloadPurchasePDF = async (bill: PurchaseBill) => {
+    toast({ title: "Generating PDF..." });
+    try {
+      const signatureSrc = await resolveSignatureForPdf(companyProfile?.signature);
+      const blob = await pdf(
+        <PurchaseBillPDF
+          bill={bill}
+          company={companyProfile}
+          signatureSrc={signatureSrc}
+        />
+      ).toBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Bill_${bill.billNumber || bill.id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      toast({ title: "PDF downloaded successfully" });
+    } catch (err) {
+      console.error("PDF generation failed", err);
+      toast({ title: "Failed to generate PDF", variant: "destructive" });
+    }
+  };
+
+  const PURCHASE_PREFILL_KEY = "purchase_to_sale_prefill_v1";
+
+  const handleSellItems = async (bill: PurchaseBill) => {
+    if (!bill.itemsAddedToInventory) {
+      toast({
+        title: "Add to Inventory First",
+        description: "Please add these items to inventory before creating a sale bill.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const products = await getProducts();
+
+    const billItems = bill.items.map((item) => {
+      const name = (item.description || "").trim().toLowerCase();
+      const hsn = (item.hsnCode || "").trim().toLowerCase();
+
+      // Match product by name+HSN, or name only
+      const product = products.find((p) => {
+        const pName = (p.name || "").trim().toLowerCase();
+        const pHsn = (p.hsnCode || "").trim().toLowerCase();
+        if (name && hsn) return pName === name && pHsn === hsn;
+        if (name) return pName === name;
+        return false;
+      });
+
+      const ratePerUnit = product?.sellingPrice ?? item.rate;
+      const gstRate = item.gstRate ?? product?.gstRate ?? 0;
+      const baseAmount = item.quantity * ratePerUnit;
+      const halfTax = baseAmount * (gstRate / 200);
+
+      return {
+        productId: product?.id || item.productId || "",
+        productName: product?.name || item.description,
+        hsnCode: item.hsnCode || product?.hsnCode || "",
+        gstRate,
+        quantity: item.quantity,
+        unit: item.unit,
+        ratePerUnit,
+        amount: baseAmount,
+        cgst: halfTax,
+        sgst: halfTax,
+        igst: 0,
+        purchasePrice: item.rate,
+        vendorId: bill.vendorId,
+        vendorName: bill.vendorName,
+      };
+    });
+
+    setDraft(PURCHASE_PREFILL_KEY, billItems);
+    navigate("/bills/new?mode=gst");
   };
 
   useEffect(() => {
@@ -901,14 +1036,52 @@ function PurchaseBills() {
       item.gstAmount = (item.amount * (value || 0)) / 100;
     }
 
+    // If description changed, check for duplicate — merge into existing item
+    if (field === "description" && value.trim()) {
+      const dupIndex = items.findIndex(
+        (it, i) =>
+          i !== index &&
+          it.description.toLowerCase().trim() === value.toLowerCase().trim(),
+      );
+      if (dupIndex !== -1) {
+        const merged = { ...items[dupIndex] };
+        merged.quantity = merged.quantity + item.quantity;
+        merged.amount = merged.quantity * merged.rate;
+        merged.gstAmount = (merged.amount * (merged.gstRate || 0)) / 100;
+        items[dupIndex] = merged;
+        items.splice(index, 1);
+        setManualBill((prev) => ({ ...prev, items }));
+        toast({ title: "Duplicate item merged", description: `Quantity added to existing "${merged.description}" entry.` });
+        return;
+      }
+    }
+
     items[index] = item;
     setManualBill((prev) => ({ ...prev, items }));
   };
 
   const handleManualProductSelect = (index: number, product: any) => {
     const items = [...manualBill.items];
-    const item = { ...items[index] };
 
+    // Check if this product already exists in another row — merge if so
+    const dupIndex = items.findIndex(
+      (it, i) =>
+        i !== index &&
+        it.description.toLowerCase().trim() === product.name.toLowerCase().trim(),
+    );
+    if (dupIndex !== -1) {
+      const merged = { ...items[dupIndex] };
+      merged.quantity = merged.quantity + (items[index].quantity || 1);
+      merged.amount = merged.quantity * merged.rate;
+      merged.gstAmount = (merged.amount * (merged.gstRate || 0)) / 100;
+      items[dupIndex] = merged;
+      items.splice(index, 1);
+      setManualBill((prev) => ({ ...prev, items }));
+      toast({ title: "Duplicate item merged", description: `"${product.name}" already in bill. Quantity added to existing row.` });
+      return;
+    }
+
+    const item = { ...items[index] };
     item.description = product.name;
     item.hsnCode = product.hsnCode || item.hsnCode || "";
     item.rate = product.purchasePrice ?? item.rate;
@@ -1624,6 +1797,28 @@ function PurchaseBills() {
       item.gstAmount = (item.amount * (value || 0)) / 100;
     }
 
+    // If description changed, check for duplicate — merge into existing item
+    if (field === "description" && value.trim()) {
+      const dupIndex = items.findIndex(
+        (it, i) =>
+          i !== index &&
+          it.description.toLowerCase().trim() === value.toLowerCase().trim(),
+      );
+      if (dupIndex !== -1) {
+        const merged = { ...items[dupIndex] };
+        merged.quantity = merged.quantity + item.quantity;
+        merged.amount = merged.quantity * merged.rate;
+        merged.gstAmount = (merged.amount * (merged.gstRate || 0)) / 100;
+        merged.hasError = false;
+        merged.errorMessage = undefined;
+        items[dupIndex] = merged;
+        items.splice(index, 1);
+        setEditedBill({ ...editedBill, items });
+        toast({ title: "Duplicate item merged", description: `Quantity added to existing "${merged.description}" entry.` });
+        return;
+      }
+    }
+
     // Clear error flag after edit
     item.hasError = false;
     item.errorMessage = undefined;
@@ -1635,25 +1830,35 @@ function PurchaseBills() {
   const handleProductSelect = (index: number, product: any) => {
     if (!editedBill) return;
     const items = [...editedBill.items];
+
+    // Check if this product already exists in another row — merge if so
+    const dupIndex = items.findIndex(
+      (it, i) =>
+        i !== index &&
+        it.description.toLowerCase().trim() === product.name.toLowerCase().trim(),
+    );
+    if (dupIndex !== -1) {
+      const merged = { ...items[dupIndex] };
+      merged.quantity = merged.quantity + (items[index].quantity || 1);
+      merged.amount = merged.quantity * merged.rate;
+      merged.gstAmount = (merged.amount * (merged.gstRate || 0)) / 100;
+      merged.hasError = false;
+      merged.errorMessage = undefined;
+      items[dupIndex] = merged;
+      items.splice(index, 1);
+      setEditedBill({ ...editedBill, items });
+      toast({ title: "Duplicate item merged", description: `"${product.name}" already in bill. Quantity added to existing row.` });
+      return;
+    }
+
     const item = { ...items[index] };
-
-    item.description = product.name; // Update description
-    if (product.hsnCode) item.hsnCode = product.hsnCode; // Update HSN if available
-
-    // Update rate if available (assuming purchasePrice is the buying rate)
+    item.description = product.name;
+    if (product.hsnCode) item.hsnCode = product.hsnCode;
     if (product.purchasePrice) item.rate = product.purchasePrice;
-
-    // Update GST rate
     if (product.gstRate !== undefined) item.gstRate = product.gstRate;
-
-    // Update Unit
     if (product.unit) item.unit = product.unit;
-
-    // Recalculate amounts
     item.amount = item.quantity * item.rate;
     item.gstAmount = (item.amount * (item.gstRate || 0)) / 100;
-
-    // Clear error flag after edit
     item.hasError = false;
     item.errorMessage = undefined;
 
@@ -3190,25 +3395,14 @@ function PurchaseBills() {
                   <div className="flex flex-wrap gap-2">
                     {selectedBill && !isEditing && (
                       <>
-                        <PDFDownloadLink
-                          document={<PurchaseBillPDF bill={selectedBill} />}
-                          fileName={`Bill_${selectedBill.billNumber || selectedBill.id}.pdf`}
+                        <Button
+                          variant="outline"
+                          size="default"
+                          onClick={() => handleDownloadPurchasePDF(selectedBill)}
                         >
-                          {({ loading }) => (
-                            <Button
-                              variant="outline"
-                              size="default"
-                              disabled={loading}
-                            >
-                              {loading ? (
-                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                              ) : (
-                                <Download className="h-4 w-4 mr-2" />
-                              )}
-                              Download PDF
-                            </Button>
-                          )}
-                        </PDFDownloadLink>
+                          <Download className="h-4 w-4 mr-2" />
+                          Download PDF
+                        </Button>
                         <Button
                           variant="outline"
                           size="default"
@@ -4200,6 +4394,21 @@ function PurchaseBills() {
                         Added to Inventory
                       </Badge>
                     )}
+                    <Button
+                      size="default"
+                      variant="outline"
+                      className="border-blue-500 text-blue-600 hover:bg-blue-50"
+                      onClick={() => handleSellItems(selectedBill)}
+                      disabled={!selectedBill.itemsAddedToInventory}
+                      title={
+                        !selectedBill.itemsAddedToInventory
+                          ? "Add to inventory first"
+                          : "Copy items to a new sale bill"
+                      }
+                    >
+                      <ShoppingCart className="h-4 w-4 mr-2" />
+                      Create Sale
+                    </Button>
                     {selectedBill.billImage ? (
                       <Button
                         variant="outline"

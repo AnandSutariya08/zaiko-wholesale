@@ -46,6 +46,7 @@ import {
   BarChart3,
   Percent,
   Calculator,
+  Plus,
   PlusCircle,
   Search,
   Download,
@@ -724,14 +725,17 @@ export default function Products() {
               }}
               product={editingProduct}
             />
-            {/* <Button
+            <Button
               size="sm"
               className="h-10 rounded-xl px-3 text-sm"
-              onClick={() => setIsOpen(true)}
+              onClick={() => {
+                setEditingProduct(null);
+                setIsOpen(true);
+              }}
             >
               <Plus className="h-4 w-4 mr-2" />
               Create Product
-            </Button> */}
+            </Button>
 
             <Dialog
               open={isAddStockOpen}
@@ -981,6 +985,17 @@ export default function Products() {
                 }}
                 product={editingProduct}
               />
+              <Button
+                size="sm"
+                className="flex-1 h-9"
+                onClick={() => {
+                  setEditingProduct(null);
+                  setIsOpen(true);
+                }}
+              >
+                <Plus className="h-4 w-4 mr-1.5" />
+                Create Product
+              </Button>
               <Dialog
                 open={isAddStockOpen}
                 onOpenChange={(open) => {

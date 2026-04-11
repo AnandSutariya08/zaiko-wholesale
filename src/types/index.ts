@@ -257,6 +257,7 @@ export interface InventoryTransaction {
   productId: string;
   billId?: string; // Optional for manual stock additions
   billReturnId?: string;
+  purchaseReturnId?: string;
   type: "sale" | "return" | "purchase" | "purchase_return";
   inventoryUnitId?: string;
   quantity: number;

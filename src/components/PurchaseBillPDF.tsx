@@ -6,653 +6,623 @@ import {
   Document,
   StyleSheet,
   Font,
+  Image,
 } from "@react-pdf/renderer";
 import { PurchaseBill } from "@/types";
-import { formatDate } from "@/lib/billUtils";
 
-const styles = StyleSheet.create({
+Font.register({
+  family: "Inter",
+  src: "/fonts/Inter-VariableFont_opsz,wght.ttf",
+});
+
+const mmToPt = (mm: number) => mm * 2.83465;
+
+// ── Exact same P styles as BillView.tsx ────────────────────────────────────────
+const P = StyleSheet.create({
   page: {
-    padding: 50,
-    fontSize: 10,
-    fontFamily: "Helvetica",
-    color: "#1f2937",
-    backgroundColor: "#ffffff",
-  },
-
-  // Header Styles
-  headerContainer: {
-    marginBottom: 35,
-  },
-  companyHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 20,
-    paddingBottom: 20,
-    borderBottomWidth: 3,
-    borderBottomColor: "#2563eb",
-  },
-  companyInfo: {
-    flex: 1,
-  },
-  companyName: {
-    fontSize: 26,
-    fontWeight: "bold",
-    color: "#1e3a8a",
-    marginBottom: 4,
-  },
-  companyTagline: {
-    fontSize: 10,
-    color: "#6b7280",
-    fontStyle: "italic",
-  },
-  invoiceTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#374151",
-    textAlign: "right",
-    marginBottom: 8,
-  },
-  billDetails: {
-    textAlign: "right",
-  },
-  billDetailRow: {
-    fontSize: 10,
-    color: "#4b5563",
-    marginBottom: 3,
-  },
-  billNumber: {
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#1e3a8a",
-  },
-
-  // Status Badge
-  statusBadge: {
-    alignSelf: "flex-end",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 4,
-    marginTop: 8,
-  },
-  statusPaid: {
-    backgroundColor: "#dcfce7",
-    color: "#166534",
-  },
-  statusPending: {
-    backgroundColor: "#fef3c7",
-    color: "#92400e",
-  },
-  statusText: {
-    fontSize: 9,
-    fontWeight: "bold",
-  },
-
-  // Vendor Section
-  vendorSection: {
-    marginBottom: 25,
-    backgroundColor: "#f9fafb",
-    padding: 18,
-    borderRadius: 6,
-    borderLeftWidth: 4,
-    borderLeftColor: "#2563eb",
-  },
-  vendorTitle: {
-    fontSize: 11,
-    fontWeight: "bold",
-    color: "#6b7280",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 10,
-  },
-  vendorName: {
-    fontSize: 15,
-    fontWeight: "bold",
-    color: "#111827",
-    marginBottom: 8,
-  },
-  vendorDetail: {
-    fontSize: 10,
-    color: "#4b5563",
-    marginBottom: 4,
+    fontFamily: "Inter",
+    fontSize: 7.5,
+    padding: mmToPt(5),
+    paddingBottom: mmToPt(9),
     lineHeight: 1.4,
+    color: "#000",
+    backgroundColor: "#fff",
   },
-
-  // Table Styles
-  table: {
-    marginBottom: 20,
+  border1: { borderWidth: 1, borderStyle: "solid", borderColor: "#000" },
+  border2: { borderWidth: 2, borderStyle: "solid", borderColor: "#000" },
+  borderRight: {
+    borderRightWidth: 1,
+    borderRightStyle: "solid",
+    borderRightColor: "#000",
   },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#1e3a8a",
-    marginBottom: 10,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  tableHeader: {
-    flexDirection: "row",
-    backgroundColor: "#1e3a8a",
-    padding: 10,
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: 4,
-  },
-  tableHeaderText: {
-    color: "#ffffff",
-    fontSize: 9,
-    fontWeight: "bold",
-    textTransform: "uppercase",
-    letterSpacing: 0.3,
-  },
-  tableRow: {
-    flexDirection: "row",
-    paddingVertical: 10,
-    paddingHorizontal: 10,
+  borderBottom: {
     borderBottomWidth: 1,
-    borderBottomColor: "#e5e7eb",
-    backgroundColor: "#ffffff",
+    borderBottomStyle: "solid",
+    borderBottomColor: "#000",
   },
-  tableRowAlt: {
-    backgroundColor: "#f9fafb",
-  },
-  tableText: {
-    fontSize: 9,
-    color: "#374151",
-  },
-  tableTextBold: {
-    fontSize: 9,
-    fontWeight: "bold",
-    color: "#111827",
-  },
-
-  // Column widths for items table
-  colDescription: { width: "38%" },
-  colQty: { width: "15%", textAlign: "center" },
-  colRate: { width: "17%", textAlign: "right" },
-  colTax: { width: "12%", textAlign: "center" },
-  colAmount: { width: "18%", textAlign: "right" },
-
-  // Summary Section
-  summaryContainer: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    marginTop: 15,
-    marginBottom: 25,
-  },
-  summaryBox: {
-    width: "48%",
-    backgroundColor: "#f9fafb",
-    padding: 16,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-  },
-  summaryRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 5,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#d1d5db",
-  },
-  summaryLabel: {
-    fontSize: 10,
-    color: "#6b7280",
-  },
-  summaryValue: {
-    fontSize: 10,
-    fontWeight: "bold",
-    color: "#374151",
-  },
-  totalRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 2,
-    borderTopColor: "#1e3a8a",
-  },
-  totalLabel: {
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#1e3a8a",
-  },
-  totalValue: {
-    fontSize: 13,
-    fontWeight: "bold",
-    color: "#1e3a8a",
-  },
-  balanceRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 6,
-    marginTop: 6,
-    backgroundColor: "#ffffff",
-    paddingHorizontal: 8,
-    borderRadius: 4,
-  },
-
-  // Returns Table
-  returnsHeader: {
-    backgroundColor: "#ea580c",
-  },
-  returnsRow: {
-    backgroundColor: "#fff7ed",
-  },
-  colReturnDesc: { width: "40%" },
-  colReturnQty: { width: "15%", textAlign: "center" },
-  colReturnDate: { width: "20%", textAlign: "center" },
-  colReturnValue: { width: "25%", textAlign: "right" },
-
-  // Payment Section
-  paymentSection: {
-    marginTop: 20,
-    marginBottom: 25,
-  },
-  paymentHeader: {
-    backgroundColor: "#475569",
-  },
-  paymentRow: {
-    flexDirection: "row",
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e5e7eb",
-  },
-  colPaymentDate: { width: "30%" },
-  colPaymentMethod: { width: "30%" },
-  colPaymentAmount: { width: "40%", textAlign: "right" },
-
-  // Footer
-  footer: {
-    position: "absolute",
-    bottom: 35,
-    left: 50,
-    right: 50,
-    paddingTop: 12,
+  borderTop: {
     borderTopWidth: 1,
-    borderTopColor: "#d1d5db",
+    borderTopStyle: "solid",
+    borderTopColor: "#000",
   },
-  footerText: {
-    fontSize: 8,
-    color: "#9ca3af",
-    textAlign: "center",
-    lineHeight: 1.5,
+  borderLeft: {
+    borderLeftWidth: 1,
+    borderLeftStyle: "solid",
+    borderLeftColor: "#000",
   },
-  footerBold: {
-    fontSize: 9,
-    color: "#6b7280",
-    fontWeight: "bold",
-    textAlign: "center",
-    marginBottom: 3,
+  row: { flexDirection: "row" },
+  flex1: { flex: 1 },
+  w50: { width: "50%" },
+  textRight: { textAlign: "right" },
+  textCenter: { textAlign: "center" },
+  bold: { fontWeight: "bold" },
+  sm:   { fontSize: 7.5 },
+  md:   { fontSize: 9 },
+  lg:   { fontSize: 11 },
+  xl:   { fontSize: 14 },
+  gray: { color: "#6b7280" },
+  p2: { padding: mmToPt(2) },
+  p3: { padding: mmToPt(3) },
+  mb1: { marginBottom: 3 },
+  mb2: { marginBottom: 6 },
+  mb3: { marginBottom: mmToPt(3) },
+  mt1: { marginTop: 3 },
+  mt2: { marginTop: 6 },
+  pr2: { paddingRight: 6 },
+  pb1: { paddingBottom: 3 },
+  // ── table ──
+  tableHeaderRow: { flexDirection: "row", color: "#fff" },
+  tableRow:       { flexDirection: "row" },
+  tableRowAlt:    { flexDirection: "row", backgroundColor: "#f3f4f6" },
+  tableCell:      { padding: 4, fontSize: 7.5 },
+  // ── signature ──
+  centerItems: { alignItems: "center", justifyContent: "center" },
+  sigBox: {
+    height: 40,
+    borderBottomWidth: 1,
+    borderBottomStyle: "dashed",
+    borderBottomColor: "#9ca3af",
+  },
+  sigImage: {
+    width: 120,
+    height: 32,
+    objectFit: "contain",
   },
 });
 
-const formatPDFCurrency = (amount: number) => {
-  const formatted = new Intl.NumberFormat("en-IN", {
+const fmtDate = (date: string | Date | undefined): string => {
+  if (!date) return "N/A";
+  const d = typeof date === "string" ? new Date(date) : date;
+  return `${d.getDate().toString().padStart(2, "0")}-${(d.getMonth() + 1)
+    .toString()
+    .padStart(2, "0")}-${d.getFullYear()}`;
+};
+
+const addressLines = (address?: string) =>
+  (address || "")
+    .split(",")
+    .map((l) => l.trim())
+    .join("\n");
+
+const fmt = (amount: number) =>
+  new Intl.NumberFormat("en-IN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(Math.abs(amount));
-  return `${amount < 0 ? "-" : ""}Rs. ${formatted}`;
-};
+  }).format(amount);
 
 interface PurchaseBillPDFProps {
   bill: PurchaseBill;
+  company?: any;
+  signatureSrc?: string | null;
 }
 
-export const PurchaseBillPDF: React.FC<PurchaseBillPDFProps> = ({ bill }) => {
+export const PurchaseBillPDF: React.FC<PurchaseBillPDFProps> = ({
+  bill,
+  company,
+  signatureSrc,
+}) => {
   const totalReturnAmount =
     bill.returns?.reduce((s, r) => s + r.totalReturnValue, 0) || 0;
-  const originalTotal = bill.total + totalReturnAmount;
   const balanceDue = bill.total - bill.paidAmount;
   const isPaid = bill.paymentStatus === "paid";
 
+  const themeColor = company?.themeColor || "#1e40af";
+  const resolvedSignature = signatureSrc
+    ? ({ uri: String(signatureSrc) } as any)
+    : null;
+
+  // Column widths — matching BillView exactly
+  const slW     = 22;
+  const hsnW    = 46;
+  const gstRateW = 30;
+  const qtyW    = 38;
+  const unitW   = 34;
+  const rateW   = 62;
+  const amtW    = 72;
+
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.headerContainer}>
-          <View style={styles.companyHeader}>
-            <View style={styles.companyInfo}>
-              <Text style={styles.companyName}>Invoice Mitra</Text>
-              <Text style={styles.companyTagline}>
-                Invoice Mitra Invoice Management System
-              </Text>
-            </View>
-            <View>
-              <Text style={styles.invoiceTitle}>PURCHASE INVOICE</Text>
-              <View style={styles.billDetails}>
-                <Text style={styles.billDetailRow}>
-                  <Text style={{ fontWeight: 'bold' }}>Invoice Number: </Text>
-                  <Text style={styles.billNumber}>{bill.billNumber || 'N/A'}</Text>
+      <Page size="A4" style={P.page}>
+
+        {/* ── Company Header (border2 frame, same as sales bill) ─── */}
+        <View style={[P.border2, P.mb3]}>
+          <View
+            style={[
+              P.row,
+              { padding: mmToPt(3), justifyContent: "space-between" },
+            ]}
+          >
+            {/* Left — company info */}
+            <View style={P.flex1}>
+              <View style={[P.row, P.mb1, { alignItems: "center" }]}>
+                {company?.logo && (
+                  <Image
+                    src={{ uri: String(company.logo) } as any}
+                    style={{ width: 24, height: 24, marginRight: 6 }}
+                  />
+                )}
+                <Text style={[P.xl, P.bold, { color: themeColor }]}>
+                  {company?.name || "Your Company"}
                 </Text>
-                <Text style={styles.billDetailRow}>
-                  <Text style={{ fontWeight: "bold" }}>Date: </Text>
-                  {formatDate(bill.billDate || bill.createdAt)}
+              </View>
+              {company?.address && (
+                <Text style={[P.sm, { lineHeight: 1.5 }]}>
+                  {addressLines(company.address)}
                 </Text>
-                {bill.dueDate && (
-                  <Text style={styles.billDetailRow}>
-                    <Text style={{ fontWeight: "bold" }}>Due Date: </Text>
-                    {formatDate(bill.dueDate)}
+              )}
+              {company?.gstin && (
+                <View style={P.mt1}>
+                  <Text style={P.sm}>
+                    <Text style={P.bold}>GSTIN/UIN: </Text>
+                    {company.gstin}
+                  </Text>
+                  {company?.state && (
+                    <Text style={P.sm}>
+                      <Text style={P.bold}>State: </Text>
+                      {company.state}
+                      {company?.stateCode ? `, Code: ${company.stateCode}` : ""}
+                    </Text>
+                  )}
+                </View>
+              )}
+              <View style={P.mt1}>
+                {company?.phone && (
+                  <Text style={P.sm}>
+                    <Text style={P.bold}>Phone: </Text>
+                    {company.phone}
                   </Text>
                 )}
-                {bill.paymentTerms && (
-                  <Text style={styles.billDetailRow}>
-                    <Text style={{ fontWeight: "bold" }}>Terms: </Text>
-                    {bill.paymentTerms} days
+                {company?.email && (
+                  <Text style={P.sm}>
+                    <Text style={P.bold}>Email: </Text>
+                    {company.email}
                   </Text>
                 )}
               </View>
-              <View
-                style={[
-                  styles.statusBadge,
-                  isPaid ? styles.statusPaid : styles.statusPending,
-                ]}
+            </View>
+
+            {/* Right — invoice meta */}
+            <View style={P.textRight}>
+              <Text style={[{ fontSize: 14, color: themeColor }, P.bold, P.mb2]}>
+                PURCHASE INVOICE
+              </Text>
+              <Text style={P.sm}>
+                <Text style={P.bold}>Invoice No.: </Text>
+                {bill.billNumber || "N/A"}
+              </Text>
+              <Text style={P.sm}>
+                <Text style={P.bold}>Date: </Text>
+                {fmtDate(bill.billDate || bill.createdAt)}
+              </Text>
+              {bill.dueDate && (
+                <Text style={P.sm}>
+                  <Text style={P.bold}>Due Date: </Text>
+                  {fmtDate(bill.dueDate)}
+                </Text>
+              )}
+              {bill.paymentTerms && (
+                <Text style={P.sm}>
+                  <Text style={P.bold}>Terms: </Text>
+                  {bill.paymentTerms} days
+                </Text>
+              )}
+              {/* Paid / Pending badge */}
+              {/* <View
+                style={{
+                  alignSelf: "flex-end",
+                  marginTop: 6,
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  borderRadius: 3,
+                  backgroundColor: isPaid ? "#dcfce7" : "#fef3c7",
+                }}
               >
                 <Text
                   style={[
-                    styles.statusText,
-                    isPaid ? { color: "#166534" } : { color: "#92400e" },
+                    P.bold,
+                    { fontSize: 8, color: isPaid ? "#166534" : "#92400e" },
                   ]}
                 >
                   {isPaid ? "✓ PAID" : "PENDING"}
                 </Text>
-              </View>
+              </View> */}
             </View>
           </View>
         </View>
 
-        {/* Vendor Information */}
-        <View style={styles.vendorSection}>
-          <Text style={styles.vendorTitle}>Bill To / Vendor Information</Text>
-          <Text style={styles.vendorName}>{bill.vendorName}</Text>
-          {bill.vendorGstin && (
-            <Text style={styles.vendorDetail}>
-              <Text style={{ fontWeight: "bold" }}>GSTIN: </Text>
-              {bill.vendorGstin}
+        {/* ── Vendor Info ─────────────────────────────────────────── */}
+        <View style={[P.row, P.mb3]}>
+          <View style={[P.border1, P.p2, P.flex1]}>
+            <Text
+              style={[
+                P.bold,
+                P.md,
+                { color: themeColor },
+                P.borderBottom,
+                P.pb1,
+                P.mb1,
+              ]}
+            >
+              Vendor / Supplier
             </Text>
-          )}
-          {bill.vendorAddress && (
-            <Text style={styles.vendorDetail}>
-              <Text style={{ fontWeight: "bold" }}>Address: </Text>
-              {bill.vendorAddress}
+            <Text style={[P.bold, P.md]}>
+              {(bill.vendorName || "").toUpperCase()}
             </Text>
-          )}
+            {bill.vendorGstin && (
+              <Text style={[P.sm, P.mt1]}>
+                <Text style={P.bold}>GSTIN/UIN: </Text>
+                {bill.vendorGstin}
+              </Text>
+            )}
+            {bill.vendorAddress && (
+              <Text style={[P.sm, P.mt1, { lineHeight: 1.5 }]}>
+                {addressLines(bill.vendorAddress)}
+              </Text>
+            )}
+          </View>
         </View>
 
-        {/* Items Table */}
-        <View style={styles.table}>
-          <Text style={styles.sectionTitle}>Itemized Bill</Text>
-          <View style={styles.tableHeader}>
-            <Text style={[styles.tableHeaderText, styles.colDescription]}>
+        {/* ── Items Table ─────────────────────────────────────────── */}
+        <View style={P.mb3}>
+          {/* Header */}
+          <View style={[P.tableHeaderRow, { backgroundColor: themeColor }]}>
+            <Text
+              style={[P.tableCell, P.bold, P.textCenter, P.border1, { width: slW }]}
+            >
+              Sl
+            </Text>
+            <Text
+              style={[P.tableCell, P.bold, P.border1, { flex: 1, borderLeftWidth: 0 }]}
+            >
               Description
             </Text>
-            <Text style={[styles.tableHeaderText, styles.colQty]}>
-              Quantity
+            <Text
+              style={[P.tableCell, P.bold, P.textCenter, P.border1, { width: hsnW, borderLeftWidth: 0 }]}
+            >
+              HSN/SAC
             </Text>
-            <Text style={[styles.tableHeaderText, styles.colRate]}>Rate</Text>
-            <Text style={[styles.tableHeaderText, styles.colTax]}>GST %</Text>
-            <Text style={[styles.tableHeaderText, styles.colAmount]}>
+            <Text
+              style={[P.tableCell, P.bold, P.textCenter, P.border1, { width: gstRateW, borderLeftWidth: 0 }]}
+            >
+              GST%
+            </Text>
+            <Text
+              style={[P.tableCell, P.bold, P.textCenter, P.border1, { width: qtyW, borderLeftWidth: 0 }]}
+            >
+              Qty
+            </Text>
+            <Text
+              style={[P.tableCell, P.bold, P.textCenter, P.border1, { width: unitW, borderLeftWidth: 0 }]}
+            >
+              Unit
+            </Text>
+            <Text
+              style={[P.tableCell, P.bold, P.textCenter, P.border1, { width: rateW, borderLeftWidth: 0 }]}
+            >
+              Rate
+            </Text>
+            <Text
+              style={[P.tableCell, P.bold, P.textRight, P.border1, { width: amtW, borderLeftWidth: 0 }]}
+            >
               Amount
             </Text>
           </View>
-          {bill.items.map((item, index) => (
-            <View
-              key={index}
-              style={[styles.tableRow, index % 2 === 1 && styles.tableRowAlt]}
-            >
-              <View style={styles.colDescription}>
-                <Text style={styles.tableTextBold}>{item.description}</Text>
-                {item.hsnCode && (
-                  <Text
-                    style={[
-                      styles.tableText,
-                      { fontSize: 8, color: "#6b7280", marginTop: 2 },
-                    ]}
-                  >
+
+          {/* Item rows */}
+          {bill.items.map((item, i) => (
+            <View key={i} style={[i % 2 === 0 ? P.tableRowAlt : P.tableRow]}>
+              <Text
+                style={[P.tableCell, P.textCenter, P.border1, { width: slW, borderTopWidth: 0 }]}
+              >
+                {i + 1}
+              </Text>
+              <View
+                style={[P.tableCell, P.border1, { flex: 1, borderLeftWidth: 0, borderTopWidth: 0 }]}
+              >
+                <Text>{item.description}</Text>
+                {item.hsnCode ? (
+                  <Text style={{ fontSize: 6.5, color: "#4b5563" }}>
                     HSN: {item.hsnCode}
                   </Text>
-                )}
+                ) : null}
               </View>
-              <Text style={[styles.tableText, styles.colQty]}>
-                {item.quantity} {item.unit}
+              <Text
+                style={[P.tableCell, P.textCenter, P.border1, { width: hsnW, borderLeftWidth: 0, borderTopWidth: 0 }]}
+              >
+                {item.hsnCode || ""}
               </Text>
-              <Text style={[styles.tableTextBold, styles.colRate]}>
-                {formatPDFCurrency(item.rate)}
+              <Text
+                style={[P.tableCell, P.textCenter, P.border1, { width: gstRateW, borderLeftWidth: 0, borderTopWidth: 0 }]}
+              >
+                {item.gstRate != null ? `${item.gstRate}%` : ""}
               </Text>
-              <Text style={[styles.tableText, styles.colTax]}>
-                {item.gstRate || 0}%
+              <Text
+                style={[P.tableCell, P.textCenter, P.border1, { width: qtyW, borderLeftWidth: 0, borderTopWidth: 0 }]}
+              >
+                {item.quantity}
               </Text>
-              <Text style={[styles.tableTextBold, styles.colAmount]}>
-                {formatPDFCurrency(item.amount)}
+              <Text
+                style={[P.tableCell, P.textCenter, P.border1, { width: unitW, borderLeftWidth: 0, borderTopWidth: 0 }]}
+              >
+                {item.unit || ""}
+              </Text>
+              <Text
+                style={[P.tableCell, P.textRight, P.border1, { width: rateW, borderLeftWidth: 0, borderTopWidth: 0 }]}
+              >
+                {fmt(item.rate)}
+              </Text>
+              <Text
+                style={[P.tableCell, P.textRight, P.border1, { width: amtW, borderLeftWidth: 0, borderTopWidth: 0 }]}
+              >
+                {fmt(item.amount)}
               </Text>
             </View>
           ))}
+
+          {/* Subtotal */}
+          <View style={[P.tableRowAlt, P.bold]}>
+            <Text
+              style={[P.tableCell, P.textRight, P.border1, { flex: 1, borderTopWidth: 0 }]}
+            >
+              Subtotal
+            </Text>
+            <Text
+              style={[P.tableCell, P.textRight, P.border1, { width: amtW, borderLeftWidth: 0, borderTopWidth: 0 }]}
+            >
+              {fmt(bill.subtotal)}
+            </Text>
+          </View>
+
+          {/* GST */}
+          {bill.totalTax > 0 && (
+            <View style={P.tableRow}>
+              <Text
+                style={[P.tableCell, P.textRight, P.border1, { flex: 1, borderTopWidth: 0 }]}
+              >
+                Total Tax (GST)
+              </Text>
+              <Text
+                style={[P.tableCell, P.textRight, P.border1, { width: amtW, borderLeftWidth: 0, borderTopWidth: 0 }]}
+              >
+                {fmt(bill.totalTax)}
+              </Text>
+            </View>
+          )}
+
+          {/* Returns deduction */}
+          {totalReturnAmount > 0 && (
+            <View style={P.tableRow}>
+              <Text
+                style={[P.tableCell, P.textRight, P.border1, { flex: 1, borderTopWidth: 0, color: "#b91c1c" }]}
+              >
+                Less: Returns (incl. GST)
+              </Text>
+              <Text
+                style={[P.tableCell, P.textRight, P.border1, { width: amtW, borderLeftWidth: 0, borderTopWidth: 0, color: "#b91c1c" }]}
+              >
+                -{fmt(totalReturnAmount)}
+              </Text>
+            </View>
+          )}
+
+          {/* Net total */}
+          <View style={[P.tableRow, P.bold, { backgroundColor: themeColor }]}>
+            <Text
+              style={[P.tableCell, P.textRight, P.border1, { flex: 1, color: "#fff", borderTopWidth: 0 }]}
+            >
+              Net Amount
+            </Text>
+            <Text
+              style={[P.tableCell, P.textRight, P.border1, { width: amtW, color: "#fff", borderLeftWidth: 0, borderTopWidth: 0 }]}
+            >
+              {fmt(bill.total)}
+            </Text>
+          </View>
         </View>
 
-        {/* Summary */}
-        <View style={styles.summaryContainer}>
-          <View style={styles.summaryBox}>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Subtotal</Text>
-              <Text style={styles.summaryValue}>
-                {formatPDFCurrency(bill.subtotal)}
-              </Text>
-            </View>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Total Tax (GST)</Text>
-              <Text style={styles.summaryValue}>
-                {formatPDFCurrency(bill.totalTax)}
-              </Text>
-            </View>
-            {totalReturnAmount > 0 && (
-              <>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Original Bill Amount</Text>
-                  <Text style={styles.summaryValue}>
-                    {formatPDFCurrency(originalTotal)}
-                  </Text>
-                </View>
-                <View style={styles.summaryRow}>
-                  <Text style={[styles.summaryLabel, { color: "#ea580c" }]}>
-                    Less: Returns (incl. GST)
-                  </Text>
-                  <Text style={[styles.summaryValue, { color: "#ea580c" }]}>
-                    {formatPDFCurrency(totalReturnAmount)}
-                  </Text>
-                </View>
-              </>
-            )}
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>NET AMOUNT</Text>
-              <Text style={styles.totalValue}>
-                {formatPDFCurrency(bill.total)}
-              </Text>
-            </View>
-            <View
+        {/* ── Payment Info + Payment History ──────────────────────── */}
+        <View style={[P.row, P.border1, P.mb3, { minHeight: mmToPt(20) }]}>
+          {/* Left: status & balance */}
+          <View style={[P.flex1, P.p2, P.borderRight]}>
+            <Text
+              style={[P.bold, P.md, { color: themeColor }, P.borderBottom, P.pb1, P.mb1]}
+            >
+              Payment Information
+            </Text>
+            <Text style={P.sm}>
+              <Text style={P.bold}>Status: </Text>
+              {(bill.paymentStatus || "").toUpperCase()}
+            </Text>
+            <Text style={P.sm}>
+              <Text style={P.bold}>Amount Paid: </Text>
+              Rs. {fmt(bill.paidAmount)}
+            </Text>
+            <Text
               style={[
-                styles.balanceRow,
-                { borderTopWidth: 1, borderTopColor: "#e5e7eb", marginTop: 8 },
+                P.bold, P.sm, P.mt1,
+                { color: balanceDue > 0 ? "#dc2626" : "#059669" },
               ]}
             >
+              Balance Due: Rs. {fmt(balanceDue)}
+            </Text>
+          </View>
+
+          {/* Right: payment history (if any) */}
+          {bill.payments && bill.payments.length > 0 && (
+            <View style={[P.flex1, P.p2]}>
               <Text
-                style={[
-                  styles.summaryLabel,
-                  { color: "#059669", fontWeight: "bold" },
-                ]}
+                style={[P.bold, P.md, { color: themeColor }, P.borderBottom, P.pb1, P.mb1]}
               >
-                Amount Paid
+                Payment History
               </Text>
-              <Text
+              {bill.payments.map((payment, i) => (
+                <View
+                  key={i}
+                  style={[
+                    P.row,
+                    {
+                      justifyContent: "space-between",
+                      borderBottomWidth: 0.3,
+                      borderBottomColor: "#e5e7eb",
+                      paddingBottom: 2,
+                      paddingTop: 1,
+                    },
+                  ]}
+                >
+                  <Text style={[P.sm, { color: "#374151", flex: 1, paddingRight: 6 }]}>
+                    {payment.method} ({fmtDate(payment.date)})
+                  </Text>
+                  <Text style={[P.sm, P.bold, { minWidth: 68, textAlign: "right" }]}>
+                    Rs. {fmt(payment.amount)}
+                  </Text>
+                </View>
+              ))}
+              <View
                 style={[
-                  styles.summaryValue,
-                  { color: "#059669", fontSize: 11 },
-                ]}
-              >
-                {formatPDFCurrency(bill.paidAmount)}
-              </Text>
-            </View>
-            <View style={styles.balanceRow}>
-              <Text
-                style={[
-                  styles.summaryLabel,
-                  { fontWeight: "bold", fontSize: 11 },
-                ]}
-              >
-                Balance Due
-              </Text>
-              <Text
-                style={[
-                  styles.summaryValue,
+                  P.row,
                   {
-                    color: balanceDue > 0 ? "#dc2626" : "#059669",
-                    fontSize: 12,
-                    fontWeight: "bold",
+                    justifyContent: "space-between",
+                    marginTop: 4,
+                    paddingTop: 4,
+                    borderTopWidth: 1,
+                    borderTopColor: "#d1d5db",
                   },
                 ]}
               >
-                {formatPDFCurrency(balanceDue)}
-              </Text>
+                <Text style={[P.bold, P.sm]}>Total Paid</Text>
+                <Text style={[P.bold, P.sm, { color: themeColor }]}>
+                  Rs. {fmt(bill.paidAmount)}
+                </Text>
+              </View>
             </View>
-          </View>
+          )}
         </View>
 
-        {/* Returns Section */}
+        {/* ── Returns Detail ──────────────────────────────────────── */}
         {bill.returns && bill.returns.length > 0 && (
-          <View style={styles.table}>
-            <Text style={[styles.sectionTitle, { color: "#ea580c" }]}>
-              Purchase Returns
-            </Text>
-            <View style={[styles.tableHeader, styles.returnsHeader]}>
-              <Text style={[styles.tableHeaderText, styles.colReturnDesc]}>
+          <View style={P.mb3}>
+            {/* Returns table header */}
+            <View style={[P.tableHeaderRow, { backgroundColor: "#ea580c" }]}>
+              <Text style={[P.tableCell, P.bold, P.border1, { flex: 1 }]}>
                 Item / Reason
               </Text>
-              <Text style={[styles.tableHeaderText, styles.colReturnQty]}>
+              <Text style={[P.tableCell, P.bold, P.textCenter, P.border1, { width: 40, borderLeftWidth: 0 }]}>
                 Qty
               </Text>
-              <Text style={[styles.tableHeaderText, styles.colReturnDate]}>
+              <Text style={[P.tableCell, P.bold, P.textCenter, P.border1, { width: 64, borderLeftWidth: 0 }]}>
                 Return Date
               </Text>
-              <Text style={[styles.tableHeaderText, styles.colReturnValue]}>
+              <Text style={[P.tableCell, P.bold, P.textRight, P.border1, { width: amtW, borderLeftWidth: 0 }]}>
                 Value (incl. GST)
               </Text>
             </View>
-            {bill.returns.map((ret, retIndex) => (
-              <React.Fragment key={retIndex}>
-                {ret.items.map((item, itemIndex) => {
-                  const itemValue = item.quantity * item.rate;
-                  const itemGst = itemValue * ((item.gstRate || 0) / 100);
-                  const totalWithGst = itemValue + itemGst;
-                  return (
+            {bill.returns.map((ret, ri) =>
+              ret.items.map((item, ii) => {
+                const val = item.quantity * item.rate;
+                const total = val + val * ((item.gstRate || 0) / 100);
+                return (
+                  <View
+                    key={`${ri}-${ii}`}
+                    style={[P.tableRow, { backgroundColor: "#fff7ed" }]}
+                  >
                     <View
-                      key={`${retIndex}-${itemIndex}`}
-                      style={[styles.tableRow, styles.returnsRow]}
+                      style={[P.tableCell, P.border1, { flex: 1, borderTopWidth: 0 }]}
                     >
-                      <View style={styles.colReturnDesc}>
-                        <Text style={styles.tableTextBold}>
-                          {item.description}
+                      <Text style={P.bold}>{item.description}</Text>
+                      {ret.notes ? (
+                        <Text style={[P.sm, { color: "#92400e", fontStyle: "italic" }]}>
+                          {ret.notes}
                         </Text>
-                        {ret.notes && (
-                          <Text
-                            style={[
-                              styles.tableText,
-                              {
-                                fontSize: 8,
-                                color: "#92400e",
-                                marginTop: 2,
-                                fontStyle: "italic",
-                              },
-                            ]}
-                          >
-                            Note: {ret.notes}
-                          </Text>
-                        )}
-                      </View>
-                      <Text style={[styles.tableText, styles.colReturnQty]}>
-                        -{item.quantity}
-                      </Text>
-                      <Text style={[styles.tableText, styles.colReturnDate]}>
-                        {formatDate(ret.returnDate)}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.tableTextBold,
-                          styles.colReturnValue,
-                          { color: "#ea580c" },
-                        ]}
-                      >
-                        {formatPDFCurrency(totalWithGst)}
-                      </Text>
+                      ) : null}
                     </View>
-                  );
-                })}
-              </React.Fragment>
-            ))}
+                    <Text
+                      style={[P.tableCell, P.textCenter, P.border1, { width: 40, borderLeftWidth: 0, borderTopWidth: 0 }]}
+                    >
+                      -{item.quantity}
+                    </Text>
+                    <Text
+                      style={[P.tableCell, P.textCenter, P.border1, { width: 64, borderLeftWidth: 0, borderTopWidth: 0 }]}
+                    >
+                      {fmtDate(ret.returnDate)}
+                    </Text>
+                    <Text
+                      style={[P.tableCell, P.textRight, P.bold, P.border1, { width: amtW, borderLeftWidth: 0, borderTopWidth: 0, color: "#ea580c" }]}
+                    >
+                      {fmt(total)}
+                    </Text>
+                  </View>
+                );
+              })
+            )}
           </View>
         )}
 
-        {/* Payment History */}
-        {bill.payments && bill.payments.length > 0 && (
-          <View style={styles.paymentSection}>
-            <Text style={styles.sectionTitle}>Payment History</Text>
-            <View style={[styles.tableHeader, styles.paymentHeader]}>
-              <Text style={[styles.tableHeaderText, styles.colPaymentDate]}>
-                Payment Date
-              </Text>
-              <Text style={[styles.tableHeaderText, styles.colPaymentMethod]}>
-                Method
-              </Text>
-              <Text style={[styles.tableHeaderText, styles.colPaymentAmount]}>
-                Amount
-              </Text>
-            </View>
-            {bill.payments.map((payment, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.paymentRow,
-                  index % 2 === 1 && styles.tableRowAlt,
-                ]}
-              >
-                <Text style={[styles.tableText, styles.colPaymentDate]}>
-                  {formatDate(payment.date)}
-                </Text>
-                <Text style={[styles.tableText, styles.colPaymentMethod]}>
-                  {payment.method}
-                </Text>
-                <Text
-                  style={[
-                    styles.tableTextBold,
-                    styles.colPaymentAmount,
-                    { color: "#059669" },
-                  ]}
-                >
-                  {formatPDFCurrency(payment.amount)}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.footerBold}>Invoice Mitra</Text>
-          <Text style={styles.footerText}>
-            Invoice Mitra Invoice Management System
+        {/* ── Declaration ─────────────────────────────────────────── */}
+        <View style={[P.border1, P.p2, P.mb1]}>
+          <Text style={[P.bold, P.md, { color: themeColor }, P.borderBottom, P.pb1, P.mb1]}>
+            Declaration
           </Text>
-          <Text style={[styles.footerText, { marginTop: 3 }]}>
-            This is a computer-generated document. No signature required.
-          </Text>
-          <Text style={[styles.footerText, { marginTop: 2 }]}>
-            Generated on{" "}
-            {new Date().toLocaleDateString("en-IN", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
+          <Text style={[P.sm, { lineHeight: 1.5 }]}>
+            We declare that this invoice shows the actual price of the goods described
+            and that all particulars are true and correct.
           </Text>
         </View>
+
+        {/* ── Signature Area ──────────────────────────────────────── */}
+        <View style={[P.row, P.border1, { borderTopWidth: 0 }]}>
+          {/* Left: party (blank) */}
+          <View style={[P.flex1, P.p3, P.borderRight]}>
+            <Text style={[P.bold, P.sm, P.mb1]}>
+              Party's Seal and Signature
+            </Text>
+            <View style={P.sigBox} />
+            <Text style={[P.sm, P.textCenter, P.mt1, P.gray]}>
+              {bill.vendorName || "Vendor"}
+            </Text>
+          </View>
+          {/* Right: our company */}
+          <View style={[P.flex1, P.p3]}>
+            <Text style={[P.bold, P.sm, P.mb1, P.textRight]}>
+              Company Seal and Signature
+            </Text>
+            <View style={[P.sigBox, P.centerItems]}>
+              {resolvedSignature ? (
+                <Image src={resolvedSignature} style={P.sigImage} />
+              ) : null}
+            </View>
+            <Text style={[P.sm, P.textCenter, P.mt1, P.gray]}>
+              {company?.name || ""}
+            </Text>
+            <Text style={[P.sm, P.textCenter, P.mt1]}>
+              Authorised Signatory
+            </Text>
+          </View>
+        </View>
+
+        {/* ── Footer ──────────────────────────────────────────────── */}
+        <Text style={[P.sm, P.textCenter, P.mt1, P.gray]}>
+          This is a Computer Generated Invoice
+        </Text>
       </Page>
     </Document>
   );
