@@ -26,7 +26,7 @@ const USER_ROLE_KEY = "userRole";
 const USER_NAME_KEY = "userName";
 const USER_PERMISSIONS_KEY = "userPermissions";
 const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-const ADMIN_CREDENTIALS = { username: "admin", password: "123" };
+const ADMIN_CREDENTIALS = { username: "ZAIKOENTER", password: "Zaiko@#$Zaiko" };
 
 export default function Auth() {
   const [username, setUsername] = useState("");
@@ -79,7 +79,7 @@ export default function Auth() {
         return;
       }
 
-      toast.error("Invalid credentials. Use admin/123 or your creator login");
+      toast.error("Invalid credentials");
     } catch (error) {
       console.error("Login error:", error);
       toast.error("An error occurred during login");
