@@ -306,11 +306,16 @@ export default function Dashboard() {
       ]);
       setCompanyProfile(company);
 
+      const recognizedPurchaseBills = allPurchaseBills.filter(
+        (pb) =>
+          pb.purchaseMode !== "advance" || pb.orderStatus === "received",
+      );
+
       const yearSet = new Set<number>();
       allBills.forEach((b) => {
         if (b.date) yearSet.add(new Date(b.date).getFullYear());
       });
-      allPurchaseBills.forEach((pb) => {
+      recognizedPurchaseBills.forEach((pb) => {
         const dateStr = pb.createdAt || pb.billDate || pb.id;
         if (dateStr) yearSet.add(new Date(dateStr).getFullYear());
       });
@@ -338,7 +343,7 @@ export default function Dashboard() {
         filterByYearMonth(b.date, b),
       );
       setBillsInRange(filteredBillsInRange);
-      const purchaseBillsInRange = allPurchaseBills.filter((pb) =>
+      const purchaseBillsInRange = recognizedPurchaseBills.filter((pb) =>
         filterByYearMonth(pb.createdAt || pb.billDate || pb.id),
       );
       const returnsInRange = allReturns.filter((ret) => {
@@ -542,7 +547,7 @@ export default function Dashboard() {
       // Build lookup for exact per-purchase GST
       const billGstByProductId = new Map<string, number>();
       const billGstByName = new Map<string, number>();
-      allPurchaseBills.forEach((bill) => {
+      recognizedPurchaseBills.forEach((bill) => {
         bill.items.forEach((item) => {
           if (item.productId) {
             billGstByProductId.set(`${bill.id}:${item.productId}`, item.gstRate || 0);
@@ -689,7 +694,7 @@ export default function Dashboard() {
 
       const allInventoryTransactions = Object.values(productTransactionsMap).flat();
       const inventoryValue = roundToTwoDecimals(
-        computeInventoryValue(products, allPurchaseBills, allInventoryTransactions),
+        computeInventoryValue(products, recognizedPurchaseBills, allInventoryTransactions),
       );
 
       const buckets: Record<

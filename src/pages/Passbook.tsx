@@ -114,7 +114,15 @@ export default function Passbook() {
         ]);
 
       // Calculate inventory value using canonical per-purchase GST calculation
-      const totalInv = computeInventoryValue(products, purchaseBills, allTransactions);
+      const inventoryPurchaseBills = purchaseBills.filter(
+        (bill) =>
+          bill.purchaseMode !== "advance" || bill.orderStatus === "received",
+      );
+      const totalInv = computeInventoryValue(
+        products,
+        inventoryPurchaseBills,
+        allTransactions,
+      );
       setInventoryValue(totalInv);
 
       const allEntries: PassbookEntry[] = [];
@@ -154,13 +162,16 @@ export default function Passbook() {
         if (purchase.payments && purchase.payments.length > 0) {
           purchase.payments.forEach((payment) => {
             const isReturnPayment = payment.amount < 0;
+            const isAdvancePurchase =
+              purchase.purchaseMode === "advance" &&
+              purchase.orderStatus !== "received";
             allEntries.push({
               id: `purchase-payment-${payment.id}`,
               date: payment.date,
               type: isReturnPayment ? "return" : "purchase",
               description: isReturnPayment
-                ? `Return Payment from Vendor - ${purchase.vendorName || "Vendor"} - Bill #${purchase.billNumber || "N/A"} (${payment.method})`
-                : `Purchase Payment to Vendor - ${purchase.vendorName || "Vendor"} - Bill #${purchase.billNumber || "N/A"} (${payment.method})`,
+                ? `Refund Collected from Vendor - ${purchase.vendorName || "Vendor"} - ${isAdvancePurchase ? "Advance Order" : "Bill"} #${purchase.billNumber || "N/A"} (${payment.method})`
+                : `${isAdvancePurchase ? "Advance Payment to Vendor" : "Purchase Payment to Vendor"} - ${purchase.vendorName || "Vendor"} - ${isAdvancePurchase ? "Order" : "Bill"} #${purchase.billNumber || "N/A"} (${payment.method})`,
               amount:
                 payment.amount < 0 ? Math.abs(payment.amount) : -payment.amount,
               balance: 0,

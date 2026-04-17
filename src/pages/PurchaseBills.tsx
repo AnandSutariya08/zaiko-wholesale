@@ -142,7 +142,12 @@ type PurchaseManualDraft = {
 
 const PURCHASE_MANUAL_DRAFT_KEY = "purchase_bill_manual_draft_v1";
 
-function PurchaseBills() {
+interface PurchaseBillsProps {
+  mode?: "normal" | "advance";
+}
+
+function PurchaseBills({ mode = "normal" }: PurchaseBillsProps) {
+  const isAdvanceMode = mode === "advance";
   const navigate = useNavigate();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -580,7 +585,13 @@ function PurchaseBills() {
         return false;
       });
 
-      const ratePerUnit = product?.sellingPrice ?? item.rate;
+      const ratePerUnit =
+        product?.sellingPrice ||
+        product?.price ||
+        calculateSellingPriceFromCommission(
+          item.rate,
+          companyProfile?.commissionSettings,
+        );
       const gstRate = item.gstRate ?? product?.gstRate ?? 0;
       const baseAmount = item.quantity * ratePerUnit;
       const halfTax = baseAmount * (gstRate / 200);
@@ -611,10 +622,18 @@ function PurchaseBills() {
     filterAndSortBills();
   }, [bills, searchTerm, statusFilter, gstFilter, sortBy]);
 
+  const isAdvanceBill = (bill: PurchaseBill) =>
+    bill.purchaseMode === "advance" &&
+    bill.orderStatus !== "received";
+
   const loadBills = async () => {
     setLoading(true);
     const data = await getPurchaseBills();
-    setBills(data);
+    setBills(
+      data.filter((bill) =>
+        isAdvanceMode ? isAdvanceBill(bill) : !isAdvanceBill(bill),
+      ),
+    );
     setPage(1);
     setLoading(false);
   };
@@ -859,6 +878,8 @@ function PurchaseBills() {
 
       const newBill: PurchaseBill = {
         id: crypto.randomUUID(),
+        purchaseMode: isAdvanceMode ? "advance" : "normal",
+        orderStatus: isAdvanceMode ? "pending_delivery" : "received",
         billImage: imageBase64,
         vendorId: vendors.find(
           (v) =>
@@ -900,7 +921,9 @@ function PurchaseBills() {
       } else {
         toast({
           title: "Success",
-          description: "Bill extracted and saved successfully!",
+          description: isAdvanceMode
+            ? "Advance purchase extracted and saved successfully!"
+            : "Bill extracted and saved successfully!",
         });
       }
 
@@ -1298,6 +1321,8 @@ function PurchaseBills() {
       const now = new Date().toISOString();
       const newBill: PurchaseBill = {
         id: crypto.randomUUID(),
+        purchaseMode: isAdvanceMode ? "advance" : "normal",
+        orderStatus: isAdvanceMode ? "pending_delivery" : "received",
         billImage: manualBill.billImage || "",
         vendorId: finalVendorId,
         vendorName: finalVendorName,
@@ -1329,7 +1354,9 @@ function PurchaseBills() {
 
       toast({
         title: "Success",
-        description: "Purchase bill created successfully",
+        description: isAdvanceMode
+          ? "Advance purchase created successfully"
+          : "Purchase bill created successfully",
       });
     } catch (error) {
       console.error("Error creating purchase bill manually:", error);
@@ -1410,6 +1437,65 @@ function PurchaseBills() {
   const handleTogglePayment = async (bill: PurchaseBill) => {
     // Legacy support or fallback
     openPaymentDialog(bill);
+  };
+
+  const markAdvanceOrderReceived = async (bill: PurchaseBill) => {
+    const now = new Date().toISOString();
+    const receivedBill: PurchaseBill = {
+      ...bill,
+      purchaseMode: "normal",
+      orderStatus: "received",
+      orderReceivedAt: now,
+      itemsAddedToInventory: true,
+      inventoryAddedAt: bill.inventoryAddedAt || now,
+      updatedAt: now,
+    };
+
+    await savePurchaseBill(receivedBill);
+    if (selectedBill?.id === bill.id) {
+      setSelectedBill(receivedBill);
+    }
+  };
+
+  const handleCancelAdvanceOrder = async (bill: PurchaseBill) => {
+    const now = new Date().toISOString();
+    const hasCancellationReturn = (bill.returns || []).some(
+      (r) => r.id === `cancel-${bill.id}`,
+    );
+    const cancellationReturn = {
+      id: `cancel-${bill.id}`,
+      purchaseBillId: bill.id,
+      vendorName: bill.vendorName,
+      billNumber: bill.billNumber,
+      items: [],
+      totalReturnValue: bill.total,
+      returnDate: now,
+      notes: "Advance purchase order cancelled",
+      createdAt: now,
+    };
+    const cancelledBill: PurchaseBill = {
+      ...bill,
+      orderStatus: "cancelled",
+      cancelledAt: now,
+      returns: hasCancellationReturn
+        ? bill.returns
+        : [...(bill.returns || []), cancellationReturn],
+      paymentStatus: (bill.paidAmount || 0) > 0 ? "overpaid" : "pending",
+      updatedAt: now,
+    };
+
+    await savePurchaseBill(cancelledBill);
+    await loadBills();
+    if (selectedBill?.id === bill.id) {
+      setSelectedBill(cancelledBill);
+    }
+    toast({
+      title: "Order cancelled",
+      description:
+        (bill.paidAmount || 0) > 0
+          ? "Collect the paid amount back from the vendor to settle this order."
+          : "No payment was recorded for this order.",
+    });
   };
 
   const handleAddToInventory = async (bill: PurchaseBill) => {
@@ -1566,9 +1652,17 @@ function PurchaseBills() {
       setInventoryDialogBill(null);
       setInventoryItems([]);
 
+      if (isAdvanceBill(inventoryDialogBill)) {
+        await markAdvanceOrderReceived(inventoryDialogBill);
+      }
+
       toast({
-        title: "Added to Inventory",
-        description: `${result.added} new product(s), ${result.updated} updated`,
+        title: isAdvanceBill(inventoryDialogBill)
+          ? "Order Received"
+          : "Added to Inventory",
+        description: isAdvanceBill(inventoryDialogBill)
+          ? "Advance purchase converted into a normal purchase bill."
+          : `${result.added} new product(s), ${result.updated} updated`,
       });
 
       // Reload bills in a separate step.
@@ -1637,13 +1731,21 @@ function PurchaseBills() {
         });
       }
 
+      if (isAdvanceBill(pendingInventoryBill)) {
+        await markAdvanceOrderReceived(pendingInventoryBill);
+      }
+
       setProductConflicts([]);
       setPendingInventoryBill(null);
       setPendingInventoryItems([]);
 
       toast({
-        title: "Added to Inventory",
-        description: `${result.added} new product(s), ${result.updated} updated`,
+        title: isAdvanceBill(pendingInventoryBill)
+          ? "Order Received"
+          : "Added to Inventory",
+        description: isAdvanceBill(pendingInventoryBill)
+          ? "Advance purchase converted into a normal purchase bill."
+          : `${result.added} new product(s), ${result.updated} updated`,
       });
     } catch (error) {
       console.error("Error adding to inventory:", error);
@@ -1984,10 +2086,12 @@ function PurchaseBills() {
             </div>
             <div className="min-w-0 text-left">
               <h1 className="truncate text-2xl font-semibold leading-tight sm:text-3xl">
-                Purchase Bills
+                {isAdvanceMode ? "Advance Purchases" : "Purchase Bills"}
               </h1>
               <p className="text-sm text-muted-foreground">
-                AI-powered bill extraction with validation
+                {isAdvanceMode
+                  ? "Track paid orders pending delivery and follow up with vendors"
+                  : "AI-powered bill extraction with validation"}
               </p>
             </div>
           </div>
@@ -2141,7 +2245,9 @@ function PurchaseBills() {
                 ? "Processing..."
                 : isExtracting
                   ? "Extracting..."
-                  : "Upload Bill"}
+                  : isAdvanceMode
+                    ? "Upload Order"
+                    : "Upload Bill"}
             </Button>
           </div>
         </div>
@@ -2173,7 +2279,8 @@ function PurchaseBills() {
             <Card className="border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5 shadow-sm">
               <CardContent className="p-3 sm:p-4">
                 <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase text-muted-foreground">
-                  <BookOpen className="h-3 w-3 text-primary" /> Total Purchase
+                  <BookOpen className="h-3 w-3 text-primary" />{" "}
+                  {isAdvanceMode ? "Order Value" : "Total Purchase"}
                 </p>
                 <p className="truncate text-xl font-bold">
                   {formatCurrency(stats.totalPurchase)}
@@ -2193,7 +2300,8 @@ function PurchaseBills() {
             <Card className="border-orange-200 bg-gradient-to-br from-orange-100/60 to-orange-50 shadow-sm">
               <CardContent className="p-3 sm:p-4">
                 <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase text-orange-600">
-                  <Clock className="h-3 w-3" /> Remaining to Pay
+                  <Clock className="h-3 w-3" />{" "}
+                  {isAdvanceMode ? "Balance Payment" : "Remaining to Pay"}
                 </p>
                 <p className="truncate text-xl font-bold text-orange-700">
                   {formatCurrency(stats.amountRemaining)}
@@ -2335,10 +2443,14 @@ function PurchaseBills() {
               <CardContent className="py-12 text-center">
                 <FileText className="h-12 w-12 mx-auto text-muted-foreground/50" />
                 <p className="mt-4 text-muted-foreground">
-                  No purchase bills found
+                  {isAdvanceMode
+                    ? "No advance purchases found"
+                    : "No purchase bills found"}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Upload a bill image or create a bill manually to get started
+                  {isAdvanceMode
+                    ? "Create an advance order when payment is made before delivery"
+                    : "Upload a bill image or create a bill manually to get started"}
                 </p>
               </CardContent>
             </Card>
@@ -2464,6 +2576,21 @@ function PurchaseBills() {
                               Inventory
                             </Badge>
                           )}
+                          {isAdvanceMode && (
+                            <Badge
+                              variant="outline"
+                              className={
+                                bill.orderStatus === "cancelled"
+                                  ? "border-orange-500 bg-orange-50/70 text-orange-700 h-5 text-[11px]"
+                                  : "border-blue-500 bg-blue-50/70 text-blue-700 h-5 text-[11px]"
+                              }
+                            >
+                              <Clock className="h-3 w-3 mr-1" />
+                              {bill.orderStatus === "cancelled"
+                                ? "Cancelled"
+                                : "Pending Delivery"}
+                            </Badge>
+                          )}
                         </div>
 
                         <div className="mt-4 flex flex-col justify-between gap-4 border-t pt-4 sm:flex-row sm:items-center">
@@ -2587,6 +2714,12 @@ function PurchaseBills() {
                                     const netTotal = bill.total - totalReturns;
                                     const isOverpaid =
                                       (bill.paidAmount || 0) > netTotal;
+                                    if (
+                                      bill.orderStatus === "cancelled" &&
+                                      (bill.paidAmount || 0) <= 0
+                                    ) {
+                                      return true;
+                                    }
                                     return (
                                       bill.paymentStatus === "paid" &&
                                       !isOverpaid
@@ -2601,7 +2734,10 @@ function PurchaseBills() {
                                 {!bill.itemsAddedToInventory && (
                                   <DropdownMenuItem
                                     onClick={() => handleAddToInventory(bill)}
-                                    disabled={loadingInventory === bill.id}
+                                    disabled={
+                                      loadingInventory === bill.id ||
+                                      bill.orderStatus === "cancelled"
+                                    }
                                     className="gap-2 text-emerald-600 focus:text-emerald-600"
                                   >
                                     {loadingInventory === bill.id ? (
@@ -2609,20 +2745,44 @@ function PurchaseBills() {
                                     ) : (
                                       <PackagePlus className="h-4 w-4" />
                                     )}
-                                    Add to Inventory
+                                    {isAdvanceMode
+                                      ? "Order Received"
+                                      : "Add to Inventory"}
                                   </DropdownMenuItem>
                                 )}
 
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setSelectedBillForReturn(bill);
-                                    setReturnDialogOpen(true);
-                                  }}
-                                  className="gap-2 text-orange-600 focus:text-orange-600"
-                                >
-                                  <RotateCcw className="h-4 w-4" />
-                                  Purchase Return
-                                </DropdownMenuItem>
+                                {!isAdvanceMode && (
+                                  <DropdownMenuItem
+                                    onClick={() => handleSellItems(bill)}
+                                    disabled={!bill.itemsAddedToInventory}
+                                    className="gap-2 text-blue-600 focus:text-blue-600"
+                                  >
+                                    <ShoppingCart className="h-4 w-4" />
+                                    Copy Items to Sale
+                                  </DropdownMenuItem>
+                                )}
+
+                                {isAdvanceMode ? (
+                                  <DropdownMenuItem
+                                    onClick={() => handleCancelAdvanceOrder(bill)}
+                                    disabled={bill.orderStatus === "cancelled"}
+                                    className="gap-2 text-orange-600 focus:text-orange-600"
+                                  >
+                                    <RotateCcw className="h-4 w-4" />
+                                    Cancel Order
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setSelectedBillForReturn(bill);
+                                      setReturnDialogOpen(true);
+                                    }}
+                                    className="gap-2 text-orange-600 focus:text-orange-600"
+                                  >
+                                    <RotateCcw className="h-4 w-4" />
+                                    Purchase Return
+                                  </DropdownMenuItem>
+                                )}
 
                                 <DropdownMenuItem
                                   onClick={() => openHistoryDialog(bill)}
@@ -2750,9 +2910,13 @@ function PurchaseBills() {
             >
               <DialogHeader className="px-4 sm:px-6 py-4 border-b bg-background sticky top-0 z-10 pt-[calc(env(safe-area-inset-top)+1rem)]">
                 <DialogTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <span className="text-xl font-bold">New Purchase Bill</span>
+                  <span className="text-xl font-bold">
+                    {isAdvanceMode ? "New Advance Purchase" : "New Purchase Bill"}
+                  </span>
                   <span className="text-xs font-normal text-muted-foreground">
-                    Quick flow: Vendor, Bill Details, Items, Save
+                    {isAdvanceMode
+                      ? "Quick flow: Vendor, order details, items, save"
+                      : "Quick flow: Vendor, Bill Details, Items, Save"}
                   </span>
                 </DialogTitle>
               </DialogHeader>
@@ -3291,7 +3455,7 @@ function PurchaseBills() {
                     onClick={handleSaveManualBill}
                     loading={isSaving}
                   >
-                    Create Purchase Bill
+                    {isAdvanceMode ? "Create Advance Purchase" : "Create Purchase Bill"}
                   </Button>
                 </div>
               </div>
@@ -4379,14 +4543,17 @@ function PurchaseBills() {
                         onClick={() => handleAddToInventory(selectedBill)}
                         size="default"
                         className="bg-emerald-600 hover:bg-emerald-700"
-                        disabled={loadingInventory === selectedBill.id}
+                        disabled={
+                          loadingInventory === selectedBill.id ||
+                          selectedBill.orderStatus === "cancelled"
+                        }
                       >
                         {loadingInventory === selectedBill.id ? (
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         ) : (
                           <PackagePlus className="h-4 w-4 mr-2" />
                         )}
-                        Add to Inventory
+                        {isAdvanceMode ? "Order Received" : "Add to Inventory"}
                       </Button>
                     ) : (
                       <Badge variant="secondary" className="py-2 px-4 text-sm">
@@ -4394,21 +4561,34 @@ function PurchaseBills() {
                         Added to Inventory
                       </Badge>
                     )}
-                    <Button
-                      size="default"
-                      variant="outline"
-                      className="border-blue-500 text-blue-600 hover:bg-blue-50"
-                      onClick={() => handleSellItems(selectedBill)}
-                      disabled={!selectedBill.itemsAddedToInventory}
-                      title={
-                        !selectedBill.itemsAddedToInventory
-                          ? "Add to inventory first"
-                          : "Copy items to a new sale bill"
-                      }
-                    >
-                      <ShoppingCart className="h-4 w-4 mr-2" />
-                      Create Sale
-                    </Button>
+                    {!isAdvanceMode && (
+                      <Button
+                        size="default"
+                        variant="outline"
+                        className="border-blue-500 text-blue-600 hover:bg-blue-50"
+                        onClick={() => handleSellItems(selectedBill)}
+                        disabled={!selectedBill.itemsAddedToInventory}
+                        title={
+                          !selectedBill.itemsAddedToInventory
+                            ? "Add to inventory first"
+                            : "Copy items to a new sale bill"
+                        }
+                      >
+                        <ShoppingCart className="h-4 w-4 mr-2" />
+                        Create Sale
+                      </Button>
+                    )}
+                    {isAdvanceMode && selectedBill.orderStatus !== "cancelled" && (
+                      <Button
+                        size="default"
+                        variant="outline"
+                        className="border-orange-500 text-orange-600 hover:bg-orange-50"
+                        onClick={() => handleCancelAdvanceOrder(selectedBill)}
+                      >
+                        <RotateCcw className="h-4 w-4 mr-2" />
+                        Cancel Order
+                      </Button>
+                    )}
                     {selectedBill.billImage ? (
                       <Button
                         variant="outline"
@@ -4432,6 +4612,12 @@ function PurchaseBills() {
                         ).reduce((sum, r) => sum + r.totalReturnValue, 0);
                         const netTotal = selectedBill.total - totalReturns;
                         const isOverpaid = (selectedBill.paidAmount || 0) > netTotal;
+                        if (
+                          selectedBill.orderStatus === "cancelled" &&
+                          (selectedBill.paidAmount || 0) <= 0
+                        ) {
+                          return "secondary";
+                        }
                         return selectedBill.paymentStatus === "paid" && !isOverpaid
                           ? "secondary"
                           : "default";
@@ -4443,6 +4629,12 @@ function PurchaseBills() {
                         ).reduce((sum, r) => sum + r.totalReturnValue, 0);
                         const netTotal = selectedBill.total - totalReturns;
                         const isOverpaid = (selectedBill.paidAmount || 0) > netTotal;
+                        if (
+                          selectedBill.orderStatus === "cancelled" &&
+                          (selectedBill.paidAmount || 0) <= 0
+                        ) {
+                          return true;
+                        }
                         return selectedBill.paymentStatus === "paid" && !isOverpaid;
                       })()}
                     >
@@ -4452,6 +4644,12 @@ function PurchaseBills() {
                         ).reduce((sum, r) => sum + r.totalReturnValue, 0);
                         const netTotal = selectedBill.total - totalReturns;
                         const isOverpaid = (selectedBill.paidAmount || 0) > netTotal;
+                        if (
+                          selectedBill.orderStatus === "cancelled" &&
+                          (selectedBill.paidAmount || 0) <= 0
+                        ) {
+                          return "No Refund Due";
+                        }
                         if (isOverpaid) return "Collect Overpaid";
                         if (selectedBill.paymentStatus === "paid") return "Payment Settled";
                         return "Pay Remaining";
@@ -4472,7 +4670,9 @@ function PurchaseBills() {
               <DialogHeader className="dialog-form-header">
                 <DialogTitle className="flex items-center gap-2">
                   <PackagePlus className="h-5 w-5 text-emerald-600" />
-                  Add to Inventory - Set Selling Prices
+                  {inventoryDialogBill && isAdvanceBill(inventoryDialogBill)
+                    ? "Order Received - Set Selling Prices"
+                    : "Add to Inventory - Set Selling Prices"}
                 </DialogTitle>
               </DialogHeader>
 

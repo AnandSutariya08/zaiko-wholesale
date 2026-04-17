@@ -2159,6 +2159,7 @@ export const updatePurchaseBillOverdueStatus = async (): Promise<void> => {
     let hasChanges = false;
 
     for (const bill of bills) {
+      if (bill.orderStatus === "cancelled") continue;
       if (bill.paymentStatus !== "paid" && bill.dueDate) {
         const dueDate = new Date(bill.dueDate);
         dueDate.setHours(0, 0, 0, 0);

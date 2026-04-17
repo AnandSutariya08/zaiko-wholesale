@@ -453,6 +453,10 @@ export interface PurchaseReturn {
 
 export interface PurchaseBill {
   id: string;
+  purchaseMode?: "normal" | "advance";
+  orderStatus?: "pending_delivery" | "received" | "cancelled";
+  orderReceivedAt?: string;
+  cancelledAt?: string;
   billImage: string; // Base64 or URL of uploaded bill image
   vendorId?: string; // Link to Vendor
   vendorName: string;

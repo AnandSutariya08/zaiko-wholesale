@@ -19,6 +19,7 @@ import Auth from "@/pages/Auth";
 import NotFound from "@/pages/NotFound";
 import BillViewPublic from "@/pages/BillViewPublic";
 import PurchaseBills from "@/pages/PurchaseBills";
+import AdvancePurchaseBills from "@/pages/AdvancePurchaseBills";
 import Returns from "@/pages/Returns";
 import Expenses from "@/pages/Expenses";
 import Passbook from "@/pages/Passbook";
@@ -95,6 +96,10 @@ const App = () => {
                         <Route path="/bills/:id" element={<BillDetail />} />
                         <Route path="/bills/:id/edit" element={<EditBill />} />
                         <Route path="/purchases" element={<PurchaseBills />} />
+                        <Route
+                          path="/advance-purchases"
+                          element={<AdvancePurchaseBills />}
+                        />
                         <Route path="/returns" element={<Returns />} />
                         <Route path="/passbook" element={<Passbook />} />
                         <Route path="/expenses" element={<Expenses />} />

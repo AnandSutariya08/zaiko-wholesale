@@ -819,6 +819,7 @@
 // }
 
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -859,6 +860,8 @@ interface ProductHistoryScreenProps {
 
 interface PurchaseHistoryItem {
   id: string;
+  billId?: string;
+  purchaseReturnId?: string;
   date: string;
   vendorName: string;
   itemNo?: string;
@@ -878,6 +881,7 @@ interface PurchaseHistoryItem {
 
 interface SalesHistoryItem {
   id: string;
+  billId: string;
   date: string;
   clientName: string;
   itemNo?: string;
@@ -895,6 +899,7 @@ interface SalesHistoryItem {
 
 interface ReturnHistoryItem {
   id: string;
+  billId: string;
   date: string;
   clientName: string;
   itemNo?: string;
@@ -914,6 +919,7 @@ export function ProductHistoryScreen({
   product,
   onBack,
 }: ProductHistoryScreenProps) {
+  const navigate = useNavigate();
   const [purchaseHistory, setPurchaseHistory] = useState<PurchaseHistoryItem[]>(
     [],
   );
@@ -967,6 +973,7 @@ export function ProductHistoryScreen({
             const landedPurchasePrice = (transaction.purchasePrice || 0) * (1 + billGstRate / 100);
             purchases.push({
               id: transaction.id,
+              billId: bill.id,
               date: transaction.date,
               vendorName: bill.vendorName,
               itemNo: transaction.itemNo || product.itemNo || "",
@@ -1031,6 +1038,7 @@ export function ProductHistoryScreen({
           if (exactNameMatch) {
             purchases.push({
               id: `${bill.id}-${item.description}`,
+              billId: bill.id,
               date: bill.billDate || bill.createdAt,
               vendorName: bill.vendorName,
               itemNo: (item as any).itemNo || product.itemNo || "",
@@ -1057,6 +1065,7 @@ export function ProductHistoryScreen({
           if (item.productId === product.id) {
             sales.push({
               id: bill.id,
+              billId: bill.id,
               date: bill.date,
               clientName: bill.client.name,
               itemNo: item.itemNo || product.itemNo || "",
@@ -1089,6 +1098,7 @@ export function ProductHistoryScreen({
           if (isMatch) {
             const returnItem: ReturnHistoryItem = {
               id: `${billReturn.id}-${item.productId}`,
+              billId: billReturn.billId,
               date: billReturn.returnDate || billReturn.createdAt,
               clientName: billReturn.clientName,
               itemNo: item.itemNo || product.itemNo || "",
@@ -1131,6 +1141,8 @@ export function ProductHistoryScreen({
 
           purchases.push({
             id: `p-return-${transaction.id}`,
+            billId: pReturn?.purchaseBillId,
+            purchaseReturnId: pReturn?.id,
             date: transaction.date,
             vendorName: pReturn ? `Purchase Return: ${pReturn.vendorName}` : "Purchase Return",
             quantity: -qty,
@@ -1154,6 +1166,8 @@ export function ProductHistoryScreen({
           if (isMatch) {
             purchases.push({
               id: `p-return-${pReturn.id}-${item.description}`,
+              billId: pReturn.purchaseBillId,
+              purchaseReturnId: pReturn.id,
               date: pReturn.returnDate || pReturn.createdAt,
               vendorName: `Purchase Return: ${pReturn.vendorName}`,
               quantity: -item.quantity,
@@ -1908,7 +1922,7 @@ export function ProductHistoryScreen({
                         <div className="overflow-x-auto">
                           <table
                             className="w-full border-collapse"
-                            style={{ minWidth: "700px" }}
+                            style={{ minWidth: "780px" }}
                           >
                             <thead className="bg-muted/70">
                               <tr>
@@ -1935,6 +1949,9 @@ export function ProductHistoryScreen({
                                 </th>
                                 <th className="h-10 px-3 sm:px-4 text-left font-medium text-xs sm:text-sm">
                                   Status
+                                </th>
+                                <th className="h-10 px-3 sm:px-4 text-right font-medium text-xs sm:text-sm">
+                                  Bill
                                 </th>
                               </tr>
                             </thead>
@@ -2020,6 +2037,22 @@ export function ProductHistoryScreen({
                                             : "Pending"}
                                     </Badge>
                                   </td>
+                                  <td className="p-3 sm:p-4 text-right">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 rounded-md px-2 text-xs"
+                                      disabled={!item.billId}
+                                      onClick={() =>
+                                        item.billId &&
+                                        navigate(`/purchases?id=${item.billId}`)
+                                      }
+                                    >
+                                      <FileText className="mr-1 h-3.5 w-3.5" />
+                                      View Bill
+                                    </Button>
+                                  </td>
                                 </tr>
                               ))}
                             </tbody>
@@ -2039,7 +2072,7 @@ export function ProductHistoryScreen({
                       <div className="overflow-x-auto">
                         <table
                           className="w-full border-collapse"
-                          style={{ minWidth: "600px" }}
+                          style={{ minWidth: "720px" }}
                         >
                           <thead className="bg-muted/70">
                             <tr>
@@ -2063,6 +2096,9 @@ export function ProductHistoryScreen({
                               </th>
                               <th className="h-10 px-3 sm:px-4 text-right font-medium text-xs sm:text-sm">
                                 Total
+                              </th>
+                              <th className="h-10 px-3 sm:px-4 text-right font-medium text-xs sm:text-sm">
+                                Bill
                               </th>
                             </tr>
                           </thead>
@@ -2116,6 +2152,18 @@ export function ProductHistoryScreen({
                                 <td className="p-3 sm:p-4 text-xs sm:text-sm text-right font-semibold text-emerald-600 whitespace-nowrap">
                                   {formatCurrency(item.totalAmount)}
                                 </td>
+                                <td className="p-3 sm:p-4 text-right">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 rounded-md px-2 text-xs"
+                                    onClick={() => navigate(`/bills/${item.billId}`)}
+                                  >
+                                    <FileText className="mr-1 h-3.5 w-3.5" />
+                                    View Bill
+                                  </Button>
+                                </td>
                               </tr>
                             ))}
                           </tbody>
@@ -2136,7 +2184,7 @@ export function ProductHistoryScreen({
                         <div className="overflow-x-auto">
                           <table
                             className="w-full border-collapse"
-                            style={{ minWidth: "700px" }}
+                            style={{ minWidth: "820px" }}
                           >
                             <thead className="bg-muted/70">
                               <tr>
@@ -2160,6 +2208,9 @@ export function ProductHistoryScreen({
                                 </th>
                                 <th className="h-10 px-3 sm:px-4 text-left font-medium text-xs sm:text-sm">
                                   Reason
+                                </th>
+                                <th className="h-10 px-3 sm:px-4 text-right font-medium text-xs sm:text-sm">
+                                  Bill
                                 </th>
                               </tr>
                             </thead>
@@ -2223,6 +2274,18 @@ export function ProductHistoryScreen({
                                   </td>
                                   <td className="p-3 sm:p-4 text-xs sm:text-sm text-muted-foreground">
                                     {item.returnReason || "-"}
+                                  </td>
+                                  <td className="p-3 sm:p-4 text-right">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 rounded-md px-2 text-xs"
+                                      onClick={() => navigate(`/bills/${item.billId}`)}
+                                    >
+                                      <FileText className="mr-1 h-3.5 w-3.5" />
+                                      View Bill
+                                    </Button>
                                   </td>
                                 </tr>
                               ))}
