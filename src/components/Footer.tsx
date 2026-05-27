@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import defaultLogo from "@/assets/logo.png";
 import { getCompanyProfile } from "@/lib/storage";
 import { useEffect, useState } from "react";
 import {
@@ -36,13 +37,11 @@ export function Footer() {
           {/* Company Info */}
           <div className="space-y-4 lg:col-span-1">
             <div className="flex items-start gap-3">
-              {company?.logo && (
-                <img
-                  src={company.logo}
-                  alt="Logo"
-                  className="h-10 w-10 sm:h-12 sm:w-12 object-contain flex-shrink-0 rounded-lg shadow-sm"
-                />
-              )}
+              <img
+                src={company?.logo || defaultLogo}
+                alt="Logo"
+                className="h-10 w-10 sm:h-12 sm:w-12 object-contain flex-shrink-0 rounded-lg shadow-sm"
+              />
               <div className="flex-1 min-w-0">
                 <h3 className="font-bold text-lg sm:text-xl text-foreground break-words">
                   {company?.name || "Invoice Mitra"}

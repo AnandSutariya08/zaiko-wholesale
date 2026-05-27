@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, useLayoutEffect } from "react";
+import defaultLogo from "@/assets/logo.png";
 import { Bill, SampleBill, BankAccount } from "@/types";
 import {
   formatCurrency,
@@ -695,12 +696,10 @@ export const BillPDF = ({
           >
             <View style={P.flex1}>
               <View style={[P.row, P.mb1, { alignItems: "center" }]}>
-                {company.logo && (
-                  <Image
-                    src={company.logo}
-                    style={{ width: 24, height: 24, marginRight: 6 }}
-                  />
-                )}
+                <Image
+                  src={company.logo || defaultLogo}
+                  style={{ width: 24, height: 24, marginRight: 6 }}
+                />
                 <Text style={[P.xl, P.bold, { color: themeColor }]}>
                   {company.name}
                 </Text>
@@ -2528,13 +2527,11 @@ export function BillView({ bill }: BillViewProps) {
                     <div className="flex justify-between items-start gap-3 p-3">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          {company.logo && (
-                            <img
-                              src={company.logo}
-                              alt={company.name}
-                              className="h-7 w-7 object-contain"
-                            />
-                          )}
+                          <img
+                            src={company.logo || defaultLogo}
+                            alt={company.name}
+                            className="h-7 w-7 object-contain"
+                          />
                           <h1
                             className="text-base font-bold"
                             style={{ color: company.themeColor }}

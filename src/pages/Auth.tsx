@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import defaultLogo from "@/assets/logo.png";
 import { useNavigate } from "react-router-dom";
 import {
   Card,
@@ -104,13 +105,11 @@ export default function Auth() {
       <div className="w-full max-w-md space-y-6">
         {/* Logo/Header */}
         <div className="text-center space-y-2">
-          {company?.logo && (
-            <img
-              src={company.logo}
-              alt="Company Logo"
-              className="h-16 md:h-20 mx-auto object-contain mb-4"
-            />
-          )}
+          <img
+            src={company?.logo || defaultLogo}
+            alt="Company Logo"
+            className="h-16 md:h-20 mx-auto object-contain mb-4"
+          />
           <h1 className="text-3xl md:text-4xl font-bold text-foreground">
             {company?.name || "Invoice Mitra"}
           </h1>

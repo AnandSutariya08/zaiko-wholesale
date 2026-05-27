@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { getCompanyProfile } from "@/lib/storage";
 import { cn } from "@/lib/utils";
+import defaultLogo from "@/assets/logo.png";
 import {
   Sidebar,
   SidebarContent,
@@ -113,17 +114,11 @@ function AppSidebarContent({
           <div className="px-3 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="shrink-0">
-                {company?.logo ? (
-                  <img
-                    src={company.logo}
-                    alt="Logo"
-                    className="h-7 w-7 object-contain rounded-md"
-                  />
-                ) : (
-                  <div className="h-7 w-7 rounded-md bg-primary/10 flex items-center justify-center">
-                    <Sparkles className="h-4 w-4 text-primary" />
-                  </div>
-                )}
+                <img
+                  src={company?.logo || defaultLogo}
+                  alt="Logo"
+                  className="h-7 w-7 object-contain rounded-md"
+                />
               </div>
               <div className="flex-1 min-w-0">
                 <h2 className="font-bold text-sidebar-foreground truncate text-sm tracking-tight">

@@ -308,6 +308,15 @@ export const formatDate = (date: string): string => {
   });
 };
 
+export const getNextBillNumber = (lastBillNumber: string): string => {
+  const match = lastBillNumber.match(/^(.*?)(\d+)$/);
+  if (!match) return lastBillNumber;
+  const prefix = match[1];
+  const digits = match[2];
+  const nextNum = (parseInt(digits, 10) + 1).toString().padStart(digits.length, "0");
+  return prefix + nextNum;
+};
+
 export const generateBillNumber = (
   counter: number,
   companyPrefix: string,

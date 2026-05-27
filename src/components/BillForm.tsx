@@ -25,6 +25,9 @@ import {
   saveProduct,
   getBillCounter,
   incrementBillCounter,
+  getLastBillNumber,
+  setLastBillNumber,
+  isBillNumberDuplicate,
   getCompanyProfile,
   validateBillStock,
   getCreators,
@@ -38,6 +41,7 @@ import {
   roundToTwoDecimals,
   formatToTwoDecimals,
   formatCurrency,
+  getNextBillNumber,
 } from "@/lib/billUtils";
 import { toast } from "sonner";
 import {
@@ -245,6 +249,7 @@ export function BillForm({
     countryOfFinalDestination: "",
   });
 
+  const [billNumberInput, setBillNumberInput] = useState<string>("");
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(
     null,
   );
@@ -283,6 +288,7 @@ export function BillForm({
       }
 
       if (bill && isEdit) {
+        setBillNumberInput(bill.billNumber);
         setSelectedClient(bill.client);
         setBillItems(bill.items);
         setOriginalBillItems(JSON.parse(JSON.stringify(bill.items)));
@@ -330,6 +336,16 @@ export function BillForm({
           setFormData((prev) => ({ ...prev, createdBy: "Admin" }));
         } else if (user.name) {
           setFormData((prev) => ({ ...prev, createdBy: user.name }));
+        }
+
+        // Auto-fill next bill number based on last used
+        const effectiveGstEnabled = initialGstEnabled !== undefined ? initialGstEnabled : (companyData?.gstEnabled ?? true);
+        const counterType = (propBillType as string) === "international" ? "international" : effectiveGstEnabled ? "gst" : "non_gst";
+        const lastBillNum = await getLastBillNumber(counterType);
+        if (lastBillNum) {
+          setBillNumberInput(getNextBillNumber(lastBillNum));
+        } else {
+          setBillNumberInput("Gst-2026-004");
         }
       }
     };
@@ -563,9 +579,20 @@ export function BillForm({
           : gstEnabled
             ? "gst"
             : "non_gst";
-      const billCounterVal = isEdit
-        ? await getBillCounter(typeForCounter)
-        : await incrementBillCounter(typeForCounter);
+
+      const finalBillNumber = billNumberInput.trim() || generateBillNumber(
+        await (isEdit ? getBillCounter(typeForCounter) : incrementBillCounter(typeForCounter)),
+        companyProfile.name.substring(0, 6).toUpperCase(),
+        internalBillType,
+        gstEnabled,
+      );
+
+      const isDuplicate = await isBillNumberDuplicate(finalBillNumber, bill?.id);
+      if (isDuplicate) {
+        toast.error(`Invoice number "${finalBillNumber}" already exists. Please use a different number.`);
+        setSaving(false);
+        return;
+      }
 
       // Automatically set creator from logged in user
       const user = getCurrentUser();
@@ -578,14 +605,7 @@ export function BillForm({
 
       const newBill: Bill = {
         id: bill?.id || crypto.randomUUID(),
-        billNumber:
-          bill?.billNumber ||
-          generateBillNumber(
-            billCounterVal,
-            companyProfile.name.substring(0, 6).toUpperCase(),
-            internalBillType,
-            gstEnabled,
-          ),
+        billNumber: finalBillNumber,
         date: formData.date,
         clientId: selectedClient.id,
         client: selectedClient,
@@ -635,6 +655,7 @@ export function BillForm({
       };
 
       await saveBill(newBill);
+      await setLastBillNumber(typeForCounter, finalBillNumber);
       if (!isEdit) {
         removeDraft(SALES_BILL_DRAFT_KEY);
       }
@@ -1243,6 +1264,15 @@ export function BillForm({
                   </Command>
                 </PopoverContent>
               </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Invoice Number *</Label>
+              <Input
+                value={billNumberInput}
+                onChange={(e) => setBillNumberInput(e.target.value)}
+                placeholder="Gst-2026-004"
+              />
             </div>
 
             <div className="space-y-2">

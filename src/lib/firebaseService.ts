@@ -847,6 +847,56 @@ export const getBillCounter = async (type?: string): Promise<number> => {
   }
 };
 
+export const getLastBillNumber = async (type?: string): Promise<string | null> => {
+  try {
+    const userId = getUserId();
+    const docId = type ? `${userId}_${type}` : userId;
+    const docRef = doc(db, COLLECTIONS.BILL_COUNTER, docId);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists() && docSnap.data().lastBillNumber) {
+      return docSnap.data().lastBillNumber as string;
+    }
+    return null;
+  } catch (error) {
+    console.error("Error getting last bill number:", error);
+    return null;
+  }
+};
+
+export const setLastBillNumber = async (type: string | undefined, billNumber: string): Promise<void> => {
+  try {
+    const userId = getUserId();
+    const docId = type ? `${userId}_${type}` : userId;
+    const docRef = doc(db, COLLECTIONS.BILL_COUNTER, docId);
+    const match = billNumber.match(/(\d+)$/);
+    const counter = match ? parseInt(match[1], 10) : 0;
+    const cleanedData = removeUndefined({ lastBillNumber: billNumber, counter, userId });
+    await setDoc(docRef, cleanedData, { merge: true });
+  } catch (error) {
+    console.error("Error setting last bill number:", error);
+    throw error;
+  }
+};
+
+export const isBillNumberDuplicate = async (
+  billNumber: string,
+  excludeId?: string,
+): Promise<boolean> => {
+  try {
+    const userId = getUserId();
+    const q = query(
+      collection(db, COLLECTIONS.BILLS),
+      where("userId", "==", userId),
+      where("billNumber", "==", billNumber),
+    );
+    const snap = await getDocs(q);
+    return snap.docs.some((d) => d.id !== excludeId);
+  } catch (error) {
+    console.error("Error checking bill number duplicate:", error);
+    return false;
+  }
+};
+
 export const incrementBillCounter = async (type?: string): Promise<number> => {
   try {
     const userId = getUserId();

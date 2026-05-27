@@ -1,4 +1,5 @@
 import React from "react";
+import defaultLogo from "@/assets/logo.png";
 import {
   Page,
   Text,
@@ -155,12 +156,10 @@ export const PurchaseBillPDF: React.FC<PurchaseBillPDFProps> = ({
             {/* Left — company info */}
             <View style={P.flex1}>
               <View style={[P.row, P.mb1, { alignItems: "center" }]}>
-                {company?.logo && (
-                  <Image
-                    src={{ uri: String(company.logo) } as any}
-                    style={{ width: 24, height: 24, marginRight: 6 }}
-                  />
-                )}
+                <Image
+                  src={{ uri: String(company?.logo || defaultLogo) } as any}
+                  style={{ width: 24, height: 24, marginRight: 6 }}
+                />
                 <Text style={[P.xl, P.bold, { color: themeColor }]}>
                   {company?.name || "Your Company"}
                 </Text>
