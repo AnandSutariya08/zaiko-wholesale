@@ -572,6 +572,17 @@ export const BillPDF = ({
                 </Text>
               </View>
             )}
+            {bill.roundOff !== undefined && bill.roundOff !== 0 && (
+              <View style={[P.row, P.borderTop]}>
+                <Text style={[P.tableCell, P.textRight, { flex: 1 }]}>
+                  Round Off
+                </Text>
+                <Text style={[P.tableCell, P.textRight, { width: "12%" }]}>
+                  {bill.roundOff > 0 ? "+" : ""}
+                  {formatCurrency(bill.roundOff)}
+                </Text>
+              </View>
+            )}
             <View
               style={[
                 P.row,
@@ -1185,6 +1196,31 @@ export const BillPDF = ({
                 </View>
               </>
             ))}
+          {bill.roundOff !== undefined && bill.roundOff !== 0 && (
+            <View style={P.tableRow}>
+              <Text
+                style={[
+                  P.tableCell,
+                  P.textRight,
+                  P.border1,
+                  { flex: 1, borderTopWidth: 0 },
+                ]}
+              >
+                Round Off
+              </Text>
+              <Text
+                style={[
+                  P.tableCell,
+                  P.textRight,
+                  P.border1,
+                  { width: amtW, borderLeftWidth: 0, borderTopWidth: 0 },
+                ]}
+              >
+                {bill.roundOff > 0 ? "+" : ""}
+                {formatCurrency(bill.roundOff)}
+              </Text>
+            </View>
+          )}
           <View style={[P.tableRow, P.bold, { backgroundColor: themeColor }]}>
             <Text
               style={[
@@ -2417,6 +2453,20 @@ export function BillView({ bill }: BillViewProps) {
                               </td>
                             </tr>
                           )}
+                        {bill.roundOff !== undefined && bill.roundOff !== 0 && (
+                          <tr className="border-t border-black">
+                            <td
+                              colSpan={showGST ? 6 : 5}
+                              className="p-1.5 text-right font-bold"
+                            >
+                              Round Off
+                            </td>
+                            <td className="p-1.5 text-right font-bold">
+                              {bill.roundOff > 0 ? "+" : ""}
+                              {formatCurrency(bill.roundOff)}
+                            </td>
+                          </tr>
+                        )}
                         <tr className="border-t border-black bg-gray-200">
                           <td
                             colSpan={showGST ? 6 : 5}
@@ -2860,6 +2910,20 @@ export function BillView({ bill }: BillViewProps) {
                               </tr>
                             </>
                           ))}
+                        {bill.roundOff !== undefined && bill.roundOff !== 0 && (
+                          <tr>
+                            <td
+                              colSpan={showGST ? 7 : 5}
+                              className="border border-black p-1.5 text-right"
+                            >
+                              Round Off
+                            </td>
+                            <td className="border border-black p-1.5 text-right">
+                              {bill.roundOff > 0 ? "+" : ""}
+                              {formatCurrency(bill.roundOff)}
+                            </td>
+                          </tr>
+                        )}
                         <tr
                           className="font-bold"
                           style={{

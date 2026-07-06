@@ -291,7 +291,7 @@ export const numberToWords = (num: number): string => {
 };
 
 export const formatCurrency = (amount: number): string => {
-  const roundedAmount = Math.round(amount);
+  const roundedAmount = roundToTwoDecimals(amount);
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
